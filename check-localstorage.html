@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificar LocalStorage</title>
+</head>
+<body>
+    <h1>Verificação do LocalStorage</h1>
+    <div id="output"></div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const output = document.getElementById('output');
+            
+            // Verificar todas as chaves no localStorage
+            output.innerHTML += '<h2>Conteúdo do LocalStorage:</h2>';
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const value = localStorage.getItem(key);
+                
+                output.innerHTML += `<p><strong>${key}:</strong></p>`;
+                output.innerHTML += `<pre>${value}</pre>`;
+                output.innerHTML += '<hr>';
+            }
+            
+            // Verificar especificamente as customizações
+            output.innerHTML += '<h2>Customizações Específicas:</h2>';
+            
+            const customizations = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
+            output.innerHTML += '<p><strong>establishmentCustomizations:</strong></p>';
+            output.innerHTML += `<pre>${JSON.stringify(customizations, null, 2)}</pre>`;
+            
+            // Verificar se as imagens existem
+            if (customizations.logo) {
+                output.innerHTML += `<p><strong>Logo URL:</strong> ${customizations.logo}</p>`;
+                output.innerHTML += `<img src="${customizations.logo}" alt="Logo" style="width: 200px; height: auto;">`;
+            }
+            
+            if (customizations.background) {
+                output.innerHTML += `<p><strong>Background URL:</strong> ${customizations.background}</p>`;
+                output.innerHTML += `<img src="${customizations.background}" alt="Background" style="width: 200px; height: auto;">`;
+            }
+        });
+    </script>
+</body>
+</html>

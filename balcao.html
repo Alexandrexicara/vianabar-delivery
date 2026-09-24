@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Balcão - Cardápio Digital Universal</title>
+    <style>
+        .header-banner {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 0;
+        }
+        .header-banner img {
+            width: 100%;
+            height: auto;
+        }
+        .footer-banner {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 0;
+        }
+        .footer-banner img {
+            width: 100%;
+            height: auto;
+        }
+        .mini-banner-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .mini-banner {
+            width: 300px;
+            height: 250px;
+            background-color: #f9f9f9;
+            border: 2px dashed #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 10px;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .page-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .container {
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 20px;
+            width: min(96vw, 1500px);
+        }
+        header {
+            background-color: #9b59b6;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .tabs {
+            display: flex;
+            background-color: white;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 15px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .tab.active {
+            background-color: #9b59b6;
+            color: white;
+        }
+        .tab:hover:not(.active) {
+            background-color: #f1f1f1;
+        }
+        .content-section {
+            display: none;
+            background-color: white;
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .content-section.active {
+            display: block;
+        }
+        #kitchenOrders,
+        #counterOrders {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
+            align-items: start;
+        }
+        .orders-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .orders-column {
+            background-color: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            min-height: 500px;
+        }
+        
+        /* Responsividade para diferentes dispositivos */
+        @media (max-width: 768px) {
+            .orders-column {
+                padding: 15px;
+                min-height: 400px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .orders-column {
+                padding: 10px;
+                min-height: 300px;
+            }
+        }
+        
+        @media (min-width: 1024px) {
+            .orders-column {
+                padding: 30px;
+                min-height: 600px;
+            }
+        }
+        
+        /* Ajuste para exibir pedidos em uma única coluna em dispositivos menores */
+        @media (max-width: 768px) {
+            .orders-container {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Layout geral responsivo para a área de balcão */
+        @media (max-width: 768px) {
+            .tabs {
+                flex-wrap: wrap;
+            }
+            
+            .tab {
+                flex: 1 0 auto;
+                min-width: 100px;
+            }
+            
+            .content-section {
+                padding: 15px;
+            }
+            
+            .column-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .column-header h3 {
+                margin-bottom: 10px;
+            }
+            
+            .order-actions {
+                width: 100%;
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab {
+                min-width: 100%;
+            }
+            
+            .content-section {
+                padding: 10px;
+            }
+            
+            .order-card {
+                padding: 12px;
+                margin-bottom: 12px;
+            }
+            
+            .order-header {
+                flex-direction: column;
+                gap: 5px;
+            }
+            
+            .order-actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                padding: 8px;
+            }
+        }
+        
+        @media (min-width: 1024px) {
+            .content-section {
+                padding: 30px;
+            }
+            
+            .order-card {
+                padding: 25px;
+                margin-bottom: 25px;
+            }
+            
+            .btn {
+                padding: 12px 15px;
+            }
+        }
+        .column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #eee;
+        }
+        .order-card {
+            border: 1px solid #eee;
+            border-radius: 14px;
+            padding: 22px;
+            margin-bottom: 0;
+            transition: box-shadow 0.3s, transform 0.2s ease;
+            font-size: 1.05em;
+            background: #fff;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+            min-height: 220px;
+        }
+        .order-card:hover {
+            box-shadow: 0 8px 22px rgba(0,0,0,0.12);
+            transform: translateY(-1px);
+        }
+        
+        /* Ajuste de responsividade para os cards de pedido */
+        @media (max-width: 1200px) {
+            #kitchenOrders,
+            #counterOrders {
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            }
+        }
+
+        @media (max-width: 768px) {
+            .order-card {
+                padding: 18px;
+                font-size: 1em;
+            }
+            .content-section {
+                padding: 22px;
+            }
+        }
+        
+        @media (max-width: 700px) {
+            #kitchenOrders,
+            #counterOrders {
+                grid-template-columns: 1fr;
+            }
+            .content-section {
+                padding: 14px;
+            }
+            .order-card {
+                padding: 14px;
+                font-size: 0.95em;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .order-card {
+                padding: 12px;
+                font-size: 0.9em;
+            }
+            .order-actions {
+                flex-direction: column;
+            }
+            .btn {
+                width: 100%;
+            }
+        }
+        .order-card:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .order-id {
+            font-weight: bold;
+            color: #9b59b6;
+        }
+        .order-table {
+            background-color: #f8f9fa;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+        .order-items {
+            margin: 10px 0;
+        }
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px dashed #eee;
+        }
+        
+        /* Estilos para imagens de itens do cardápio */
+        .item-image {
+            height: 150px;
+            background-color: #eee;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .item-image-placeholder {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            object-position: center;
+        }
+        .order-total {
+            font-weight: bold;
+            text-align: right;
+            margin: 10px 0;
+        }
+        .order-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            white-space: nowrap;
+        }
+        .btn-primary {
+            background-color: #3498db;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #2980b9;
+        }
+        .btn-success {
+            background-color: #27ae60;
+            color: white;
+        }
+        .btn-success:hover {
+            background-color: #219653;
+        }
+        .btn-warning {
+            background-color: #f39c12;
+            color: white;
+        }
+        .btn-warning:hover {
+            background-color: #d68910;
+        }
+        .btn-info {
+            background-color: #9b59b6;
+            color: white;
+        }
+        .btn-info:hover {
+            background-color: #8e44ad;
+        }
+        .status-pending { color: #f39c12; }
+        .status-preparing { color: #3498db; }
+        .status-ready { color: #27ae60; }
+        .status-delivered { color: #9b59b6; }
+        .status-completed { color: #27ae60; }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #9b59b6;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header Banner Space -->
+    <div class="header-banner">
+        <img src="public/img/img.cabeçalhohorizontal.png" alt="Banner Cabeçalho" style="max-width: 100%; max-height: 100%;">
+    </div>
+    
+    <div class="page-wrapper">
+    <div class="container">
+        <header id="establishmentHeader">
+            <div class="logo" id="establishmentLogo">
+                <!-- Logo will be inserted here by JavaScript -->
+                <div id="establishmentName">Restaurante Sabores</div>
+                <div id="establishmentTagline" class="establishment-tagline">
+                   Cozinha Brasileira Autêntica
+                </div>
+            </div>
+        </header>
+
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('counter')">Todos os Pedidos</div>
+        </div>
+
+        <section id="counter" class="content-section active">
+            <h2>Todos os Pedidos</h2>
+            <div class="filters">
+                <div class="filter-group">
+                    <label for="statusFilter">Status:</label>
+                    <select id="statusFilter" onchange="filterOrders()">
+                        <option value="">Todos</option>
+                        <option value="pending">Pendente</option>
+                        <option value="preparing">Em preparação</option>
+                        <option value="ready">Pronto</option>
+                        <option value="delivered">Entregue</option>
+                        <option value="completed">Concluído</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="tableFilter">Mesa:</label>
+                    <select id="tableFilter" onchange="filterOrders()">
+                        <option value="">Todas</option>
+                        <option value="Mesa 01">Mesa 01</option>
+                        <option value="Mesa 02">Mesa 02</option>
+                        <option value="Mesa 03">Mesa 03</option>
+                        <option value="Mesa 04">Mesa 04</option>
+                        <option value="Mesa 05">Mesa 05</option>
+                        <option value="Mesa 06">Mesa 06</option>
+                        <option value="Mesa 07">Mesa 07</option>
+                        <option value="Mesa 08">Mesa 08</option>
+                        <option value="Mesa 09">Mesa 09</option>
+                        <option value="Mesa 10">Mesa 10</option>
+                        <option value="Mesa 11">Mesa 11</option>
+                        <option value="Mesa 12">Mesa 12</option>
+                        <option value="Mesa 13">Mesa 13</option>
+                        <option value="Mesa 14">Mesa 14</option>
+                        <option value="Mesa 15">Mesa 15</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 20px; text-align: right;">
+                <button class="btn btn-warning" onclick="closeDayOrders()">Fechar Pedidos do Dia</button>
+            </div>
+            
+            <div id="counterOrders">
+                <p>Carregando pedidos do balcão...</p>
+            </div>
+        </section>
+    </div>
+    </div>
+
+    <!-- Footer Banner Space -->
+    <div class="footer-banner">
+        <img src="public/img/img.rodapehorizontal.png" alt="Banner Rodapé" style="max-width: 100%; max-height: 100%;">
+    </div>
+    
+    <!-- Mini Banner Container -->
+    <div class="mini-banner-container">
+        <div class="mini-banner">
+            <img src="public/img/banner1.png" alt="Banner Pequeno 1" style="width: 100%; height: 100%; object-fit: cover;">
+        </div>
+        <div class="mini-banner">
+            <img src="public/img/banner2.png" alt="Banner Pequeno 2" style="width: 100%; height: 100%; object-fit: cover;">
+        </div>
+        <div class="mini-banner">
+            <img src="public/img/banner3.png" alt="Banner Pequeno 3" style="width: 100%; height: 100%; object-fit: cover;">
+        </div>
+    </div>
+
+    <div class="notification" id="notification">
+        Nova notificação
+    </div>
+
+    <script>
+        // DOM Ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize WebSocket connection
+            initWebSocket();
+        });
+
+        // Show tab
+        function showTab(tabName) {
+            // Hide all content sections
+            const sections = document.querySelectorAll('.content-section');
+            sections.forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        // Get status text
+        function getStatusText(status) {
+            switch (status) {
+                case 'pending': return 'Pendente';
+                case 'preparing': return 'Em preparação';
+                case 'ready': return 'Pronto';
+                case 'delivered': return 'Entregue';
+                case 'completed': return 'Concluído';
+                default: return status;
+            }
+        }
+
+        // Get status color
+        function getStatusColor(status) {
+            switch (status) {
+                case 'pending': return '#f39c12';
+                case 'preparing': return '#3498db';
+                case 'ready': return '#27ae60';
+                case 'delivered': return '#9b59b6';
+                case 'completed': return '#27ae60';
+                default: return '#7f8c8d';
+            }
+        }
+
+        // Initialize WebSocket connection
+        function initWebSocket() {
+            // Check if we're already connected
+            if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+                console.log('Já conectado ao servidor WebSocket');
+                return;
+            }
+            
+            // If there's an existing connection that's not open, close it
+            if (window.ws) {
+                window.ws.close();
+            }
+            
+            // Connect using dynamic URL
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.hostname;
+            const port = window.location.port || '3002';
+            const wsUrl = `${protocol}//${host}:${port}`;
+            
+            const ws = new WebSocket(wsUrl);
+            
+            ws.onopen = function() {
+                console.log('Conectado ao servidor WebSocket');
+                window.ws = ws;
+                
+                // Send counter login message to identify this connection as counter staff
+                if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+                    window.ws.send(JSON.stringify({
+                        type: 'counterLogin'
+                    }));
+                }
+                
+                // Request existing orders when connection is established
+                if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+                    window.ws.send(JSON.stringify({
+                        type: 'getExistingOrders'
+                    }));
+                }
+            };
+            
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'counterLoginSuccess') {
+                    console.log('Counter login successful');
+                } else if (data.type === 'existingOrders') {
+                    // Load existing orders into the counter section
+                    window.ordersData = data.orders || [];
+                    loadAllOrders();
+                    console.log('Carregados ' + (window.ordersData ? window.ordersData.length : 0) + ' pedidos existentes');
+                } else if (data.type === 'newOrder') {
+                    // Add new order
+                    if (data.order) {
+                        if (window.ordersData) {
+                            window.ordersData.push(data.order);
+                        } else {
+                            window.ordersData = [data.order];
+                        }
+                        loadAllOrders();
+                        // Show notification
+                        playTripleBeep(); // Som sonoro para novo pedido recebido
+                        showNotification('Novo pedido recebido: ' + data.order.id);
+                    }
+                } else if (data.type === 'statusUpdate') {
+                    // Update status in counter section
+                    updateOrderStatusUI(data.orderId, data.status);
+                    
+                    // Update orders data
+                    if (window.ordersData) {
+                        var orderIndex = -1;
+                        for (var i = 0; i < window.ordersData.length; i++) {
+                            if (window.ordersData[i].id === data.orderId) {
+                                orderIndex = i;
+                                break;
+                            }
+                        }
+                        if (orderIndex !== -1) {
+                            window.ordersData[orderIndex].status = data.status;
+                        }
+                    }
+                    
+                    loadAllOrders();
+                } else if (data.type === 'callWaiter') {
+                    // Handle call waiter notifications - Tocar TRÊS TOQUES
+                    console.log('[DEBUG] Balcão: Recebeu notificação de chamada de garçom', data);
+                    console.log('[DEBUG] Balcão: Tocando TRÊS TOQUES do arquivo:', 'public/img/audio/ti62duxfbrf-bells-sfx-7.mp3');
+                    playTripleBeep(); // Som sonoro para chamada de garçom
+                    showNotification(`Chamada de garçom na ${data.table} - ${data.message || 'Atendimento solicitado'}`);
+                } else if (data.type === 'requestPayment') {
+                    // Handle payment request notifications - Tocar TRÊS TOQUES
+                    console.log('[DEBUG] Balcão: Recebeu solicitação de pagamento', data);
+                    console.log('[DEBUG] Balcão: Tocando TRÊS TOQUES do arquivo:', 'public/img/audio/ti62duxfbrf-bells-sfx-7.mp3');
+                    playTripleBeep(); // Som sonoro para solicitação de pagamento
+                    showNotification(`Solicitação de conta na ${data.table} - Pedido ${data.orderId}`);
+                }
+            };
+            
+            ws.onclose = function() {
+                console.log('Conexão WebSocket fechada');
+                // Try to reconnect after 5 seconds
+                setTimeout(initWebSocket, 5000);
+            };
+            
+            ws.onerror = function(error) {
+                console.error('Erro na conexão WebSocket:', error);
+                // Try to reconnect after 5 seconds
+                setTimeout(initWebSocket, 5000);
+            };
+        }
+        
+        // Update order status in UI
+        function updateOrderStatusUI(orderId, status) {
+            console.log('[DEBUG] Balcão: Atualizando UI para status', { orderId, status });
+            const orderCards = document.querySelectorAll('.order-card');
+            orderCards.forEach(card => {
+                const orderIdElement = card.querySelector('.order-id');
+                if (orderIdElement && orderIdElement.textContent === orderId) {
+                    const statusElement = card.querySelector('.order-status strong');
+                    if (statusElement) {
+                        statusElement.textContent = getStatusText(status);
+                        statusElement.style.color = getStatusColor(status);
+                    }
+                    
+                    // Update button states based on new status
+                    const buttons = card.querySelectorAll('.order-actions button');
+                    console.log('[DEBUG] Balcão: Número de botões encontrados', buttons.length);
+                    
+                    // Update fixed buttons (Iniciar Preparação and Marcar como Pronto)
+                    if (buttons.length >= 2) {
+                        console.log('[DEBUG] Balcão: Atualizando estados dos botões fixos');
+                        buttons[0].disabled = (status !== 'pending'); // Iniciar Preparação
+                        buttons[1].disabled = (status !== 'preparing'); // Marcar como Pronto
+                        
+                        console.log('[DEBUG] Balcão: Estados dos botões fixos atualizados', {
+                            iniciarPreparacao: buttons[0].disabled,
+                            marcarPronto: buttons[1].disabled
+                        });
+                    }
+                }
+            });
+        }
+        
+        // Filter orders
+        function filterOrders() {
+            loadAllOrders();
+        }
+        
+        // Filter orders data
+        function filterOrdersData() {
+            if (!window.ordersData) return [];
+            
+            const statusFilter = document.getElementById('statusFilter').value;
+            const tableFilter = document.getElementById('tableFilter').value;
+            
+            return window.ordersData.filter(order => {
+                // Status filter
+                if (statusFilter && order.status !== statusFilter) return false;
+                
+                // Table filter
+                if (tableFilter && order.table !== tableFilter) return false;
+                
+                return true;
+            });
+        }
+        
+        // Load all orders
+        function loadAllOrders() {
+            const counterOrders = document.getElementById('counterOrders');
+            counterOrders.innerHTML = '';
+            
+            if (!window.ordersData || window.ordersData.length === 0) {
+                counterOrders.innerHTML = '<p>Nenhum pedido encontrado.</p>';
+                return;
+            }
+            
+            // Apply filters
+            const filteredOrders = filterOrdersData();
+            
+            if (filteredOrders.length === 0) {
+                counterOrders.innerHTML = '<p>Nenhum pedido encontrado com os filtros aplicados.</p>';
+                return;
+            }
+            
+            // Sort orders by timestamp (newest first)
+            const sortedOrders = [...filteredOrders].sort((a, b) => 
+                new Date(b.timestamp) - new Date(a.timestamp)
+            );
+            
+            // Generate HTML for orders
+            let html = '';
+            sortedOrders.forEach(order => {
+                // Filter items for counter (items with sector 'counter')
+                const counterItems = order.items.filter(item => 
+                    item.sector === 'counter');
+                
+                // Only show orders that have counter items
+                if (counterItems.length > 0) {
+                    html += createOrderCardHTML(order, counterItems);
+                }
+            });
+            
+            counterOrders.innerHTML = html;
+        }
+        
+        // Create order card HTML
+        function createOrderCardHTML(order, filteredItems = null) {
+            let itemsHTML = '';
+            const itemsToShow = filteredItems || order.items;
+            
+            itemsToShow.forEach(item => {
+                itemsHTML += `
+                    <div class="order-item">
+                        <div>${item.quantity}x ${item.name}</div>
+                        <div>R$ ${(item.price * item.quantity).toFixed(2).replace('.', ',')}</div>
+                    </div>
+                `;
+            });
+            
+            return `
+                <div class="order-card" data-order-id="${order.id}">
+                    <div class="order-header">
+                        <div class="order-id">${order.id}</div>
+                        <div class="order-table">${order.table}</div>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>Cliente:</strong> ${order.customer.fullName}
+                    </div>
+                    <div class="order-items">
+                        ${itemsHTML}
+                    </div>
+                    <div class="order-total">
+                        Total: R$ ${order.total.toFixed(2).replace('.', ',')}
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="order-status">
+                            <strong>Status:</strong> 
+                            <span style="color: ${getStatusColor(order.status)}">
+                                ${getStatusText(order.status)}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="order-actions">
+                        <button class="btn btn-primary" onclick="updateOrderStatus('${order.id}', 'preparing')" ${order.status !== 'pending' ? 'disabled' : ''}>Iniciar Preparação</button>
+                        <button class="btn btn-warning" onclick="updateOrderStatus('${order.id}', 'ready')" ${order.status !== 'preparing' ? 'disabled' : ''}>Marcar como Pronto</button>
+                        ${order.status === 'ready' ? `<button class="btn btn-info" onclick="notifyWaiterForDelivery('${order.id}')">Notificar Garçom para Entrega</button>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Update order status
+        function updateOrderStatus(orderId, newStatus) {
+            console.log('[DEBUG] Balcão: Enviando atualização de status', { orderId, newStatus });
+            // Send update to server
+            if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+                const message = JSON.stringify({
+                    type: 'updateStatus',
+                    orderId: orderId,
+                    status: newStatus
+                });
+                console.log('[DEBUG] Balcão: Mensagem enviada ao servidor', message);
+                window.ws.send(message);
+            } else {
+                console.error('[DEBUG] Balcão: WebSocket não está conectado');
+            }
+        }
+        
+        // Show notification popup
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Notify waiter for delivery
+        function notifyWaiterForDelivery(orderId) {
+            console.log('[DEBUG] Balcão: Notificando garçom para entrega do pedido', orderId);
+            // Send notification to server
+            if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+                const message = JSON.stringify({
+                    type: 'notifyWaiterForDelivery',
+                    orderId: orderId
+                });
+                console.log('[DEBUG] Balcão: Mensagem de notificação enviada ao servidor', message);
+                window.ws.send(message);
+                
+                // Show confirmation to user
+                showNotification('Garçom foi notificado para buscar o pedido ' + orderId);
+            } else {
+                console.error('[DEBUG] Balcão: WebSocket não está conectado');
+                playTripleBeep(); // Som sonoro para erro de conexão
+            }
+        }
+        
+        // Play sound with fallback
+        function playSound(soundId) {
+            const sound = document.getElementById(soundId);
+            if (sound) {
+                sound.play().catch(e => {
+                    console.log("Sound play failed:", e);
+                    // Try alternative sound sources
+                    const sources = sound.querySelectorAll('source');
+                    for (let i = 0; i < sources.length; i++) {
+                        if (sources[i].src.startsWith('data:')) {
+                            // Create new audio element with data URI
+                            const fallbackAudio = new Audio(sources[i].src);
+                            fallbackAudio.play().catch(err => {
+                                console.log("Fallback sound also failed:", err);
+                                // Last resort: create a simple beep
+                                createBeepSound();
+                            });
+                            break;
+                        }
+                    }
+                });
+            }
+        }
+        
+        // Play custom audio in loop for 30 seconds
+        function playLoopingNotification(duration = 30000) {
+            const sound = document.getElementById('bellSound');
+            if (sound) {
+                // Set up looping
+                sound.loop = true;
+                
+                // Store reference to stop function
+                window.stopNotificationSound = function() {
+                    sound.pause();
+                    sound.currentTime = 0;
+                    sound.loop = false;
+                    console.log("Custom audio manually stopped");
+                };
+                
+                // Play the sound
+                const playPromise = sound.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        console.log("Custom audio playing in loop for " + (duration/1000) + " seconds");
+                        
+                        // Stop after specified duration
+                        setTimeout(() => {
+                            if (window.stopNotificationSound) {
+                                window.stopNotificationSound();
+                                delete window.stopNotificationSound;
+                            }
+                        }, duration);
+                    }).catch(error => {
+                        console.log("Failed to play custom audio:", error);
+                        // Fallback to beep sound
+                        createBeepSound();
+                    });
+                }
+            } else {
+                console.log("Custom audio element not found, using fallback");
+                createBeepSound();
+            }
+        }
+        
+        // Create a simple beep sound as last resort
+        function createBeepSound() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                oscillator.frequency.value = 800;
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                
+                oscillator.start(audioCtx.currentTime);
+                oscillator.stop(audioCtx.currentTime + 0.5);
+            } catch (e) {
+                console.log("Web Audio API not available, using alert as fallback");
+                // Ultimate fallback - visual indication
+                playTripleBeep(); // Som sonoro para nova notificação
+            }
+        }
+        
+        // Play triple beep sound
+        function playTripleBeep(soundId = 'bellSound') {
+            // Toca três toques sonoros com intervalos
+            playSound(soundId);
+            setTimeout(() => {
+                playSound(soundId);
+            }, 300);
+            setTimeout(() => {
+                playSound(soundId);
+            }, 600);
+        }
+        
+        // Close day orders
+        function closeDayOrders() {
+            if (confirm('Tem certeza que deseja fechar todos os pedidos do dia? Isso limpará a lista de pedidos.')) {
+                // Clear orders from UI
+                const ordersContainer = document.getElementById('counterOrders');
+                ordersContainer.innerHTML = '<p>Carregando pedidos do balcão...</p>';
+                
+                // Clear orders from local data
+                window.ordersData = [];
+                
+                playTripleBeep(); // Som sonoro para pedidos fechados
+            }
+        }
+    </script>
+    <!-- Audio elements for notifications -->
+    <audio id="fryingSound" preload="auto">
+        <source src="public/img/audio/ti62duxfbrf-bells-sfx-7.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="bellSound" preload="auto">
+        <source src="public/img/audio/ti62duxfbrf-bells-sfx-7.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="delightSound" preload="auto">
+        <source src="public/img/audio/ti62duxfbrf-bells-sfx-7.mp3" type="audio/mpeg">
+    </audio>
+    
+    <script src="customizations.js"></script>
+    <script>
+        // Apply customizations when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Sistema de assinatura do domínio - verificar antes de continuar
+            const establishmentData = JSON.parse(localStorage.getItem('establishmentData') || '{}');
+            
+            if (establishmentData.assinatura) {
+                const agora = new Date();
+                const dataVencimento = new Date(establishmentData.assinatura.dataVencimento);
+                const diasParaVencer = Math.ceil((dataVencimento - agora) / (1000 * 60 * 60 * 24));
+                
+                if (diasParaVencer <= 0) {
+                    // Mostrar aviso de domínio expirado
+                    const overlay = document.createElement('div');
+                    overlay.id = 'dominioExpirado';
+                    overlay.style.cssText = `
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0,0,0,0.9);
+                        z-index: 10001;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        backdrop-filter: blur(5px);
+                    `;
+                    
+                    overlay.innerHTML = `
+                        <div style="
+                            background: white;
+                            padding: 40px;
+                            border-radius: 15px;
+                            text-align: center;
+                            max-width: 500px;
+                            margin: 20px;
+                            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+                        ">
+                            <div style="font-size: 60px; margin-bottom: 20px;">🔒</div>
+                            <h2 style="color: #e74c3c; margin-bottom: 20px;">Acesso Bloqueado</h2>
+                            <p style="font-size: 18px; margin-bottom: 30px; line-height: 1.6;">
+                                O domínio deste estabelecimento expirou.
+                                <br><br>
+                                Entre em contato com o administrador para renovar a assinatura.
+                            </p>
+                            <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                                <p style="margin: 0; font-size: 20px; font-weight: bold; color: #e74c3c;">Valor da Renovação: R$ 60,00</p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(overlay);
+                    return; // Interromper carregamento da página
+                }
+            }
+            
+            applyCustomizationsToMenu();
+        });
+    </script>
+</body>
+</html>

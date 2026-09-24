@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificar Imagens</title>
+</head>
+<body>
+    <h1>Verificação de Imagens</h1>
+    
+    <h2>Imagens do LocalStorage</h2>
+    <div id="localStorageImages"></div>
+    
+    <h2>Teste de Acesso às Imagens</h2>
+    <div id="imageTests"></div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const localStorageImages = document.getElementById('localStorageImages');
+            const imageTests = document.getElementById('imageTests');
+            
+            // Verificar customizações no localStorage
+            const customizations = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
+            
+            localStorageImages.innerHTML = '<h3>Customizações Encontradas:</h3>';
+            localStorageImages.innerHTML += `<pre>${JSON.stringify(customizations, null, 2)}</pre>`;
+            
+            // Testar cada imagem
+            const imagesToTest = [];
+            
+            if (customizations.logo) {
+                imagesToTest.push({
+                    name: 'Logo',
+                    url: customizations.logo
+                });
+            }
+            
+            if (customizations.background) {
+                imagesToTest.push({
+                    name: 'Background',
+                    url: customizations.background
+                });
+            }
+            
+            imageTests.innerHTML = '<h3>Teste de Imagens:</h3>';
+            
+            imagesToTest.forEach(img => {
+                const imgContainer = document.createElement('div');
+                imgContainer.style.marginBottom = '20px';
+                imgContainer.style.padding = '10px';
+                imgContainer.style.border = '1px solid #ccc';
+                
+                const title = document.createElement('h4');
+                title.textContent = img.name;
+                imgContainer.appendChild(title);
+                
+                const url = document.createElement('p');
+                url.textContent = `URL: ${img.url}`;
+                imgContainer.appendChild(url);
+                
+                const imgElement = document.createElement('img');
+                imgElement.src = img.url;
+                imgElement.style.maxWidth = '300px';
+                imgElement.style.maxHeight = '200px';
+                imgElement.style.border = '1px solid #999';
+                
+                imgElement.onload = function() {
+                    const status = document.createElement('p');
+                    status.textContent = '✅ Imagem carregada com sucesso';
+                    status.style.color = 'green';
+                    imgContainer.appendChild(status);
+                };
+                
+                imgElement.onerror = function() {
+                    const status = document.createElement('p');
+                    status.textContent = '❌ Erro ao carregar imagem';
+                    status.style.color = 'red';
+                    imgContainer.appendChild(status);
+                };
+                
+                imgContainer.appendChild(imgElement);
+                imageTests.appendChild(imgContainer);
+            });
+        });
+    </script>
+</body>
+</html>

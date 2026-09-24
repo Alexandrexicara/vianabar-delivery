@@ -1,0 +1,658 @@
+
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cardápio Digital Universal- Marketplace</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            background: #1a1a1a;
+            color: #333;
+        }
+
+        header {
+            background: #fff;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        @media (max-width: 768px) {
+            header {
+                padding: 12px 15px;
+                flex-direction: column;
+                gap: 12px;
+            }
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2d5017;
+        }
+
+        @media (max-width: 768px) {
+            .logo {
+                font-size: 20px;
+            }
+        }
+
+        .landing-page-btn {
+            background: #2d5017;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            border: 2px solid #2d5017;
+            display: inline-block;
+        }
+
+        .landing-page-btn:hover {
+            background: #1e3b0f;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(45,80,23,0.3);
+        }
+
+        @media (max-width: 768px) {
+            .landing-page-btn {
+                padding: 8px 16px;
+                font-size: 13px;
+                width: 100%;
+                text-align: center;
+            }
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1400px;
+            margin: auto;
+            padding: 20px;
+            background: white;
+            border-radius: 20px;
+            border: 8px solid #7CFF7C;
+            box-shadow: 0 5px 15px rgba(124, 255, 124, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .container::before {
+            content: '';
+            position: absolute;
+            top: -100px;
+            left: -100px;
+            right: -100px;
+            bottom: -100px;
+            background: linear-gradient(90deg, transparent, #9B59B6, transparent);
+            border-radius: 24px;
+            animation: borderRotate 2s linear infinite;
+            opacity: 1;
+            z-index: -1;
+            box-shadow: 0 0 50px #9B59B6, 0 0 100px #9B59B6;
+        }
+        
+        @keyframes borderRotate {
+            0% {
+                background: linear-gradient(90deg, transparent, #9B59B6, transparent);
+                background-size: 200% 200%;
+                background-position: 100% 50%;
+            }
+            25% {
+                background: linear-gradient(180deg, transparent, #9B59B6, transparent);
+                background-size: 200% 200%;
+                background-position: 50% 100%;
+            }
+            50% {
+                background: linear-gradient(270deg, transparent, #9B59B6, transparent);
+                background-size: 200% 200%;
+                background-position: 0% 50%;
+            }
+            75% {
+                background: linear-gradient(360deg, transparent, #9B59B6, transparent);
+                background-size: 200% 200%;
+                background-position: 50% 0%;
+            }
+            100% {
+                background: linear-gradient(90deg, transparent, #9B59B6, transparent);
+                background-size: 200% 200%;
+                background-position: 100% 50%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                width: 95%;
+                padding: 15px;
+                border-radius: 15px;
+            }
+        }
+
+        /* Marketplace Styles */
+        .marketplace-header {
+            background: #7CFF7C;
+            padding: 30px;
+            border-radius: 15px;
+            color: #1a1a1a;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(124, 255, 124, 0.5);
+            border: 3px solid #7CFF7C;
+        }
+
+        .marketplace-header h2 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            color: #1a1a1a;
+            font-weight: bold;
+        }
+
+        .marketplace-header p {
+            color: #1a1a1a;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .search-bar {
+            margin-top: 20px;
+        }
+
+        .search-bar input {
+            width: 100%;
+            padding: 15px;
+            border: 3px solid #7CFF7C;
+            border-radius: 10px;
+            font-size: 16px;
+            box-shadow: 0 5px 15px rgba(124, 255, 124, 0.3);
+            background: white;
+        }
+
+        .categories {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding: 15px 0;
+            margin-bottom: 20px;
+        }
+
+        .category-btn {
+            padding: 10px 20px;
+            border: 2px solid #7CFF7C;
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .category-btn:hover {
+            background: #7CFF7C;
+            color: #1a1a1a;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(124, 255, 124, 0.3);
+        }
+
+        .category-btn-active {
+            background: #7CFF7C;
+            color: #1a1a1a;
+            border-color: #6AE86A;
+            font-weight: bold;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 15px;
+            border: 3px solid #7CFF7C;
+            border-radius: 10px;
+            font-size: 16px;
+            box-shadow: 0 5px 15px rgba(124, 255, 124, 0.3);
+            background: white;
+            box-sizing: border-box;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #6AE86A;
+            box-shadow: 0 5px 15px rgba(124, 255, 124, 0.5);
+        }
+
+        .store-card {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            cursor: pointer;
+            transition: transform 0.3s;
+            border: 3px solid #7CFF7C;
+        }
+
+        .store-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+            border-color: #6AE86A;
+        }
+
+        .store-image {
+            height: 150px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 64px;
+        }
+
+        .store-info {
+            padding: 20px;
+        }
+
+        .store-info h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .store-info p {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .store-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .rating {
+            color: #f39c12;
+            font-weight: bold;
+        }
+
+        .delivery-time {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .delivery-fee {
+            color: #2d5017;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">🍽️ Cardápio Digital Universal</div>
+        <a href="landing-page.html" class="landing-page-btn">⚙️ Cadastro Admin/Motoboy</a>
+    </header>
+
+    <div class="container">
+        <!-- Marketplace Header -->
+        <div class="marketplace-header">
+            <h2>🍽️ Bares, Restaurantes e Mercados</h2>
+            <p>Escolha sua loja favorita e faça seu pedido</p>
+            
+            <div class="search-section">
+                <input type="text" id="searchRestaurant" class="search-input" placeholder="🔍 Buscar produtos..." onkeyup="searchStores()">
+            </div>
+        </div>
+
+        <!-- Categories -->
+        <div class="categories">
+            <button onclick="filterCategory('all')" class="category-btn category-btn-active">Todos</button>
+            <button onclick="filterCategory('appetizer')" class="category-btn">🥗 Entradas</button>
+            <button onclick="filterCategory('main')" class="category-btn">🍽️ Pratos Principais</button>
+            <button onclick="filterCategory('drink')" class="category-btn">🥤 Bebidas</button>
+            <button onclick="filterCategory('dessert')" class="category-btn">🍰 Sobremesas</button>
+            <button onclick="filterCategory('outros')" class="category-btn">📦 Outros</button>
+            <button onclick="filterCategory('mercado')" class="category-btn">🛒 Mercados</button>
+        </div>
+
+        <!-- Stores Grid -->
+        <div id="storesList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
+            <!-- Lojas serão carregadas aqui -->
+        </div>
+    </div>
+
+    <script>
+    // Criar marketplace - ABRE AUTOMATICAMENTE NO INÍCIO
+    function createMarketplace() {
+        console.log('[MARKETPLACE] Criando marketplace inicial...');
+        loadStores();
+    }
+    
+    // Carregar lojas
+    function loadStores() {
+        // Lojas de exemplo (em produção, viriam do backend)
+        const stores = [
+            {
+                id: 1,
+                name: 'Pizza Express',
+                category: 'pizzaria',
+                image: '🍕',
+                rating: 4.8,
+                deliveryTime: '30-40 min',
+                deliveryFee: 'R$ 5,99',
+                description: 'As melhores pizzas da cidade'
+            },
+            {
+                id: 2,
+                name: 'Burger King',
+                category: 'lanchonete',
+                image: '🍔',
+                rating: 4.5,
+                deliveryTime: '20-30 min',
+                deliveryFee: 'R$ 7,99',
+                description: 'Hambúrgueres artesanais'
+            },
+            {
+                id: 3,
+                name: 'Sushi House',
+                category: 'restaurante',
+                image: '🍣',
+                rating: 4.9,
+                deliveryTime: '40-50 min',
+                deliveryFee: 'R$ 12,99',
+                description: 'Comida japonesa autêntica'
+            },
+            {
+                id: 4,
+                name: 'Mercadão',
+                category: 'mercado',
+                image: '🛒',
+                rating: 4.7,
+                deliveryTime: '60-90 min',
+                deliveryFee: 'R$ 9,99',
+                description: 'Tudo para sua casa'
+            }
+        ];
+        
+        const storesList = document.getElementById('storesList');
+        storesList.innerHTML = '';
+        
+        function createCard(store) {
+            var onclickAttr = 'viewStoreProducts(' + store.id + ')';
+            var html = '<div onclick="' + onclickAttr + '" class="store-card">';
+            html += '<div class="store-image">' + store.image + '</div>';
+            html += '<div class="store-info">';
+            html += '<h3>' + store.name + '</h3>';
+            html += '<p>' + store.description + '</p>';
+            html += '<div class="store-meta">';
+            html += '<span class="rating">⭐ ' + store.rating + '</span>';
+            html += '<span class="delivery-time">⏱️ ' + store.deliveryTime + '</span>';
+            html += '<span class="delivery-fee">🚴 ' + store.deliveryFee + '</span>';
+            html += '</div></div></div>';
+            return html;
+        }
+        
+        stores.forEach(store => {
+            const storeCard = createCard(store);
+            storesList.innerHTML += storeCard;
+        });
+    }
+    
+    // Ver produtos da loja
+    function viewStoreProducts(storeId) {
+        console.log('Visualizando produtos da loja:', storeId);
+        
+        // Carregar vitrine para pegar informações da loja
+        const showcase = JSON.parse(localStorage.getItem('productShowcase') || '[]');
+        const storeProduct = showcase.find(p => p.storeId == storeId);
+        
+        if (storeProduct && storeProduct.storeId) {
+            // Redirecionar para delivery.html com parâmetro da loja
+            window.location.href = `delivery.html?storeId=${storeProduct.storeId}&storeName=${encodeURIComponent(storeProduct.storeName)}`;
+        } else {
+            // Fallback: redirecionar para delivery.html genérico
+            window.location.href = `delivery.html?storeId=${storeId}`;
+        }
+    }
+    
+    // 🏪 CARREGAR VITRINE DE PRODUTOS
+    function loadVitrineProducts() {
+        const vitrineProducts = JSON.parse(localStorage.getItem('vitrineProducts') || '[]');
+        
+        if (vitrineProducts.length > 0) {
+            // Substituir as lojas padrão pelos produtos da vitrine
+            const vitrineContainer = document.getElementById('storesList');
+            if (vitrineContainer) {
+                vitrineContainer.innerHTML = '';
+                
+                vitrineProducts.forEach(product => {
+                    const productCard = createProductCard(product);
+                    vitrineContainer.innerHTML += productCard;
+                });
+                
+                console.log('[INDEX] Vitrine carregada com', vitrineProducts.length, 'produtos');
+            }
+        } else {
+            console.log('[INDEX] Nenhum produto na vitrine, usando lojas padrão');
+        }
+    }
+    
+    // Criar card de produto para a vitrine
+    function createProductCard(product) {
+        // Obter logo do admin
+        const customizations = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
+        const logo = customizations.logo || '';
+        
+        return `
+            <div class="store-card" onclick="viewProductDetail(${product.id})">
+                <div class="store-image" style="position: relative;">
+                    ${product.image ? 
+                        `<img src="${product.image}" alt="${product.name}" style="width: 100%; height: 100%; object-fit: cover;">` : 
+                        `<div style="font-size: 60px; color: #ccc;">🍽️</div>`
+                    }
+                    ${logo ? 
+                        `<div style="position: absolute; top: 5px; right: 5px; width: 40px; height: 40px; background: white; border-radius: 50%; padding: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;">
+                            <img src="${logo}" alt="Logo" style="width: 100%; height: 100%; object-fit: contain; border-radius: 50%;">
+                        </div>` : ''
+                    }
+                    <!-- Botão de Compartilhar -->
+                    <button onclick="event.stopPropagation(); shareProduct('${product.name.replace(/'/g, "\\'")}', '${(product.description || '').replace(/'/g, "\\'")}', '${(product.image || '').replace(/'/g, "\\'")}')" 
+                            style="position: absolute; bottom: 10px; right: 10px; width: 40px; height: 40px; background: #3498db; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3); transition: all 0.3s; z-index: 10;"
+                            onmouseover="this.style.transform='scale(1.1)'; this.style.background='#2980b9';"
+                            onmouseout="this.style.transform='scale(1)'; this.style.background='#3498db';">
+                        <span style="color: white; font-size: 18px;">➤</span>
+                    </button>
+                </div>
+                <div class="store-info">
+                    <h3>${product.name}</h3>
+                    <p>${product.description || 'Delicioso produto especial'}</p>
+                    <div class="store-meta">
+                        <span class="rating">⭐ 4.8</span>
+                        <span class="delivery-time">⏱️ 20-30 min</span>
+                        <span class="delivery-fee">🚴 R$ 5,99</span>
+                    </div>
+                    <div style="margin-top: 10px; font-size: 18px; font-weight: bold; color: #27ae60;">
+                        R$ ${parseFloat(product.price).toFixed(2)}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Função de compartilhamento
+    function shareProduct(name, description, image) {
+        const customizations = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
+        const establishmentName = customizations.establishmentName || 'Cardápio Digital';
+        const shareText = `🍽️ ${name} - ${establishmentName}\n${description}\n\nConfira no cardápio digital!`;
+        const shareUrl = window.location.href;
+        
+        // Criar menu de compartilhamento
+        const shareMenu = `
+            <div id="shareMenu" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 15px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 1000; min-width: 300px;">
+                <h3 style="margin: 0 0 15px 0; color: #333;">Compartilhar Produto</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <button onclick="shareOnWhatsApp('${encodeURIComponent(shareText)}', '${encodeURIComponent(shareUrl)}')" style="padding: 10px; background: #25D366; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                        📱 WhatsApp
+                    </button>
+                    <button onclick="shareOnFacebook('${encodeURIComponent(shareText)}', '${encodeURIComponent(shareUrl)}')" style="padding: 10px; background: #1877F2; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                        📘 Facebook
+                    </button>
+                    <button onclick="shareOnInstagram('${encodeURIComponent(shareText)}')" style="padding: 10px; background: #E4405F; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                        📷 Instagram
+                    </button>
+                    <button onclick="shareOnTwitter('${encodeURIComponent(shareText)}', '${encodeURIComponent(shareUrl)}')" style="padding: 10px; background: #1DA1F2; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                        🐦 Twitter
+                    </button>
+                    <button onclick="copyShareLink('${shareUrl}')" style="padding: 10px; background: #666; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                        📋 Copiar Link
+                    </button>
+                    <button onclick="closeShareMenu()" style="padding: 10px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                        ❌ Fechar
+                    </button>
+                </div>
+            </div>
+            <div id="shareOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999;" onclick="closeShareMenu()"></div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', shareMenu);
+    }
+    
+    function shareOnWhatsApp(encodedText, encodedUrl) {
+        const text = decodeURIComponent(encodedText);
+        const url = decodeURIComponent(encodedUrl);
+        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`;
+        window.open(whatsappUrl, '_blank');
+    }
+    
+    function shareOnFacebook(encodedText, encodedUrl) {
+        const text = decodeURIComponent(encodedText);
+        const url = decodeURIComponent(encodedUrl);
+        const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`;
+        window.open(facebookUrl, '_blank');
+    }
+    
+    function shareOnInstagram(encodedText) {
+        const text = decodeURIComponent(encodedText);
+        // Instagram não permite compartilhamento direto via URL
+        alert(`Para compartilhar no Instagram:\n\n1. Copie o texto abaixo:\n${text}\n\n2. Abra o Instagram e cole na sua story ou post!`);
+    }
+    
+    function shareOnTwitter(encodedText, encodedUrl) {
+        const text = decodeURIComponent(encodedText);
+        const url = decodeURIComponent(encodedUrl);
+        const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+        window.open(twitterUrl, '_blank');
+    }
+    
+    function copyShareLink(url) {
+        navigator.clipboard.writeText(url).then(() => {
+            alert('📋 Link copiado para a área de transferência!');
+        });
+    }
+    
+    function closeShareMenu() {
+        const shareMenu = document.getElementById('shareMenu');
+        const shareOverlay = document.getElementById('shareOverlay');
+        if (shareMenu) shareMenu.remove();
+        if (shareOverlay) shareOverlay.remove();
+    }
+    
+    // Ver detalhes do produto
+    function viewProductDetail(productId) {
+        window.location.href = `delivery.html?productId=${productId}`;
+    }
+    
+    // Filtrar por categoria
+    function filterCategory(category) {
+        console.log('Filtrando por:', category);
+        const buttons = document.querySelectorAll('.categories .category-btn');
+        buttons.forEach(btn => {
+            btn.classList.remove('category-btn-active');
+        });
+        event.target.classList.add('category-btn-active');
+        
+        const storesList = document.getElementById('storesList');
+        
+        // Se for categoria de produtos, filtrar pela categoria do produto
+        if (category === 'appetizer' || category === 'main' || category === 'drink' || category === 'dessert' || category === 'outros') {
+            // Filtrar produtos da vitrine por categoria
+            const vitrineProducts = JSON.parse(localStorage.getItem('vitrineProducts') || '[]');
+            const filteredProducts = category === 'all' ? vitrineProducts : 
+                vitrineProducts.filter(product => product.category === category);
+            
+            // Mostrar produtos filtrados
+            storesList.innerHTML = '';
+            filteredProducts.forEach(product => {
+                const productCard = createProductCard(product);
+                storesList.innerHTML += productCard;
+            });
+        } else {
+            // Para "mercado" ou "all", mostrar tudo
+            const vitrineProducts = JSON.parse(localStorage.getItem('vitrineProducts') || '[]');
+            storesList.innerHTML = '';
+            vitrineProducts.forEach(product => {
+                const productCard = createProductCard(product);
+                storesList.innerHTML += productCard;
+            });
+        }
+    }
+    
+    // Buscar produtos
+    function searchStores() {
+        const searchTerm = document.getElementById('searchRestaurant').value.toLowerCase();
+        console.log('Buscando:', searchTerm);
+        const storesList = document.getElementById('storesList');
+        
+        // Carregar produtos da vitrine para busca
+        const vitrineProducts = JSON.parse(localStorage.getItem('vitrineProducts') || '[]');
+        
+        if (searchTerm === '') {
+            // Se busca vazia, mostrar todos os produtos da vitrine
+            storesList.innerHTML = '';
+            vitrineProducts.forEach(product => {
+                const productCard = createProductCard(product);
+                storesList.innerHTML += productCard;
+            });
+            return;
+        }
+        
+        // Filtrar produtos por nome, descrição ou categoria
+        const filteredProducts = vitrineProducts.filter(product => 
+            product.name.toLowerCase().includes(searchTerm) || 
+            (product.description && product.description.toLowerCase().includes(searchTerm)) ||
+            (product.category && product.category.toLowerCase().includes(searchTerm)) ||
+            (product.category === 'outros' && 'outros'.includes(searchTerm))
+        );
+        
+        // Mostrar produtos filtrados
+        storesList.innerHTML = '';
+        filteredProducts.forEach(product => {
+            const productCard = createProductCard(product);
+            storesList.innerHTML += productCard;
+        });
+        
+        console.log('Encontrados', filteredProducts.length, 'produtos para:', searchTerm);
+    }
+    
+    // Inicializar marketplace quando página carregar
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            createMarketplace();
+            setTimeout(loadVitrineProducts, 1000); // Carregar vitrine após marketplace
+        });
+    } else {
+        createMarketplace();
+        setTimeout(loadVitrineProducts, 1000); // Carregar vitrine após marketplace
+    }
+    </script>
+</body>
+</html>
+
+
+
