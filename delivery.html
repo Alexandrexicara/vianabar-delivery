@@ -1243,7 +1243,7 @@
         };
 
         // Selecionar método de pagamento
-        window.selectPayment = function(method) {
+        window.selectPayment = function(method, event) {
             // Apenas PIX e Cartão são permitidos no delivery
             if (method !== 'pix' && method !== 'cartao') {
                 alert('Para delivery, apenas PIX e Cartão são aceitos. O pagamento deve ser feito antes da entrega.');
@@ -1254,15 +1254,13 @@
             const methods = document.querySelectorAll('.payment-method');
             methods.forEach(m => m.classList.remove('selected'));
             
-            // Adicionar classe selected ao método selecionado
-            const selectedMethod = event.target.closest('.payment-method');
-            if (selectedMethod) {
-                selectedMethod.classList.add('selected');
-                console.log('[DELIVERY] Método de pagamento selecionado:', method);
-                
-                // Feedback visual imediato
-                showNotification(`Pagamento via ${method === 'pix' ? 'PIX' : 'Cartão'} selecionado!`, 'success');
+            const source = event && event.target ? event.target.closest('.payment-method') : null;
+            if (source) {
+                source.classList.add('selected');
             }
+
+            console.log('[DELIVERY] Método de pagamento selecionado:', method);
+            showNotification(`Pagamento via ${method === 'pix' ? 'PIX' : 'Cartão'} selecionado!`, 'success');
         }
 
         // Salvar endereço

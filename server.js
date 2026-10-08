@@ -148,6 +148,23 @@ let clientIdCounter = 0; // Track client ID
 // Start with an empty list of orders for production
 let orders = [];
 
+const deliveryOrdersFile = path.join(__dirname, 'data', 'delivery-orders.json');
+let deliveryOrders = [];
+
+try {
+  deliveryOrders = JSON.parse(fs.readFileSync(deliveryOrdersFile, 'utf8'));
+  if (!Array.isArray(deliveryOrders)) deliveryOrders = [];
+} catch (error) {
+  if (error.code !== 'ENOENT') {
+    console.error('[DELIVERY] Não foi possível carregar pedidos salvos:', error);
+  }
+}
+
+function persistDeliveryOrders() {
+  fs.mkdirSync(path.dirname(deliveryOrdersFile), { recursive: true });
+  fs.writeFileSync(deliveryOrdersFile, JSON.stringify(deliveryOrders, null, 2));
+}
+
 // Add paymentStatus to any existing orders that might not have it
 orders.forEach(order => {
   if (!order.paymentStatus) {
@@ -551,10 +568,9 @@ wss.on('connection', (ws) => {
         ws.motoboyInfo = data.motoboyInfo;
         
         // Send existing delivery orders to motoboy
-        const deliveryOrders = JSON.parse(localStorage.getItem('deliveryOrders') || '[]');
         ws.send(JSON.stringify({
           type: 'existingDeliveryOrders',
-          orders: deliveryOrders.filter(o => o.status === 'pending' || o.status === 'accepted')
+          orders: deliveryOrders.filter(o => ['pending', 'accepted', 'preparing', 'delivering'].includes(o.status))
         }));
         
         // Broadcast to admins that a motoboy is available
@@ -565,57 +581,59 @@ wss.on('connection', (ws) => {
         
       } else if (data.type === 'submitDeliveryOrder') {
         // Handle new delivery order
-        console.log('[DELIVERY] Novo pedido de delivery recebido:', data.order);
-        
-        // Store in localStorage for persistence
-        const existingOrders = JSON.parse(localStorage.getItem('deliveryOrders') || '[]');
-        existingOrders.push(data.order);
-        localStorage.setItem('deliveryOrders', JSON.stringify(existingOrders));
-        
-        // Broadcast to all motoboys
-        broadcastToMotoboys({
-          type: 'newDeliveryOrder',
-          order: data.order
-        });
-        
-        // Also broadcast to admins
-        broadcastToAdmins({
-          type: 'newDeliveryOrder',
-          order: data.order
-        });
-        
-        // Send confirmation back
-        ws.send(JSON.stringify({
-          type: 'deliveryOrderConfirmation',
-          orderId: data.order.id
-        }));
+        if (!data.order || !data.order.id || !Array.isArray(data.order.items)) {
+          ws.send(JSON.stringify({ type: 'deliveryOrderError', message: 'Dados do pedido inválidos.' }));
+          return;
+        }
+
+        let order = deliveryOrders.find(item => item.id === data.order.id);
+        if (!order) {
+          order = {
+            ...data.order,
+            clientId: ws.clientId,
+            status: data.order.status || 'pending',
+            paymentStatus: data.order.paymentStatus || 'pending'
+          };
+          deliveryOrders.push(order);
+          persistDeliveryOrders();
+          console.log('[DELIVERY] Novo pedido recebido:', order.id);
+
+          broadcastToMotoboys({ type: 'newDeliveryOrder', order });
+          broadcastToAdmins({ type: 'newDeliveryOrder', order });
+        } else if (!order.clientId) {
+          order.clientId = ws.clientId;
+          persistDeliveryOrders();
+        }
+
+        ws.send(JSON.stringify({ type: 'deliveryOrderConfirmation', orderId: order.id }));
         
       } else if (data.type === 'acceptDeliveryOrder') {
         // Motoboy accepts delivery order
         console.log('[DELIVERY] Motoboy aceitou pedido:', data.orderId);
         
-        const deliveryOrders = JSON.parse(localStorage.getItem('deliveryOrders') || '[]');
         const order = deliveryOrders.find(o => o.id === data.orderId);
         
-        if (order) {
+        if (order && ['pending', 'accepted'].includes(order.status)) {
           order.status = 'accepted';
-          order.motoboyName = data.motoboyName;
-          order.motoboyPhone = data.motoboyPhone;
-          localStorage.setItem('deliveryOrders', JSON.stringify(deliveryOrders));
+          order.motoboyId = ws.motoboyInfo?.id || data.motoboyId || null;
+          order.motoboyName = data.motoboyName || ws.motoboyInfo?.name || '';
+          order.motoboyPhone = data.motoboyPhone || ws.motoboyInfo?.phone || '';
+          order.acceptedAt = new Date().toISOString();
+          persistDeliveryOrders();
           
           // Notify customer
           broadcastToCustomer(data.orderId, {
             type: 'orderAccepted',
             orderId: data.orderId,
-            motoboyName: data.motoboyName,
-            motoboyPhone: data.motoboyPhone
+            motoboyName: order.motoboyName,
+            motoboyPhone: order.motoboyPhone
           });
           
           // Notify admins
           broadcastToAdmins({
             type: 'orderAccepted',
             orderId: data.orderId,
-            motoboyName: data.motoboyName
+            motoboyName: order.motoboyName
           });
         }
         
@@ -623,12 +641,12 @@ wss.on('connection', (ws) => {
         // Motoboy starts delivery
         console.log('[DELIVERY] Motoboy iniciou entrega:', data.orderId);
         
-        const deliveryOrders = JSON.parse(localStorage.getItem('deliveryOrders') || '[]');
         const order = deliveryOrders.find(o => o.id === data.orderId);
         
         if (order) {
           order.status = 'delivering';
-          localStorage.setItem('deliveryOrders', JSON.stringify(deliveryOrders));
+          order.deliveringAt = new Date().toISOString();
+          persistDeliveryOrders();
           
           // Notify customer
           broadcastToCustomer(data.orderId, {
@@ -649,39 +667,20 @@ wss.on('connection', (ws) => {
         // Motoboy enviou atualização de localização
         console.log('[DELIVERY] Atualização de localização do motoboy:', data);
         
-        const deliveryOrders = JSON.parse(localStorage.getItem('deliveryOrders') || '[]');
         const order = deliveryOrders.find(o => o.id === data.orderId);
         
-        if (order) {
+        if (order && Number.isFinite(Number(data.latitude)) && Number.isFinite(Number(data.longitude))) {
           // Salvar localização no localStorage
           order.motoboyLocation = {
-            latitude: data.latitude,
-            longitude: data.longitude,
+            latitude: Number(data.latitude),
+            longitude: Number(data.longitude),
             timestamp: new Date().toISOString()
           };
-          localStorage.setItem('deliveryOrders', JSON.stringify(deliveryOrders));
+          order.motoboyName = data.motoboyName || order.motoboyName;
+          order.motoboyPhone = data.motoboyPhone || order.motoboyPhone;
+          persistDeliveryOrders();
           
           // Enviar para o cliente
-          broadcastToCustomer(data.orderId, {
-            type: 'motoboyLocationUpdate',
-            orderId: data.orderId,
-            latitude: data.latitude,
-            longitude: data.longitude,
-            motoboyName: order.motoboyName,
-            motoboyPhone: order.motoboyPhone,
-            status: order.status
-          });
-        }
-        
-      } else if (data.type === 'requestMotoboyLocation') {
-        // Cliente solicitou localização do motoboy
-        console.log('[DELIVERY] Cliente solicitou localização do motoboy:', data.orderId);
-        
-        const deliveryOrders = JSON.parse(localStorage.getItem('deliveryOrders') || '[]');
-        const order = deliveryOrders.find(o => o.id === data.orderId);
-        
-        if (order && order.motoboyLocation) {
-          // Enviar última localização conhecida
           broadcastToCustomer(data.orderId, {
             type: 'motoboyLocationUpdate',
             orderId: data.orderId,
@@ -693,17 +692,35 @@ wss.on('connection', (ws) => {
           });
         }
         
+      } else if (data.type === 'requestMotoboyLocation') {
+        // Cliente solicitou localização do motoboy
+        console.log('[DELIVERY] Cliente solicitou localização do motoboy:', data.orderId);
+        
+        const order = deliveryOrders.find(o => o.id === data.orderId);
+        
+        if (order && order.motoboyLocation) {
+          // Enviar última localização conhecida
+          ws.send(JSON.stringify({
+            type: 'motoboyLocationUpdate',
+            orderId: data.orderId,
+            latitude: order.motoboyLocation.latitude,
+            longitude: order.motoboyLocation.longitude,
+            motoboyName: order.motoboyName,
+            motoboyPhone: order.motoboyPhone,
+            status: order.status
+          }));
+        }
+        
       } else if (data.type === 'completeDeliveryOrder') {
         // Motoboy completes delivery
         console.log('[DELIVERY] Motoboy completou entrega:', data.orderId);
         
-        const deliveryOrders = JSON.parse(localStorage.getItem('deliveryOrders') || '[]');
         const order = deliveryOrders.find(o => o.id === data.orderId);
         
         if (order) {
           order.status = 'completed';
           order.completedAt = new Date().toISOString();
-          localStorage.setItem('deliveryOrders', JSON.stringify(deliveryOrders));
+          persistDeliveryOrders();
           
           // Notify customer
           broadcastToCustomer(data.orderId, {
@@ -771,7 +788,6 @@ function broadcastToAdmins(message) {
 
 function broadcastToCustomer(orderId, message) {
   // Find the customer who owns this order
-  const deliveryOrders = JSON.parse(localStorage.getItem('deliveryOrders') || '[]');
   const order = deliveryOrders.find(o => o.id === orderId);
   
   if (order && order.clientId) {

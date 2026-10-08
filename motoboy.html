@@ -678,6 +678,18 @@
             console.log(`[NOTIFICATION ${type.toUpperCase()}] ${message}`);
         };
 
+        function initializeMotoboyCommunication() {
+            if (!window.DeliveryCommunication) return;
+
+            DeliveryCommunication.init();
+            DeliveryCommunication.registerMotoboyLogin({
+                id: motoboyData.id,
+                name: motoboyData.name,
+                phone: motoboyData.phone,
+                vehicle: motoboyData.vehicle
+            });
+        }
+
         // Verificar autenticação do motoboy
         function checkMotoboyAuth() {
             const session = sessionStorage.getItem('motoboySession');
@@ -695,6 +707,7 @@
                 };
                 sessionStorage.setItem('motoboySession', JSON.stringify(creatorMotoboyData));
                 motoboyData = creatorMotoboyData;
+                initializeMotoboyCommunication();
                 initializeMotoboy();
                 console.log('[MOTOBOY] Criador acessando painel com permissões totais');
                 return;
@@ -705,6 +718,7 @@
                 motoboyData = JSON.parse(session);
                 // Limpar pedidos antigos ao carregar
                 limparPedidosAntigos();
+                initializeMotoboyCommunication();
                 initializeMotoboy();
                 return;
             }
@@ -721,19 +735,7 @@
             sessionStorage.setItem('motoboySession', JSON.stringify(autoMotoboyData));
             motoboyData = autoMotoboyData;
             
-            // Inicializar módulo de comunicação
-            if (window.DeliveryCommunication) {
-                DeliveryCommunication.init();
-                console.log('[MOTOBOY] Módulo de comunicação inicializado');
-                
-                // Registrar login do motoboy
-                DeliveryCommunication.registerMotoboyLogin({
-                    name: motoboyData.name,
-                    phone: motoboyData.phone,
-                    vehicle: motoboyData.vehicle
-                });
-            }
-            
+            initializeMotoboyCommunication();
             initializeMotoboy();
             console.log('[MOTOBOY] Acesso automático concedido');
         }
@@ -841,16 +843,23 @@
             }
             
             // Adicionar pedido real ao sistema
+            const existingOrder = orders.find(order => order.id === orderData.id);
+            if (existingOrder) {
+                processedOrderIds.add(orderData.id);
+                return existingOrder;
+            }
+
             const realOrder = {
-                id: 'REAL-' + Date.now(),
+                ...orderData,
+                id: orderData.id || 'REAL-' + Date.now(),
                 customerName: orderData.customerName,
                 customerPhone: orderData.customerPhone,
-                customerAddress: orderData.customerAddress,
-                coordinates: orderData.coordinates,
+                customerAddress: orderData.customerAddress || orderData.address || 'Endereço não informado',
+                coordinates: orderData.customerCoordinates || orderData.coordinates || null,
                 items: orderData.items,
                 total: orderData.total,
-                status: 'pending',
-                timestamp: new Date().toISOString(),
+                status: orderData.status === 'accepted' ? 'preparing' : (orderData.status || 'pending'),
+                timestamp: orderData.timestamp || orderData.orderTime || new Date().toISOString(),
                 estimatedTime: orderData.estimatedTime || 35,
                 motoboyId: null,
                 restaurant: orderData.restaurant || 'Pizza Express Digital',
@@ -931,10 +940,6 @@
             // Notificar cliente
             notifyCustomerOrderAccepted(order);
             
-            // Simular tempo de preparação real
-            setTimeout(() => {
-                startDelivery(order);
-            }, 15000); // 15 segundos de preparação
         }
 
         // Notificar cliente que pedido foi aceito
@@ -961,6 +966,14 @@
             // Atualizar status
             order.status = 'delivering';
             order.deliveringAt = new Date().toISOString();
+
+            if (window.DeliveryCommunication) {
+                DeliveryCommunication.send({
+                    type: 'startDeliveryOrder',
+                    orderId: order.id,
+                    estimatedTime: order.estimatedTime
+                });
+            }
             
             saveOrders();
             renderOrders();
@@ -980,7 +993,7 @@
             }
             
             // Iniciar rastreamento GPS
-            startLocationTracking(order);
+            startLocationTracking(order.id);
         }
 
         // Notificar cliente que entrega começou

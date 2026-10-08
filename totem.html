@@ -99,70 +99,95 @@
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 20px;
+            padding: 8px 16px;
             text-align: center;
             position: sticky;
             top: 0;
             z-index: 100;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.1);
         }
 
         .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
+            font-size: 1.45rem;
+            margin-bottom: 3px;
+            line-height: 1.2;
         }
 
         .header p {
-            font-size: 1.2rem;
+            font-size: 0.82rem;
             opacity: 0.9;
+            line-height: 1.3;
+        }
+
+        .catalog-layout {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 18px 20px 20px;
+            width: 100%;
         }
 
         /* Categorias */
         .categories {
             display: flex;
-            gap: 15px;
-            padding: 20px;
-            justify-content: center;
-            flex-wrap: wrap;
+            flex-direction: column;
+            gap: 10px;
+            width: 240px;
+            min-width: 240px;
+            padding: 15px;
             background: #f8f9fa;
-            border-bottom: 2px solid #e9ecef;
+            border: 1px solid #e9ecef;
+            border-radius: 18px;
+            position: sticky;
+            top: 92px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.04);
         }
 
         .category-btn {
-            padding: 15px 30px;
+            padding: 14px 16px;
             border: 2px solid #667eea;
-            border-radius: 25px;
+            border-radius: 14px;
             background: white;
             color: #667eea;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.25s ease;
             font-weight: 600;
-            font-size: 1.1rem;
-            min-width: 150px;
+            font-size: 1rem;
+            text-align: left;
+            width: 100%;
+            min-width: 0;
         }
 
         .category-btn:hover {
             background: #667eea;
             color: white;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+            transform: translateX(2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.25);
         }
 
         .category-btn.active {
             background: #667eea;
             color: white;
             border-color: #764ba2;
+            box-shadow: 0 8px 18px rgba(102, 126, 234, 0.2);
+        }
+
+        .menu-panel {
+            flex: 1;
+            min-width: 0;
         }
 
         /* Grid de Produtos */
         .menu-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            padding: 20px;
-            max-width: 1200px;
-            margin: 0 auto;
-            max-height: 60vh;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 18px;
+            padding: 0;
+            max-width: none;
+            margin: 0;
+            max-height: calc(100vh - 220px);
             overflow-y: auto;
             scrollbar-width: thin;
             scrollbar-color: #667eea #f8f9fa;
@@ -675,48 +700,119 @@
         #establishmentHeader {
             background: var(--primary-color, #e74c3c);
             color: white;
-            padding: 20px;
-            text-align: center;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+            padding: 8px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        #establishmentLogo {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 8px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .brand-mark {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.18);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
+            font-size: 0.9rem;
+            flex-shrink: 0;
         }
 
         #establishmentLogoImg {
-            max-height: 80px !important;
-            max-width: 220px;
-            margin: 0 auto 10px;
+            max-height: 36px !important;
+            max-width: 120px;
+            margin: 0 auto 4px;
         }
 
         #establishmentName {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
+            font-size: 0.95rem;
+            line-height: 1.1;
+            margin: 0;
             font-weight: bold;
+            white-space: nowrap;
         }
 
         #establishmentTagline {
-            font-size: 1.2rem;
+            font-size: 0.62rem;
             opacity: 0.9;
+            line-height: 1.2;
         }
 
-        .establishment-info,
+        .establishment-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 2px;
+            font-size: 0.7rem;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
         .establishment-details {
+            display: none;
+        }
+
+        #socialMediaLinks {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
             margin-top: 12px;
-            font-size: 14px;
-        }
-
-        .establishment-details {
-            text-align: center;
-            padding: 10px;
+            padding: 8px 10px;
+            border-radius: 12px;
             background: #fff;
-            color: #333;
-        }
-
-        .establishment-details p {
-            margin: 8px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
         }
 
         #socialMediaLinks a {
-            margin: 0 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
             text-decoration: none;
+            background: #f5f5f5;
+            color: var(--primary-color, #e74c3c);
+            font-size: 1.1rem;
+        }
+
+        .side-panel {
+            width: 220px;
+            min-width: 220px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .side-panel .social-box {
+            padding: 10px 12px;
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 14px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        }
+
+        .side-panel .social-box-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #555;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            text-align: center;
         }
 
         #welcomeScreen {
@@ -755,8 +851,11 @@
     <div id="mainContent">
         <header class="header" id="establishmentHeader">
             <div id="establishmentLogo">
-                <div id="establishmentName">Restaurante Sabores</div>
-                <div id="establishmentTagline">Faça seu pedido de forma rápida e fácil</div>
+                <div class="brand-mark" aria-label="Logo do restaurante">🍽️</div>
+                <div>
+                    <div id="establishmentName">Restaurante Sabores</div>
+                    <div id="establishmentTagline">Cozinha Brasileira Autêntica</div>
+                </div>
             </div>
             <div class="establishment-info">
                 <div id="establishmentAddress">Rua das Flores, 123 - Centro</div>
@@ -764,24 +863,29 @@
             </div>
         </header>
 
-        <div class="establishment-details">
-            <p id="establishmentContact">(11) 99999-9999</p>
-            <p id="socialMediaLinks"></p>
-        </div>
+        <div class="catalog-layout">
+            <div class="categories">
+                <button class="category-btn active" onclick="filterByCategory('all')">Todos</button>
+                <button class="category-btn" onclick="filterByCategory('appetizer')">Entradas</button>
+                <button class="category-btn" onclick="filterByCategory('main')">Pratos Principais</button>
+                <button class="category-btn" onclick="filterByCategory('drink')">Bebidas</button>
+                <button class="category-btn" onclick="filterByCategory('dessert')">Sobremesas</button>
+                <button class="category-btn" onclick="filterByCategory('outros')">Outros</button>
 
-        <!-- Categorias -->
-        <div class="categories">
-            <button class="category-btn active" onclick="filterByCategory('all')">Todos</button>
-            <button class="category-btn" onclick="filterByCategory('appetizer')">Entradas</button>
-            <button class="category-btn" onclick="filterByCategory('main')">Pratos Principais</button>
-            <button class="category-btn" onclick="filterByCategory('drink')">Bebidas</button>
-            <button class="category-btn" onclick="filterByCategory('dessert')">Sobremesas</button>
-            <button class="category-btn" onclick="filterByCategory('outros')">Outros</button>
-        </div>
+                <div class="side-panel">
+                    <div class="social-box">
+                        <div class="social-box-title">Redes</div>
+                        <div id="socialMediaLinks"></div>
+                    </div>
+                </div>
+            </div>
 
-        <!-- Grid de Produtos -->
-        <div class="menu-grid" id="menuGrid">
-            <!-- Produtos serão carregados aqui -->
+            <div class="menu-panel">
+                <!-- Grid de Produtos -->
+                <div class="menu-grid" id="menuGrid">
+                    <!-- Produtos serão carregados aqui -->
+                </div>
+            </div>
         </div>
 
         <div id="establishmentFooterInfo">Rua das Flores, 123 - Centro | Ter-Sex: 18h-23h | Sáb-Dom: 12h-23h</div>

@@ -24,49 +24,72 @@ const DeliveryCommunication = {
     
     // Conectar ao servidor WebSocket
     connectWebSocket() {
-        // Tenta descobrir a porta correta automaticamente
-        const port = window.location.port || '3002';
-        const wsUrl = `ws://${window.location.hostname}:${port}`;
-        console.log('[COMMUNICATION] Tentando conectar a:', wsUrl);
-        
-        try {
-            this.ws = new WebSocket(wsUrl);
-            
-            this.ws.onopen = () => {
-                console.log('✅ [COMMUNICATION] WebSocket conectado!');
-                this.reconnectAttempts = 0;
-                this.sendHeartbeat();
-            };
-            
-            this.ws.onmessage = (event) => {
-                try {
-                    // Verificar se é uma string de texto simples (ex: "connected")
-                    if (typeof event.data === 'string' && !event.data.startsWith('{')) {
-                        console.log('[COMMUNICATION] Mensagem de texto recebida:', event.data);
-                        return;
+        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const hostname = (window.location.hostname || 'localhost').trim() || 'localhost';
+        const portCandidates = [...new Set([
+            window.location.port,
+            '10000',
+            '3002',
+            '3001',
+            '3000'
+        ].filter(Boolean))];
+
+        const buildUrl = (port) => `${protocol}://${hostname}:${port}`;
+
+        const tryConnect = (index = 0) => {
+            if (index >= portCandidates.length) {
+                console.warn('[COMMUNICATION] Nenhuma porta WebSocket disponível. Usando fallback localStorage.');
+                return;
+            }
+
+            const wsUrl = buildUrl(portCandidates[index]);
+            console.log('[COMMUNICATION] Tentando conectar a:', wsUrl);
+
+            try {
+                this.ws = new WebSocket(wsUrl);
+
+                this.ws.onopen = () => {
+                    console.log('✅ [COMMUNICATION] WebSocket conectado!');
+                    this.reconnectAttempts = 0;
+                    this.sendHeartbeat();
+                };
+
+                this.ws.onmessage = (event) => {
+                    try {
+                        if (typeof event.data === 'string' && !event.data.startsWith('{')) {
+                            console.log('[COMMUNICATION] Mensagem de texto recebida:', event.data);
+                            return;
+                        }
+
+                        const message = JSON.parse(event.data);
+                        console.log('[COMMUNICATION] Mensagem recebida:', message);
+                        this.handleMessage(message);
+                    } catch (error) {
+                        console.warn('[COMMUNICATION] Erro ao processar mensagem (pode ser texto):', error.message);
                     }
-                    
-                    const message = JSON.parse(event.data);
-                    console.log('[COMMUNICATION] Mensagem recebida:', message);
-                    this.handleMessage(message);
-                } catch (error) {
-                    console.warn('[COMMUNICATION] Erro ao processar mensagem (pode ser texto):', error.message);
-                }
-            };
-            
-            this.ws.onclose = () => {
-                console.log('❌ [COMMUNICATION] WebSocket desconectado');
-                this.attemptReconnect();
-            };
-            
-            this.ws.onerror = (error) => {
-                console.error('[COMMUNICATION] Erro no WebSocket:', error);
-            };
-            
-        } catch (error) {
-            console.error('[COMMUNICATION] Falha ao criar WebSocket:', error);
-            this.attemptReconnect();
-        }
+                };
+
+                this.ws.onclose = () => {
+                    console.log('❌ [COMMUNICATION] WebSocket desconectado');
+                    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+                        this.attemptReconnect();
+                    }
+                };
+
+                this.ws.onerror = (error) => {
+                    console.error('[COMMUNICATION] Erro no WebSocket em', wsUrl, error);
+                    if (this.ws && this.ws.readyState !== WebSocket.OPEN) {
+                        this.ws = null;
+                        tryConnect(index + 1);
+                    }
+                };
+            } catch (error) {
+                console.error('[COMMUNICATION] Falha ao criar WebSocket em', wsUrl, error);
+                tryConnect(index + 1);
+            }
+        };
+
+        tryConnect();
     },
     
     // Tentar reconectar
@@ -157,11 +180,14 @@ const DeliveryCommunication = {
     
     // Fallback usando localStorage quando WebSocket falhar
     fallbackSend(message) {
-        if (message.type === 'submitOrder' && message.order) {
+        if ((message.type === 'submitOrder' || message.type === 'submitDeliveryOrder') && message.order) {
             // Salvar pedido no localStorage
             const existingOrders = JSON.parse(localStorage.getItem('deliveryOrders') || '[]');
-            existingOrders.push(message.order);
-            localStorage.setItem('deliveryOrders', JSON.stringify(existingOrders));
+            const alreadyExists = existingOrders.some(item => item.id === message.order.id);
+            if (!alreadyExists) {
+                existingOrders.push(message.order);
+                localStorage.setItem('deliveryOrders', JSON.stringify(existingOrders));
+            }
             
             // Disparar evento personalizado
             window.dispatchEvent(new CustomEvent('newDeliveryOrder', { detail: message.order }));
@@ -181,6 +207,24 @@ const DeliveryCommunication = {
     // Lidar com mensagens recebidas
     handleMessage(message) {
         switch (message.type) {
+            case 'existingDeliveryOrders':
+                (message.orders || []).forEach(order => {
+                    this.broadcastToMotoboy(order);
+                });
+                break;
+            case 'deliveryOrderConfirmation':
+                window.dispatchEvent(new CustomEvent('deliveryOrderConfirmed', { detail: message }));
+                break;
+            case 'deliveryOrderError':
+                window.dispatchEvent(new CustomEvent('deliveryOrderError', { detail: message }));
+                break;
+            case 'submitDeliveryOrder':
+            case 'submitOrder':
+                console.log('[COMMUNICATION] Novo pedido de delivery recebido:', message.order?.id);
+                if (message.order) {
+                    this.broadcastToMotoboy(message.order);
+                }
+                break;
             case 'orderAccepted':
                 console.log('[COMMUNICATION] Pedido aceito:', message.orderId);
                 this.handleOrderAccepted(message);
@@ -202,6 +246,7 @@ const DeliveryCommunication = {
                 this.handleMotoboyLocationUpdate(message);
                 break;
             case 'newDeliveryOrder':
+            case 'NEW_DELIVERY_ORDER':
                 console.log('[COMMUNICATION] Novo pedido de delivery:', message.order?.id);
                 if (message.order) {
                     this.broadcastToMotoboy(message.order);
@@ -246,27 +291,33 @@ const DeliveryCommunication = {
     broadcastNewOrder(order) {
         console.log('[COMMUNICATION] Broadcast de novo pedido:', order.id);
         
+        const normalizedOrder = { ...order, status: order.status || 'pending' };
+
         // Via WebSocket
-        this.send({
-            type: 'submitOrder',
-            order: order
+        const sent = this.send({
+            type: 'submitDeliveryOrder',
+            order: normalizedOrder
         });
         
         // Via localStorage (fallback)
         const existingOrders = JSON.parse(localStorage.getItem('deliveryOrders') || '[]');
-        existingOrders.push(order);
-        localStorage.setItem('deliveryOrders', JSON.stringify(existingOrders));
+        const alreadyExists = existingOrders.some(item => item.id === normalizedOrder.id);
+        if (!alreadyExists) {
+            existingOrders.push(normalizedOrder);
+            localStorage.setItem('deliveryOrders', JSON.stringify(existingOrders));
+        }
         
         // Via BroadcastChannel
         if (this.channel) {
             this.channel.postMessage({
                 type: 'NEW_DELIVERY_ORDER',
-                order: order
+                order: normalizedOrder
             });
         }
         
         // Disparar evento na janela
-        window.dispatchEvent(new CustomEvent('newDeliveryOrder', { detail: order }));
+        window.dispatchEvent(new CustomEvent('newDeliveryOrder', { detail: normalizedOrder }));
+        return sent;
     },
     
     // Enviar notificação para o motoboy
@@ -275,8 +326,11 @@ const DeliveryCommunication = {
         
         // Salvar no localStorage específico para motoboy
         const motoboyOrders = JSON.parse(localStorage.getItem('motoboyOrders') || '[]');
-        motoboyOrders.push(order);
-        localStorage.setItem('motoboyOrders', JSON.stringify(motoboyOrders));
+        const alreadyExists = motoboyOrders.some(item => item.id === order.id);
+        if (!alreadyExists) {
+            motoboyOrders.push(order);
+            localStorage.setItem('motoboyOrders', JSON.stringify(motoboyOrders));
+        }
         
         // Disparar evento personalizado
         window.dispatchEvent(new CustomEvent('newOrderForMotoboy', { detail: order }));

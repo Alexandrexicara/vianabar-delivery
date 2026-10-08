@@ -5,6 +5,14 @@ class MyGatewayIntegration {
     constructor() {
         this.apiKey = 'SEU_API_KEY_MYGATEWAY';
         this.baseURL = 'https://api.mygateway.com/v1';
+        this.mygatewayUrls = {
+            registration: 'https://mygateway.com.br/cadastro',
+            merchant: 'https://mygateway.com.br/cadastro',
+            motoboy: 'https://mygateway.com.br/cadastro',
+            platform: 'https://mygateway.com.br/cadastro',
+            login: 'https://app.mygateway.com.br/login',
+            documentation: 'https://app.mygateway.com.br/documentacao/sintetica'
+        };
         this.merchantId = null; // COMERCIANTE/Admin (quem vende)
         this.motoboyId = null; // Motoboy (quem entrega)
         this.creatorId = null; // Criador (dono da plataforma)
@@ -13,6 +21,20 @@ class MyGatewayIntegration {
         this.plataformaPercent = 10; // 10% para plataforma/criador
         this.motoboyPercent = 25;    // 25% para motoboy
         // COMERCIANTE fica com: 100% - 10% - 25% = 65%
+    }
+
+    getRegistrationLink(profileType = 'merchant') {
+        const profile = profileType.toLowerCase();
+
+        if (profile === 'motoboy') {
+            return this.mygatewayUrls.motoboy;
+        }
+
+        if (profile === 'platform' || profile === 'creator' || profile === 'admin') {
+            return this.mygatewayUrls.platform;
+        }
+
+        return this.mygatewayUrls.merchant;
     }
 
     // 1️⃣ Criar Conta do Comerciante
