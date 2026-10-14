@@ -1057,6 +1057,53 @@
                 <h3>Resultado do Teste:</h3>
                 <div id="testResultContent"></div>
             </div>
+        </div>
+
+        <!-- Totem Card Machine Configuration -->
+        <section id="totem-payment-config" class="content-section" style="display: none;">
+            <h2>Configuração da Máquina de Cartão para Totem</h2>
+            <p>Configure os dados da maquininha de cartão que será usada no totem</p>
+            
+            <div class="form-group">
+                <label for="totemMachineBrand">Marca da Máquina:</label>
+                <input type="text" id="totemMachineBrand" placeholder="Ex: MyGateway, PagSeguro, etc">
+            </div>
+            
+            <div class="form-group">
+                <label for="totemMachineModel">Modelo:</label>
+                <input type="text" id="totemMachineModel" placeholder="Ex: XYZ 200, Model A, etc">
+            </div>
+            
+            <div class="form-group">
+                <label for="totemConnectionType">Tipo de Conexão:</label>
+                <select id="totemConnectionType">
+                    <option value="usb">USB</option>
+                    <option value="bluetooth">Bluetooth</option>
+                    <option value="gateway">Gateway Online</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="totemMerchantId">Merchant ID / API Key:</label>
+                <input type="password" id="totemMerchantId" placeholder="Chave ou ID do comerciante">
+            </div>
+            
+            <div class="form-group">
+                <label for="totemMotoboyId">ID do Motoboy:</label>
+                <input type="text" id="totemMotoboyId" placeholder="ID do motoboy (opcional)">
+            </div>
+            
+            <div class="form-switch">
+                <label>Ativar Pagamento no Totem:</label>
+                <input type="checkbox" id="totemPaymentEnabled" checked>
+            </div>
+            
+            <button class="btn btn-success" onclick="saveTotemConfig()" style="background: #27ae60; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 1.1em; font-weight: bold; min-width: 180px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">💾 SALVAR CONFIGURAÇÃO DO TOTEM</button>
+            <button class="btn" onclick="clearTotemConfig()" style="background: #e74c3c; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 1.1em; font-weight: bold; min-width: 180px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🗑️ LIMPAR CONFIGURAÇÃO</button>
+            
+            <div id="totemConfigResult" class="form-group" style="margin-top: 20px; display: none;">
+                <div id="totemConfigMessage"></div>
+            </div>
         </section>
 
         <section id="tables" class="content-section">
@@ -3273,6 +3320,57 @@
                     <p><strong>Última atualização:</strong> ${new Date(config.updatedAt).toLocaleString('pt-BR')}</p>
                 </div>
             `;
+        }
+        
+        // Save totem card machine configuration to localStorage
+        function saveTotemConfig() {
+            const brand = document.getElementById('totemMachineBrand').value;
+            const model = document.getElementById('totemMachineModel').value;
+            const connectionType = document.getElementById('totemConnectionType').value;
+            const merchantId = document.getElementById('totemMerchantId').value;
+            const motoboyId = document.getElementById('totemMotoboyId').value;
+            const enabled = document.getElementById('totemPaymentEnabled').checked;
+            
+            if (!brand || !model || !connectionType) {
+                playTripleBeep(); // Som sonoro para campos obrigatórios
+                return;
+            }
+            
+            const config = {
+                brand: brand,
+                model: model,
+                connectionType: connectionType,
+                merchantId: merchantId || '',
+                motoboyId: motoboyId || '',
+                enabled: enabled
+            };
+            
+            localStorage.setItem('totemPaymentConfig', JSON.stringify(config));
+            playTripleBeep(); // Som sonoro para configuração salva
+            
+            // Show result
+            const resultDiv = document.getElementById('totemConfigResult');
+            const resultMsg = document.getElementById('totemConfigMessage');
+            resultMsg.innerHTML = `✅ Configuração do totem salva: ${brand} ${model} (${connectionType})`;
+            resultDiv.style.display = 'block';
+        }
+        
+        // Clear totem card machine configuration from localStorage
+        function clearTotemConfig() {
+            localStorage.removeItem('totemPaymentConfig');
+            // Reset form fields
+            document.getElementById('totemMachineBrand').value = '';
+            document.getElementById('totemMachineModel').value = '';
+            document.getElementById('totemConnectionType').value = '';
+            document.getElementById('totemMerchantId').value = '';
+            document.getElementById('totemMotoboyId').value = '';
+            document.getElementById('totemPaymentEnabled').checked = true;
+            
+            // Show result
+            const resultDiv = document.getElementById('totemConfigResult');
+            const resultMsg = document.getElementById('totemConfigMessage');
+            resultMsg.innerHTML = '✅ Configuração do totem limpa';
+            resultDiv.style.display = 'block';
         }
         
         // Load saved payment configuration on page load

@@ -1000,15 +1000,56 @@
         let myGateway = null;
         let currentTransactionId = null;
         
+        // Totem Payment Configuration
+        let totemPaymentConfig = null;
+        
+        // Carregar configuração do totem do localStorage
+        function loadTotemConfig() {
+            totemPaymentConfig = JSON.parse(localStorage.getItem('totemPaymentConfig') || 'null');
+            return totemPaymentConfig;
+        }
+        
         // Inicializar MyGateway
         function initMyGateway() {
             try {
                 myGateway = new MyGatewayIntegration();
                 console.log('[TOTEM] MyGateway inicializado com sucesso!');
                 
-                // Configurar IDs (viriam do seu backend)
-                myGateway.merchantId = 'merchant_id_demo';
-                myGateway.motoboyId = 'motoboy_id_demo';
+                // Carregar configuração do totem
+                const config = loadTotemConfig();
+                
+                // Aplicar configuração se existir
+                if (config) {
+                    myGateway.merchantId = config.merchantId || 'merchant_id_demo';
+                    myGateway.motoboyId = config.motoboyId || 'motoboy_id_demo';
+                    
+                    // Habilitar/desabilitar pagamento por cartão baseado na configuração
+                    const cardEnabled = config.enabled !== false; // Default: enabled
+                    document.getElementById('cardPaymentOption').disabled = !cardEnabled;
+                    
+                    if (!cardEnabled) {
+                        console.log('[TOTEM] Pagamento por cartão desabilitado na configuração');
+                    }
+                    
+                    console.log('[TOTEM] Configuração do totem aplicada:', {
+                        brand: config.brand,
+                        model: config.model,
+                        connectionType: config.connectionType,
+                        enabled: cardEnabled
+                    });
+                } else {
+                    console.log('[TOTEM] Nenhuma configuração do totem encontrada');
+                    // Manter valores padrão quando não há configuração
+                    myGateway.merchantId = 'merchant_id_demo';
+                    myGateway.motoboyId = 'motoboy_id_demo';
+                    // Desabilitar opção de cartão quando não há configuração
+                    const cardOption = document.querySelector('input[value="card"]');
+                    if (cardOption) {
+                        cardOption.disabled = true;
+                        cardOption.parentElement.style.opacity = '0.5';
+                        cardOption.parentElement.style.cursor = 'not-allowed';
+                    }
+                }
                 
             } catch (error) {
                 console.error('[TOTEM] Erro ao inicializar MyGateway:', error);
@@ -1367,6 +1408,16 @@
             try {
                 if (!myGateway) {
                     console.log('[TOTEM] MyGateway não inicializado; usando fluxo local do totem');
+                }
+                
+                // Verificar se pagamento por cartão está habilitado na configuração
+                const cardEnabled = totemPaymentConfig ? totemPaymentConfig.enabled !== false : true;
+                if (paymentMethod === 'card' && !cardEnabled) {
+                    alert('❌ Pagamento por cartão não está configurado. Por favor, configure a maquininha no painel do admin ou escolha Pix.');
+                    // Reset to Pix or show error
+                    const pixRadio = document.querySelector('input[value="pix"]');
+                    if (pixRadio) pixRadio.checked = true;
+                    return;
                 }
 
                 if (paymentMethod === 'pix') {
