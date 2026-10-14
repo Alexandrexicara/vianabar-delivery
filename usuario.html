@@ -914,11 +914,15 @@
                     <p>Tire dúvidas ou converse com o garçom</p>
                     <button class="btn btn-waiter" style="margin-top: 10px; width: 100%;">Chamar Garçom</button>
                 </div>
-                <div class="payment-option">
-                    <!-- Espaço reservado - vazio conforme solicitado -->
+                <div class="payment-option" onclick="selectPayment('pix', event)">
+                    <h3>Pagamento via PIX</h3>
+                    <p>Escaneie o QR Code ou copie a chave PIX.</p>
+                    <button class="btn btn-pix" style="margin-top: 10px; width: 100%;">Pagar com PIX</button>
                 </div>
                 <div class="payment-option" onclick="selectPayment('cash', event)">
-                    <!-- Espaço reservado para futura função -->
+                    <h3>Pagamento em Dinheiro</h3>
+                    <p>Solicite o garçom para receber em mesa.</p>
+                    <button class="btn btn-cash" style="margin-top: 10px; width: 100%;">Pagar em Dinheiro</button>
                 </div>
             </div>
             
@@ -1346,15 +1350,14 @@
         if (method === 'pix') {
             document.getElementById('pixPayment').style.display = 'block';
             updatePixAmount();
-            // Processar PIX com MyGateway
             processarPixMyGateway();
         } else if (method === 'card') {
             document.getElementById('cardPayment').style.display = 'block';
-            // Processar Cartão com MyGateway
+            callWaiterForPayment('cartão');
             processarCartaoMyGateway();
         } else if (method === 'cash') {
             document.getElementById('cashPayment').style.display = 'block';
-            // Processar Dinheiro com MyGateway
+            callWaiterForPayment('dinheiro');
             processarDinheiroMyGateway();
         }
     }
@@ -1573,8 +1576,24 @@
         }
 
         if (window.ws && window.ws.readyState === WebSocket.OPEN) {
-            window.ws.send(JSON.stringify({ type: 'callWaiter', table: customerData.tableNumber, paymentMethod: method, orderId: orderId }));
-            
+            const paymentPayload = {
+                type: 'requestPayment',
+                table: customerData.tableNumber,
+                paymentMethod: method,
+                orderId: orderId,
+                message: 'Cliente solicitando fechamento de conta/pagamento'
+            };
+            const waiterPayload = {
+                type: 'callWaiter',
+                table: customerData.tableNumber,
+                paymentMethod: method,
+                orderId: orderId,
+                message: 'Cliente solicitando atendimento para pagamento'
+            };
+
+            window.ws.send(JSON.stringify(paymentPayload));
+            window.ws.send(JSON.stringify(waiterPayload));
+
             const action = { type: 'callWaiter', orderId: orderId, paymentMethod: method, timestamp: new Date().toISOString() };
             saveUserAction(action);
 
@@ -2513,6 +2532,12 @@
         const orderId = document.getElementById('orderIdDisplay').textContent;
         
         if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+            window.ws.send(JSON.stringify({
+                type: 'updatePaymentStatus',
+                orderId: orderId,
+                paymentStatus: 'completed',
+                updatedBy: 'customer'
+            }));
             window.ws.send(JSON.stringify({
                 type: 'paymentConfirmed',
                 orderId: orderId,

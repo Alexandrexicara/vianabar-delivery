@@ -953,18 +953,7 @@
                             <span class="payment-icon">🟢</span>
                             <span class="payment-text">Google Pay</span>
                         </label>
-                        <label class="payment-option">
-                            <input type="radio" name="paymentMethod" value="money">
-                            <span class="payment-icon">💵</span>
-                            <span class="payment-text">Dinheiro</span>
-                        </label>
                     </div>
-                </div>
-                
-                <!-- Campo para Troco (apenas para Dinheiro) -->
-                <div class="form-group" id="changeGroup" style="display: none;">
-                    <label for="changeAmount">Precisa de Troco?</label>
-                    <input type="number" id="changeAmount" placeholder="Valor pago para troco (opcional)">
                 </div>
                 
                 <div class="form-buttons">
@@ -1336,13 +1325,8 @@
         
         // Manipular mudança de pagamento
         function handlePaymentChange() {
-            const changeGroup = document.getElementById('changeGroup');
             const selectedPayment = document.querySelector('input[name="paymentMethod"]:checked').value;
-            
             if (selectedPayment === 'money') {
-                changeGroup.style.display = 'block';
-            } else {
-                changeGroup.style.display = 'none';
                 document.getElementById('changeAmount').value = '';
             }
         }
@@ -1370,52 +1354,51 @@
                 const price = parseFloat(item.price) || 0;
                 return sum + (price * item.quantity);
             }, 0);
-        
-        // Dados do pedido
-        const pedido = {
-            cliente: { nome, cpf, whatsapp },
-            total: total,
-            metodoPagamento: paymentMethod,
-            motoboyId: myGateway.motoboyId,
-            numero: currentOrderNumber
-        };
+
+            // Esconder formulário antes da confirmação de pagamento
+            hideCustomerForm();
+            processRealPayment(customerData.nome, customerData.cpf, customerData.whatsapp, total, customerData.paymentMethod);
+        }
         
         // Processar Pagamento REAL com MyGateway
         async function processRealPayment(nome, cpf, whatsapp, total, paymentMethod) {
             console.log('[TOTEM] Processando pagamento REAL:', paymentMethod);
             
             try {
-                // Verificar se MyGateway está disponível
                 if (!myGateway) {
-                    console.log('[TOTEM] MyGateway não inicializado');
-                    alert('Sistema de pagamento não disponível');
+                    console.log('[TOTEM] MyGateway não inicializado; usando fluxo local do totem');
+                }
+
+                if (paymentMethod === 'pix') {
+                    if (myGateway && typeof myGateway.gerarQRCode === 'function') {
+                        const split = myGateway.calcularSplit ? myGateway.calcularSplit(total, paymentMethod) : { taxa: 0 };
+                        const pedido = {
+                            cliente: { nome, cpf, whatsapp },
+                            total: total,
+                            metodoPagamento: paymentMethod,
+                            motoboyId: myGateway?.motoboyId || null,
+                            numero: currentOrderNumber
+                        };
+                        const pixData = await myGateway.gerarQRCode(pedido);
+                        showPixScreenMyGateway(pixData, pedido, split);
+                        return;
+                    }
+                    const pixData = generatePixQrCode(total);
+                    showPixPaymentScreen(pixData, { nome, cpf, whatsapp }, total);
                     return;
                 }
-                
-                // Calcular split
-                const split = myGateway.calcularSplit(total, paymentMethod);
-                console.log('[TOTEM] Split calculado:', split);
-                
-                // Dados do pedido
-                const pedido = {
-                    cliente: { nome, cpf, whatsapp },
-                    total: total,
-                    metodoPagamento: paymentMethod,
-                    motoboyId: myGateway.motoboyId,
-                    numero: currentOrderNumber
-                };
-                
-                // Processar pagamento baseado no método
-                if (paymentMethod === 'pix') {
-                    await processarPixMyGateway(pedido, split);
-                } else if (paymentMethod === 'card') {
-                    await processarCartaoMyGateway(pedido, split);
-                } else if (paymentMethod === 'googlepay') {
-                    await processarGooglePayMyGateway(pedido, split);
-                } else if (paymentMethod === 'money') {
-                    await processarDinheiroMyGateway(pedido, split);
+
+                if (paymentMethod === 'card') {
+                    processCardPayment({ nome, cpf, whatsapp }, total);
+                    return;
                 }
-                
+
+                if (paymentMethod === 'googlepay') {
+                    processGooglePayPayment({ nome, cpf, whatsapp }, total);
+                    return;
+                }
+
+                alert('Forma de pagamento não suportada.');
             } catch (error) {
                 console.error('[TOTEM] Erro no pagamento:', error);
                 alert('Erro ao processar pagamento: ' + error.message);
@@ -1565,28 +1548,15 @@
                 console.error('[TOTEM] Erro ao verificar pagamento:', error);
                 alert('Erro ao verificar pagamento');
             }
-        }    // Dados reais para PIX (simulação de API)
-            const pixKey = 'celio-santos-silva@pix.com.br'; // Chave PIX real
+        }
+
+        // Dados reais para PIX (simulação de API)
+        function generatePixQrCode(total) {
+            const pixKey = 'celio-santos-silva@pix.com.br';
             const merchantName = 'Celio Santos Silva';
             const merchantCity = 'Januaria';
             const transactionId = `PEDIDO${currentOrderNumber}${Date.now()}`;
-            
-            // Gerar QR Code PIX
-            function generatePixQrCode(total) {
-                // Dados reais para PIX (simulação de API)
-                const pixKey = 'celio-santos-silva@pix.com.br'; // Chave PIX real
-                const merchantName = 'Celio Santos Silva';
-                const merchantCity = 'Januaria';
-                const transactionId = `PEDIDO${currentOrderNumber}${Date.now()}`;
-                
-                return {
-                    qrCode: `00020126360014BR.GOV.BCB.BRCODEB011${pixKey}520400005303986540${total.toFixed(2).replace('.', '')}5802BR5913${merchantName}6009${merchantCity}62070503***6304${transactionId}`,
-                    pixKey: pixKey,
-                    amount: total.toFixed(2),
-                    merchantName: merchantName,
-                    transactionId: transactionId
-                };
-            }
+
             return {
                 qrCode: `00020126360014BR.GOV.BCB.BRCODEB011${pixKey}520400005303986540${total.toFixed(2).replace('.', '')}5802BR5913${merchantName}6009${merchantCity}62070503***6304${transactionId}`,
                 pixKey: pixKey,
@@ -1595,7 +1565,7 @@
                 transactionId: transactionId
             };
         }
-        
+
         // Mostrar Tela de Pagamento PIX
         function showPixPaymentScreen(pixData, customerData, total) {
             // Esconder formulário
@@ -2440,7 +2410,7 @@
             
             // Criar pedido
             const order = {
-                id: currentOrderNumber,
+                id: `TOTEM-${currentOrderNumber}`,
                 customer: {
                     nome: nome,
                     cpf: cpf,
@@ -2451,17 +2421,20 @@
                 items: cart.map(item => ({
                     name: item.name,
                     quantity: item.quantity,
-                    price: parseFloat(item.price) || 0
+                    price: parseFloat(item.price) || 0,
+                    sector: item.sector || 'counter'
                 })),
                 total: total,
                 paymentMethod: paymentMethod,
                 changeAmount: changeValue || null,
                 timestamp: new Date().toISOString(),
-                status: 'paid'
+                status: 'pending',
+                paymentStatus: 'completed'
             };
             
             // Salvar pedido
             saveOrder(order);
+            currentOrderNumber += 1;
             
             // Mostrar tela de sucesso
             showSuccessScreen();
@@ -2522,7 +2495,6 @@
             
             // Enviar via WebSocket para todos os setores
             if (ws && ws.readyState === WebSocket.OPEN) {
-                // Preparar pedido no formato compatível
                 const wsOrder = {
                     type: 'submitOrder',
                     order: {
@@ -2532,11 +2504,11 @@
                             name: item.name,
                             quantity: item.quantity,
                             price: item.price,
-                            sector: 'counter'  // Totem vai para balcão
+                            sector: item.sector || 'counter'
                         })),
                         total: order.total,
                         paymentMethod: order.paymentMethod,
-                        paymentStatus: 'paid',
+                        paymentStatus: 'completed',
                         status: 'pending',
                         orderType: 'totem',
                         customer: order.customer,
@@ -2546,7 +2518,13 @@
                 };
                 
                 ws.send(JSON.stringify(wsOrder));
-                console.log('[TOTEM] Pedido enviado via WebSocket');
+                ws.send(JSON.stringify({
+                    type: 'updatePaymentStatus',
+                    orderId: order.id,
+                    paymentStatus: 'completed',
+                    updatedBy: 'totem'
+                }));
+                console.log('[TOTEM] Pedido e confirmação de pagamento enviados via WebSocket');
             } else {
                 console.warn('[TOTEM] WebSocket não conectado, salvando só no localStorage');
             }
@@ -2579,13 +2557,6 @@
             
             let paymentInfo = `💳 *PAGAMENTO:* ${paymentMethodText[order.paymentMethod] || order.paymentMethod}`;
             
-            if (order.paymentMethod === 'money' && order.changeAmount) {
-                const changeAmount = parseFloat(order.changeAmount) || 0;
-                if (changeAmount > order.total) {
-                    const change = changeAmount - order.total;
-                    paymentInfo += `\n💵 *TROCO NECESSÁRIO:* R$ ${change.toFixed(2)}`;
-                }
-            }
             
             const message = `
 🍽️ *NOVO PEDIDO - #${order.id}*

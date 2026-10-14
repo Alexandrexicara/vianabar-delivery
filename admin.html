@@ -1972,6 +1972,19 @@
                         timestamp: new Date().toISOString()
                     };
                     saveOrderAction(action);
+                } else if (data.type === 'requestPayment') {
+                    const message = `A Mesa ${data.table} solicitou fechamento de conta / pagamento via ${data.paymentMethod}.`;
+                    playTripleBeep(); // Som sonoro para solicitação de fechamento
+                    addNotificationToDashboard(message, data.orderId || null);
+
+                    const action = {
+                        type: 'requestPayment',
+                        table: data.table,
+                        paymentMethod: data.paymentMethod,
+                        orderId: data.orderId,
+                        timestamp: new Date().toISOString()
+                    };
+                    saveOrderAction(action);
                 } else if (data.type === 'orderRemoved') {
                     // Remove the order card from all relevant sections in the UI
                     console.log(`Removing order ${data.orderId} from UI`);

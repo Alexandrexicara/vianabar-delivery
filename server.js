@@ -504,6 +504,28 @@ wss.on('connection', (ws) => {
         });
         
         console.log('[DEBUG] Servidor: Total de garçons notificados:', waiterCount);
+      } else if (data.type === 'requestPayment') {
+        // Handle request payment/account closing from customer
+        console.log('Payment request received for table:', data.table, 'payment method:', data.paymentMethod);
+
+        const paymentRequestMessage = JSON.stringify({
+          type: 'requestPayment',
+          table: data.table,
+          paymentMethod: data.paymentMethod,
+          orderId: data.orderId,
+          message: data.message || 'Cliente solicitando fechamento de conta/pagamento.'
+        });
+
+        clients.forEach((client, id) => {
+          if ((client.role === 'admin' || client.role === 'waiter') && client.readyState === WebSocket.OPEN) {
+            client.send(paymentRequestMessage);
+          }
+        });
+
+        ws.send(JSON.stringify({
+          type: 'callWaiterConfirmation',
+          message: 'Garçom foi notificado para atendimento de pagamento.'
+        }));
       } else if (data.type === 'callWaiter') {
         // Handle call waiter request from customer
         console.log('Call waiter request received for table:', data.table, 'payment method:', data.paymentMethod);
