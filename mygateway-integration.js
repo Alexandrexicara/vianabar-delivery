@@ -3,7 +3,7 @@
 
 class MyGatewayIntegration {
     constructor() {
-        this.apiKey = 'SEU_API_KEY_MYGATEWAY';
+        this.apiKey = 
         this.baseURL = 'https://api.mygateway.com/v1';
         this.mygatewayUrls = {
             registration: 'https://mygateway.com.br/cadastro',

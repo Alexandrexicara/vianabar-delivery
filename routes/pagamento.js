@@ -14,7 +14,11 @@ const {
 // Criar pedido
 router.post("/criar", (req, res) => {
   try {
-    const pedido = criarPedido(req.body);
+    const { vendedorId, motoboyId, valor, metodo, merchantId, clientId } = req.body;
+    if (!merchantId || !clientId) {
+      return res.status(400).json({ success: false, error: "merchantId and clientId are required" });
+    }
+    const pedido = criarPedido({ vendedorId, motoboyId, valor, metodo, merchantId, clientId });
     res.json({ success: true, data: pedido });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });

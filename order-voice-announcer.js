@@ -40,14 +40,25 @@
         const itemsText = items ? ` Itens: ${items}.` : '';
         const message = `Novo pedido número ${orderId}.${customerText}${itemsText}${location}.`;
 
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(message);
-        utterance.lang = 'pt-BR';
-        utterance.rate = 0.95;
-        utterance.pitch = 1;
-        utterance.volume = 1;
-        window.speechSynthesis.speak(utterance);
-        console.log('[VOICE] Anunciando pedido:', message);
+        // Anunciar pedido usando ElevenLabs API
+        const apiKey = 'sk_24897df608e0ff85018935b958591f53953a7228e4b533a4b533a4b533a4b533a7228e';
+        fetch('https://api.elevenlabs.io/v1/text-to-speech', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                text: message
+            })
+        })
+        .then(response => response.blob())
+        .then(blob => {
+            const audioUrl = URL.createObjectURL(blob);
+            const audio = new Audio(audioUrl);
+            audio.play();
+        })
+        .catch(error => console.error('Erro ao anunciar pedido:', error));
         return true;
     };
 })();
