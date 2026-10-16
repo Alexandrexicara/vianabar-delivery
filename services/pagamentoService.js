@@ -5,7 +5,7 @@ const { log, logError, logSuccess } = require("../utils/logs");
 const TAXA_PLATAFORMA = 1; // R$1
 const TAXA_MOTOBOY = 10; // R$10 (fixo exemplo)
 
-function criarPedido({ vendedorId, motoboyId, valor, metodo }) {
+function criarPedido({ vendedorId, motoboyId, valor, metodo, merchantId, clientId }) {
   const id = uuidv4();
 
   const comissao = TAXA_PLATAFORMA;
@@ -16,13 +16,18 @@ function criarPedido({ vendedorId, motoboyId, valor, metodo }) {
     id,
     vendedorId,
     motoboyId,
+    merchantId,
+    clientId,
     valor,
     comissao,
     valorMotoboy,
     valorVendedor,
     metodo,
     status: "criado",
-    createdAt: new Date().toISOString()
+    paymentStatus: "pending",
+    createdAt: new Date().toISOString(),
+    chargeId: null,
+    chargeStatus: "pending"
   };
 
   pedidos[id] = pedido;

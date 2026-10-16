@@ -28,6 +28,7 @@ app.use("/vendedor", require("./routes/vendedor"));
 app.use("/motoboy", require("./routes/motoboy"));
 app.use("/google-pay", require("./routes/google-pay"));
 app.use("/anti-chargeback", require("./routes/antiChargeback"));
+app.use("/woovi", require("./routes/woovi"));
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
