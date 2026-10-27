@@ -82,7 +82,24 @@
             width: 100%;
             box-sizing: border-box;
         }
-        
+
+        .tabs {
+            display: flex;
+            background-color: white;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 15px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
         /* Responsividade para a área de usuário */
         @media (max-width: 768px) {
             .container {
@@ -91,12 +108,22 @@
             }
             
             .tabs {
-                flex-wrap: wrap;
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+            }
+            
+            .tabs::-webkit-scrollbar {
+                display: none;
             }
             
             .tab {
-                flex: 1 0 auto;
-                min-width: 100px;
+                flex: 0 0 auto;
+                min-width: auto;
+                padding: 10px 12px;
+                font-size: 14px;
+                white-space: nowrap;
             }
             
             .menu-categories {
@@ -108,7 +135,8 @@
             }
             
             .menu-items {
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                gap: 12px;
             }
         }
         
@@ -118,15 +146,28 @@
             }
             
             .tabs {
-                flex-direction: column;
+                flex-direction: row;
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+            }
+            
+            .tabs::-webkit-scrollbar {
+                display: none;
             }
             
             .tab {
-                min-width: 100%;
+                flex: 0 0 auto;
+                min-width: auto;
+                padding: 10px 12px;
+                font-size: 14px;
+                white-space: nowrap;
             }
             
             .menu-items {
                 grid-template-columns: 1fr;
+                gap: 12px;
             }
             
             .cart-summary {
@@ -191,6 +232,7 @@
                 width: 350px;
             }
         }
+        
         header {
             /* background will be set by JavaScript */
             color: white;
@@ -209,21 +251,6 @@
         .establishment-info {
             text-align: right;
             font-size: 14px;
-        }
-        .tabs {
-            display: flex;
-            background-color: white;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .tab {
-            flex: 1;
-            text-align: center;
-            padding: 15px;
-            cursor: pointer;
-            transition: background-color 0.3s;
         }
         .tab.active {
             background-color: #e74c3c;
@@ -808,24 +835,7 @@
                 
                 <div class="form-group">
                     <label for="tableNumber">Número da Mesa *</label>
-                    <select id="tableNumber" required>
-                        <option value="">Selecione sua mesa</option>
-                        <option value="1">Mesa 01</option>
-                        <option value="2">Mesa 02</option>
-                        <option value="3">Mesa 03</option>
-                        <option value="4">Mesa 04</option>
-                        <option value="5">Mesa 05</option>
-                        <option value="6">Mesa 06</option>
-                        <option value="7">Mesa 07</option>
-                        <option value="8">Mesa 08</option>
-                        <option value="9">Mesa 09</option>
-                        <option value="10">Mesa 10</option>
-                        <option value="11">Mesa 11</option>
-                        <option value="12">Mesa 12</option>
-                        <option value="13">Mesa 13</option>
-                        <option value="14">Mesa 14</option>
-                        <option value="15">Mesa 15</option>
-                    </select>
+                    <input type="text" id="tableNumber" required placeholder="Ex: 01" maxlength="10">
                 </div>
                 
                 <div class="form-group">
