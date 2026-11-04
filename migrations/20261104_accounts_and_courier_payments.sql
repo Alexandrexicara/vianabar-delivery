@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS motoboys (
  cpf_hash CHAR(64) NOT NULL, cpf_encrypted TEXT NOT NULL, password_hash TEXT NOT NULL,
  vehicle_data JSONB NOT NULL DEFAULT '{}'::jsonb, cnh_data JSONB NOT NULL DEFAULT '{}'::jsonb,
  pix_key_encrypted TEXT NOT NULL, pix_key_type VARCHAR(12) NOT NULL,
- status VARCHAR(20) NOT NULL DEFAULT 'pending', created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ status VARCHAR(20) NOT NULL DEFAULT 'active', created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS motoboys_email_lower_unique ON motoboys(LOWER(email));
