@@ -128,8 +128,7 @@ app.get('*.html', (req, res) => {
     <script src="mygateway-autoloader.js"></script>`;
       
       if (html.includes('</head>')) {
-        html = html.replace('</head>', autoLoaderScript + '
-  </head>');
+        html = html.replace('</head>', autoLoaderScript + '\n  </head>');
         console.log(`[SERVER] ✅ MyGateway injetado em ${req.path}`);
       }
     }
