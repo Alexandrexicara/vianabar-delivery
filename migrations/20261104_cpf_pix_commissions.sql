@@ -32,6 +32,7 @@ ALTER TABLE merchants ADD COLUMN IF NOT EXISTS document_type VARCHAR(4);
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS document_number VARCHAR(14);
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS password_hash TEXT;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS pix_key TEXT;
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS pix_key_encrypted TEXT;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS pix_key_type VARCHAR(12);
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS woovi_app_id_encrypted TEXT;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS woovi_credentials_verified_at TIMESTAMPTZ;
