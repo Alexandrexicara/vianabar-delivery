@@ -36,3 +36,14 @@ CREATE TABLE IF NOT EXISTS motoboy_payouts (
  confirmed_at TIMESTAMPTZ, payload JSONB
 );
 CREATE INDEX IF NOT EXISTS motoboy_payouts_queue_idx ON motoboy_payouts(merchant_id,status,created_at);
+
+ALTER TABLE motoboy_deliveries ADD COLUMN IF NOT EXISTS reserved_cents INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE merchant_commissions ADD COLUMN IF NOT EXISTS reserved_cents INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE woovi_charges ADD COLUMN IF NOT EXISTS split_allocations JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE woovi_payouts ADD COLUMN IF NOT EXISTS allocation_key TEXT;
+ALTER TABLE woovi_payouts ADD COLUMN IF NOT EXISTS motoboy_id BIGINT REFERENCES motoboys(id) ON DELETE RESTRICT;
+ALTER TABLE woovi_payouts ADD COLUMN IF NOT EXISTS delivery_id BIGINT REFERENCES motoboy_deliveries(id) ON DELETE RESTRICT;
+ALTER TABLE woovi_payouts ADD COLUMN IF NOT EXISTS recipient_pix_key_encrypted TEXT;
+ALTER TABLE woovi_payouts ADD COLUMN IF NOT EXISTS allocation_details JSONB;
+CREATE UNIQUE INDEX IF NOT EXISTS woovi_payouts_charge_allocation_unique
+  ON woovi_payouts(charge_id,allocation_key) WHERE allocation_key IS NOT NULL;
