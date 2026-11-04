@@ -233,11 +233,6 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
     const platformPixType = String(process.env.PLATFORM_PIX_KEY_TYPE || inferPixKeyType(platformPixKey) || '').toUpperCase();
     if (!merchantPixType || !platformPixType) return res.status(400).json({ success: false, error: 'Informe tipos válidos para a chave Pix do comerciante e PLATFORM_PIX_KEY_TYPE (CPF, CNPJ, EMAIL, PHONE ou RANDOM).'});
     const encrypted = encryptSecret(appId);
-    const verified = await fetch((process.env.WOOVI_BASE_URL || 'https://api.woovi.com') + '/api/v1/charge', {
-      headers: { Authorization: appId, Accept: 'application/json' }
-    });
-    const data = await verified.json().catch(() => ({}));
-    if (!verified.ok) return res.status(400).json({ success: false, error: data?.errors?.[0]?.message || 'A Woovi recusou o AppID informado.' });
     const publicApiUrl = String(process.env.PUBLIC_API_URL || '').replace(/\/$/, '');
     const webhookToken = process.env.WOOVI_WEBHOOK_AUTH_TOKEN || '';
     if (!publicApiUrl || !webhookToken || !platformPixKey) {
