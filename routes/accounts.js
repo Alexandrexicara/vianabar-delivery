@@ -70,7 +70,7 @@ router.post('/motoboy/register',async(req,res)=>{
   const r=await query(`INSERT INTO motoboys(name,email,phone,cpf_hash,cpf_encrypted,password_hash,vehicle_data,cnh_data,pix_key_encrypted,pix_key_type,status)
    VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10,'active')
    RETURNING id,name,email,phone,status,created_at`,
-   [name,email,phone,hash,encryptSecret(cpf),hashPassword(password),JSON.stringify(b.vehicle||{}),JSON.stringify(b.cnh||{}),encryptSecret(pixKey),pixKeyType]);
+   [name,email,phone,hash,encryptSecret(cpf),hashPassword(password),JSON.stringify(b.vehicle||{}),JSON.stringify({number_encrypted:encryptSecret(String(b.cnh?.number||'')),category:String(b.cnh?.category||'')}),encryptSecret(pixKey),pixKeyType]);
   res.status(201).json({success:true,motoboy:r.rows[0],token:issueToken('motoboy',r.rows[0].id),message:'Cadastro recebido e aguardando aprovação.'});
  } catch(e){if(e.code==='23505')return res.status(409).json({success:false,error:'Este e-mail ou CPF já está cadastrado.'});
   console.error('[MOTOBOY REGISTER]',e);res.status(500).json({success:false,error:'Não foi possível concluir o cadastro do motoboy.'});}
@@ -86,7 +86,7 @@ router.post('/motoboy/login',async(req,res)=>{
 });
 router.get('/motoboy/me',auth('motoboy'),async(req,res)=>{
  try {
-  const r=await query('SELECT id,name,email,phone,status,vehicle_data,cnh_data,created_at FROM motoboys WHERE id=$1',[req.accountId]);
+  const r=await query('SELECT id,name,email,phone,status,vehicle_data,created_at FROM motoboys WHERE id=$1',[req.accountId]);
   if(!r.rows[0])return res.status(404).json({success:false,error:'Motoboy não encontrado.'});
   const b=await query(`SELECT COALESCE(SUM(amount_cents-paid_cents),0)::bigint AS pending_cents,
     MIN(due_at) FILTER(WHERE paid_cents<amount_cents) AS next_due_at FROM motoboy_deliveries WHERE motoboy_id=$1`,[req.accountId]);
