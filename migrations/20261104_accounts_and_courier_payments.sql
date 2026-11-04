@@ -47,3 +47,5 @@ ALTER TABLE woovi_payouts ADD COLUMN IF NOT EXISTS recipient_pix_key_encrypted T
 ALTER TABLE woovi_payouts ADD COLUMN IF NOT EXISTS allocation_details JSONB;
 CREATE UNIQUE INDEX IF NOT EXISTS woovi_payouts_charge_allocation_unique
   ON woovi_payouts(charge_id,allocation_key) WHERE allocation_key IS NOT NULL;
+
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS delivery_collection_consent_at TIMESTAMPTZ;
