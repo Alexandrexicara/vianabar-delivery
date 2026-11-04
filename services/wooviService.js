@@ -98,7 +98,7 @@ async function createMerchantCharge({ merchantId, orderReference, valueCents, de
     if (!merchant.pix_collection_consent_at) throw new Error('O comerciante ainda não autorizou a cobrança automática de débitos.');
     if (!PLATFORM_PIX_KEY) throw new Error('PLATFORM_PIX_KEY não configurada.');
     arrearsSplit = valueCents;
-    payload.splits = [{ value: valueCents, pixKey: activePixRecipient, pixKeyType: activePixKeyType, splitType: 'SPLIT_SUB_ACCOUNT' }];
+    payload.splits = [{ value: valueCents, pixKey: activePixRecipient, splitType: 'SPLIT_SUB_ACCOUNT' }];
   }
   const response = await wooviRequest(appId, '/api/v1/charge', { method: 'POST', body: JSON.stringify(payload) });
   const charge = response.charge || response;
