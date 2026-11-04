@@ -258,34 +258,6 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
       return res.status(503).json({ success: false, error: 'Configure PUBLIC_API_URL, WOOVI_WEBHOOK_AUTH_TOKEN e PLATFORM_PIX_KEY no servidor.' });
     }
 
-    // Define a chave original do comerciante como destino normal dos saques da conta.
-    // Durante atraso, a cobrança é desviada para a subconta da plataforma; a chave normal não é apagada.
-    const baseUrl = String(process.env.WOOVI_BASE_URL || 'https://api.woovi.com').replace(/\/+$/, '');
-    const withdrawUrl = baseUrl + '/api/v1/pix-keys/withdraw';
-    let withdrawResponse = await fetch(withdrawUrl, {
-      method: 'POST',
-      headers: { Authorization: appId, 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ pixKey: merchantPixKey, pixKeyType: merchantPixType })
-    });
-    let withdrawData = await withdrawResponse.json().catch(() => ({}));
-    if (!withdrawResponse.ok) {
-      const withdrawError = String(withdrawData?.error || withdrawData?.message || withdrawData?.errors?.[0]?.message || '');
-      if (withdrawResponse.status === 400 && /já existente|existing pix key|already exists|already registered/i.test(withdrawError)) {
-        withdrawResponse = await fetch(withdrawUrl, {
-          method: 'PUT',
-          headers: { Authorization: appId, 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ pixKey: merchantPixKey, pixKeyType: merchantPixType })
-        });
-        withdrawData = await withdrawResponse.json().catch(() => ({}));
-      }
-      if (!withdrawResponse.ok) {
-        return res.status(400).json({
-          success: false,
-          error: withdrawData?.error || withdrawData?.message || withdrawData?.errors?.[0]?.message ||
-            'A Woovi não permitiu configurar a chave Pix original como destino normal de saque. Habilite a API de chave Pix de saque e os escopos PIX_KEY_WITHDRAW_POST/PUT.'
-        });
-      }
-    }
     // A API devolve subAccounts como objeto { subaccount: {...} } e pagina os resultados.
     const subaccounts = [];
     let skip = 0;
@@ -306,19 +278,30 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
       hasNextPage = pageInfo.hasNextPage === true;
       skip += Number(pageInfo.limit || 100);
     }
+    if (merchantPixKey === platformPixKey) return res.status(400).json({ success: false, error: 'A chave Pix do comerciante precisa ser diferente da chave Pix da plataforma.' });
+    const merchantSubaccount = subaccounts.find(item => (item.pixKey || item.pix_key) === merchantPixKey);
     const platformSubaccount = subaccounts.find(item => (item.pixKey || item.pix_key) === platformPixKey);
-    if (platformSubaccount?.withdrawBlocked === true) return res.status(400).json({ success: false, error: 'A subconta da chave Pix da plataforma está bloqueada para saque na Woovi. Corrija a chave e solicite o desbloqueio antes de ativar.' });
-    const hasPlatformSubaccount = Boolean(platformSubaccount);
-    if (!hasPlatformSubaccount) {
+    if (merchantSubaccount?.withdrawBlocked === true) return res.status(400).json({ success: false, error: 'A chave Pix original do comerciante está bloqueada para saque na Woovi. Corrija a chave e solicite o desbloqueio.' });
+    if (platformSubaccount?.withdrawBlocked === true) return res.status(400).json({ success: false, error: 'A subconta da chave Pix da plataforma está bloqueada para saque na Woovi. Corrija a chave e solicite o desbloqueio.' });
+    if (!merchantSubaccount) {
+      const merchantSubaccountResponse = await fetch(baseUrl + '/api/v1/subaccount', {
+        method: 'POST',
+        headers: { Authorization: appId, 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ name: 'Vianas Bar - Recebimento do comerciante', pixKey: merchantPixKey, pixKeyType: merchantPixType })
+      });
+      const merchantSubaccountData = await merchantSubaccountResponse.json().catch(() => ({}));
+      if (!merchantSubaccountResponse.ok) return res.status(400).json({ success: false, error: merchantSubaccountData?.errors?.[0]?.message || merchantSubaccountData?.message || 'Não foi possível criar a subconta Pix do comerciante.' });
+      const createdMerchantSubaccount = merchantSubaccountData.SubAccount || merchantSubaccountData.subAccount || {};
+      if (createdMerchantSubaccount.withdrawBlocked === true) return res.status(400).json({ success: false, error: 'A subconta da chave original do comerciante está bloqueada para saque.' });
+    }
+    if (!platformSubaccount) {
       const subaccountResponse = await fetch(baseUrl + '/api/v1/subaccount', {
         method: 'POST',
         headers: { Authorization: appId, 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ name: 'Vianas Bar - Comissão da plataforma', pixKey: platformPixKey, pixKeyType: platformPixType })
       });
       const subaccountData = await subaccountResponse.json().catch(() => ({}));
-      if (!subaccountResponse.ok) {
-        return res.status(400).json({ success: false, error: subaccountData?.errors?.[0]?.message || subaccountData?.message || 'Não foi possível criar a subconta Pix da plataforma.' });
-      }
+      if (!subaccountResponse.ok) return res.status(400).json({ success: false, error: subaccountData?.errors?.[0]?.message || subaccountData?.message || 'Não foi possível criar a subconta Pix da plataforma.' });
       const createdSubaccount = subaccountData.SubAccount || subaccountData.subAccount || {};
       if (createdSubaccount.withdrawBlocked === true) return res.status(400).json({ success: false, error: 'A Woovi criou a subconta, mas bloqueou o saque para a chave Pix da plataforma. Verifique se a chave está ativa e peça o desbloqueio.' });
     }
