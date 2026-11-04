@@ -5,6 +5,7 @@ const httpPort = process.env.PORT || 3002;
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const crypto = require('crypto');
 const WebSocket = require('ws');
 const express = require('express');
 const multer = require('multer');
@@ -589,23 +590,11 @@ wss.on('connection', (ws) => {
           }));
         }
       } else if (data.type === 'motoboyLogin') {
-        // Handle motoboy login
-        console.log('[DELIVERY] Motoboy logged in:', data.motoboyInfo);
-        ws.role = 'motoboy';
-        ws.motoboyInfo = data.motoboyInfo;
-        
-        // Send existing delivery orders to motoboy
-        ws.send(JSON.stringify({
-          type: 'existingDeliveryOrders',
-          orders: deliveryOrders.filter(o => ['pending', 'accepted', 'preparing', 'delivering'].includes(o.status))
-        }));
-        
-        // Broadcast to admins that a motoboy is available
-        broadcastToAdmins({
-          type: 'motoboyAvailable',
-          motoboyInfo: data.motoboyInfo
+        console.log('[DELIVERY] Validando sessão do motoboy:', data.motoboyInfo?.id);
+        authenticateMotoboySocket(ws, data).catch(error => {
+          console.error('[DELIVERY] Falha na autenticação do motoboy:', error);
+          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type:'motoboyLoginError', message:'Não foi possível validar sua conta.' }));
         });
-        
       } else if (data.type === 'submitDeliveryOrder') {
         // Handle new delivery order
         if (!data.order || !data.order.id || !Array.isArray(data.order.items)) {
@@ -785,6 +774,42 @@ wss.on('connection', (ws) => {
   });
 });
 
+
+
+function verifyMotoboySocketToken(token) {
+  const secret = process.env.ACCOUNT_AUTH_SECRET || process.env.MERCHANT_AUTH_SECRET || '';
+  if (!secret || !token) return null;
+  const parts = String(token).split('.');
+  if (parts.length !== 3) return null;
+  const expected = crypto.createHmac('sha256', secret).update(parts[0] + '.' + parts[1]).digest();
+  const supplied = Buffer.from(parts[2], 'base64url');
+  if (expected.length !== supplied.length || !crypto.timingSafeEqual(expected, supplied)) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    if (payload.typ !== 'motoboy' || !payload.sub || payload.exp < Math.floor(Date.now()/1000)) return null;
+    return Number(payload.sub);
+  } catch (_) { return null; }
+}
+async function authenticateMotoboySocket(ws, data) {
+  const id = verifyMotoboySocketToken(data.token || data.motoboyInfo?.token);
+  if (!id) {
+    ws.send(JSON.stringify({ type:'motoboyLoginError', message:'Autenticação inválida. Entre novamente.' }));
+    return;
+  }
+  const result = await dbQuery('SELECT id,name,phone,status FROM motoboys WHERE id=$1 LIMIT 1', [id]);
+  const account = result.rows[0];
+  if (!account || account.status !== 'active') {
+    ws.send(JSON.stringify({ type:'motoboyLoginError', message:'Conta não autorizada para receber entregas.' }));
+    return;
+  }
+  ws.role = 'motoboy';
+  ws.motoboyInfo = { id:account.id, name:account.name, phone:account.phone };
+  ws.send(JSON.stringify({
+    type:'existingDeliveryOrders',
+    orders:deliveryOrders.filter(o => ['pending','accepted','preparing','delivering'].includes(o.status))
+  }));
+  broadcastToAdmins({ type:'motoboyAvailable', motoboyInfo:ws.motoboyInfo });
+}
 
 async function persistMotoboyDeliveryPayable(order) {
   const motoboyId = Number(order?.motoboyId);
