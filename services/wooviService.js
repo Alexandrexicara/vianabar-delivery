@@ -63,7 +63,22 @@ async function createMerchantCharge({ merchantId, orderReference, valueCents, de
      valueCents, arrearsSplit, response.brCode || charge.brCode || null, charge.paymentLinkUrl || null]
   );
   if (overdueDebt > 0) await query('UPDATE merchants SET payout_suspended=TRUE WHERE id=$1', [merchantId]);
-  return { success: true, charge: inserted.rows[0], qrCode: response.brCode || charge.brCode || null, paymentLinkUrl: charge.paymentLinkUrl || null };
+  return { success: true, charge: inserted.rows[0], qrCode: response.brCode || charge.brCode || null, qrCodeImage: response.qrCodeImage || charge.qrCodeImage || null, paymentLinkUrl: charge.paymentLinkUrl || null };
+}
+async function createMerchantChargeBySlug({ storeSlug, orderReference, valueCents, description }) {
+  const result = await query('SELECT id FROM merchants WHERE store_slug=$1 AND status=\\'active\\' LIMIT 1', [storeSlug]);
+  if (!result.rows[0]) throw new Error('Loja não encontrada ou ainda não ativada para receber Pix.');
+  return createMerchantCharge({ merchantId: result.rows[0].id, orderReference, valueCents, description });
+}
+async function getPublicChargeStatus({ storeSlug, correlationID }) {
+  const result = await query(
+    `SELECT c.correlation_id, c.status, c.amount_cents, c.paid_at
+       FROM woovi_charges c JOIN merchants m ON m.id=c.merchant_id
+      WHERE m.store_slug=$1 AND c.correlation_id=$2 LIMIT 1`,
+    [storeSlug, correlationID]
+  );
+  if (!result.rows[0]) throw new Error('Cobrança não encontrada.');
+  return result.rows[0];
 }
 async function applyArrearsPayment(client, merchantId, amountCents) {
   let remaining = amountCents;
@@ -116,4 +131,4 @@ async function processChargeCompleted(body) {
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
 }
-module.exports = { createMerchantCharge, processChargeCompleted, decryptSecret, wooviRequest };
+module.exports = { createMerchantCharge, createMerchantChargeBySlug, getPublicChargeStatus, processChargeCompleted, decryptSecret, wooviRequest };
