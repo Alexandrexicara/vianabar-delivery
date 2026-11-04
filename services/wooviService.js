@@ -3,9 +3,9 @@ const { query, pool } = require('../database');
 
 function inferPixKeyType(value) {
   const key = String(value || '').trim();
-  if (/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(key)) return 'EMAIL';
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(key)) return 'EMAIL';
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key)) return 'RANDOM';
-  const digits = key.replace(/\\D/g, '');
+  const digits = key.replace(/\D/g, '');
   if (digits.length === 11) return 'CPF';
   if (digits.length === 14) return 'CNPJ';
   if (key.startsWith('+')) return 'PHONE';
@@ -13,8 +13,8 @@ function inferPixKeyType(value) {
 }
 function normalizePixKey(value, type) {
   const key = String(value || '').trim();
-  if (type === 'CPF' || type === 'CNPJ') return key.replace(/\\D/g, '');
-  if (type === 'PHONE') return '+' + key.replace(/\\D/g, '');
+  if (type === 'CPF' || type === 'CNPJ') return key.replace(/\D/g, '');
+  if (type === 'PHONE') return '+' + key.replace(/\D/g, '');
   return key;
 }
 const WOOVI_BASE_URL = process.env.WOOVI_BASE_URL || 'https://api.woovi.com';
