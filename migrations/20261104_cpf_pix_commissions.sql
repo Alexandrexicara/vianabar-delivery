@@ -2,7 +2,6 @@
 ALTER TABLE merchants ALTER COLUMN establishment_id DROP NOT NULL;
 ALTER TABLE merchants ALTER COLUMN woovi_app_id DROP NOT NULL;
 ALTER TABLE merchants ALTER COLUMN woovi_api_key DROP NOT NULL;
-
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS establishment_name TEXT;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS owner_name TEXT;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS email TEXT;
@@ -15,14 +14,10 @@ ALTER TABLE merchants ADD COLUMN IF NOT EXISTS pix_key_type VARCHAR(12);
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS woovi_app_id_encrypted TEXT;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS woovi_credentials_verified_at TIMESTAMPTZ;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS pix_collection_consent_at TIMESTAMPTZ;
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS commission_percent NUMERIC(5,2) NOT NULL DEFAULT 15;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS payout_suspended BOOLEAN NOT NULL DEFAULT FALSE;
-
-CREATE UNIQUE INDEX IF NOT EXISTS merchants_email_lower_unique
-  ON merchants (LOWER(email)) WHERE email IS NOT NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS merchants_document_unique
-  ON merchants (document_type, document_number)
-  WHERE document_type IS NOT NULL AND document_number IS NOT NULL;
-
+CREATE UNIQUE INDEX IF NOT EXISTS merchants_email_lower_unique ON merchants (LOWER(email)) WHERE email IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS merchants_document_unique ON merchants (document_type, document_number) WHERE document_type IS NOT NULL AND document_number IS NOT NULL;
 CREATE TABLE IF NOT EXISTS woovi_charges (
   id BIGSERIAL PRIMARY KEY,
   merchant_id INTEGER NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
@@ -37,7 +32,6 @@ CREATE TABLE IF NOT EXISTS woovi_charges (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   paid_at TIMESTAMPTZ
 );
-
 CREATE TABLE IF NOT EXISTS merchant_commissions (
   id BIGSERIAL PRIMARY KEY,
   merchant_id INTEGER NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
@@ -49,9 +43,7 @@ CREATE TABLE IF NOT EXISTS merchant_commissions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (paid_cents <= commission_amount_cents)
 );
-CREATE INDEX IF NOT EXISTS merchant_commissions_due_idx
-  ON merchant_commissions (merchant_id, due_at) WHERE paid_cents < commission_amount_cents;
-
+CREATE INDEX IF NOT EXISTS merchant_commissions_due_idx ON merchant_commissions (merchant_id, due_at) WHERE paid_cents < commission_amount_cents;
 CREATE TABLE IF NOT EXISTS woovi_webhook_events (
   event_key VARCHAR(180) PRIMARY KEY,
   event_type VARCHAR(100) NOT NULL,
