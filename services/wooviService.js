@@ -209,12 +209,12 @@ async function processChargeCompleted(body) {
       'INSERT INTO woovi_webhook_events (event_key,event_type,correlation_id,payload) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING event_key',
       [eventKey, body.event || 'OPENPIX:CHARGE_COMPLETED', correlationID, body]
     );
-    if (!event.rowCount) { await client.query('COMMIT'); return { duplicate: true }; }
+    const duplicateEvent = !event.rowCount;
     const found = await client.query('SELECT * FROM woovi_charges WHERE correlation_id=$1 FOR UPDATE', [correlationID]);
     record = found.rows[0];
     if (!record) throw new Error('Cobrança não encontrada para este correlationID.');
     if (Number(charge.value ?? record.amount_cents) !== Number(record.amount_cents)) throw new Error('Valor confirmado difere do valor cobrado.');
-    if (record.status !== 'paid') {
+    if (!duplicateEvent && record.status !== 'paid') {
       await client.query("UPDATE woovi_charges SET status='paid', paid_at=NOW() WHERE id=$1", [record.id]);
       const rateResult = await client.query('SELECT commission_percent FROM merchants WHERE id=$1', [record.merchant_id]);
       const rate = Number(rateResult.rows[0]?.commission_percent || 15);
@@ -245,7 +245,7 @@ async function processChargeCompleted(body) {
     try { await requestCommissionWithdrawal(record); }
     catch (error) { console.error('[WOOVI SUBACCOUNT WITHDRAW]', error.message); }
   }
-  return { processed: true, correlationID };
+  return { processed: true, duplicate: false, correlationID };
 }
 
 async function processMovementEvent(body) {
