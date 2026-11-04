@@ -85,7 +85,6 @@ async function createMerchantCharge({ merchantId, orderReference, valueCents, de
   const overdueDebt = Math.max(0, grossDebt - credit);
   let arrearsSplit = 0;
   const activePixRecipient = overdueDebt > 0 ? PLATFORM_PIX_KEY : originalPixKey;
-  const activePixKeyType = overdueDebt > 0 ? String(process.env.PLATFORM_PIX_KEY_TYPE || inferPixKeyType(PLATFORM_PIX_KEY) || '').toUpperCase() : String(merchant.pix_key_type || inferPixKeyType(originalPixKey) || '').toUpperCase();
   if (!activePixKeyType) throw new Error('Tipo da chave Pix ativa não identificado.');
   const payload = {
     correlationID: crypto.randomUUID(),
