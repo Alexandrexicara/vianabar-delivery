@@ -306,6 +306,7 @@ async function processChargeCompleted(body) {
          VALUES ($1,$2,$3,$4,NOW() + INTERVAL '7 days') RETURNING id`,
         [record.merchant_id, record.id, record.amount_cents, commission]
       );
+      await applyCreditToOverdueCommissions(client, record.merchant_id);
       await applyCreditToCommission(client, record.merchant_id, inserted.rows[0].id, commission);
       const balance = await client.query(
         `SELECT GREATEST(0, COALESCE(SUM(commission_amount_cents-paid_cents),0)-m.commission_credit_cents)::bigint AS debt
