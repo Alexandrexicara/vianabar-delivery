@@ -98,8 +98,3 @@ CREATE TABLE IF NOT EXISTS woovi_payouts (
   payload JSONB
 );
 
-CREATE TABLE IF NOT EXISTS woovi_master_webhook_secrets (
-  event_type VARCHAR(100) PRIMARY KEY,
-  secret_encrypted TEXT NOT NULL,
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
