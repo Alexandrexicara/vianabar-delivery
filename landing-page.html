@@ -1180,8 +1180,35 @@ Sistema completo de pedidos para restaurantes
                 </div>
                 
                 <div class="form-group">
-                    <label for="cnpj">CNPJ do Estabelecimento *</label>
-                    <input type="text" id="cnpj" required placeholder="00.000.000/0000-00">
+                    <label for="documentType">Tipo de cadastro *</label>
+                    <select id="documentType" required>
+                        <option value="CPF">Pessoa Física — CPF</option>
+                        <option value="CNPJ">Pessoa Jurídica — CNPJ</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="documentNumber">CPF ou CNPJ *</label>
+                    <input type="text" id="documentNumber" required placeholder="Digite seu CPF ou CNPJ">
+                </div>
+                <div class="form-group">
+                    <label for="pixKeyType">Tipo da chave Pix *</label>
+                    <select id="pixKeyType" required>
+                        <option value="CPF">CPF</option>
+                        <option value="CNPJ">CNPJ</option>
+                        <option value="EMAIL">E-mail</option>
+                        <option value="PHONE">Telefone</option>
+                        <option value="RANDOM">Chave aleatória</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="pixKey">Sua chave Pix *</label>
+                    <input type="text" id="pixKey" required placeholder="Chave Pix vinculada à sua conta Woovi">
+                </div>
+                <div class="form-group">
+                    <label style="display:flex;gap:10px;align-items:flex-start;font-weight:normal">
+                        <input type="checkbox" id="acceptsCommissionCollection" style="width:auto;margin-top:4px">
+                        Autorizo expressamente a cobrança automática das comissões vencidas de 15% sobre as vendas, com vencimento em ciclos de 7 dias, por divisão Pix nas cobranças futuras até a quitação do saldo.
+                    </label>
                 </div>
                 
                 <div class="form-group">
@@ -1194,25 +1221,7 @@ Sistema completo de pedidos para restaurantes
                     <input type="password" id="confirmAdminPassword" required placeholder="Digite a senha novamente">
                 </div>
                 
-                <div class="form-group">
-                    <label for="paymentMethod">Forma de Pagamento *</label>
-                    <select id="paymentMethod" required>
-                        <option value="">Selecione uma forma de pagamento</option>
-                        <option value="pix">PIX</option>
-                        <option value="bank_transfer">Transferência Bancária</option>
-                        <option value="credit_card">Cartão de Crédito</option>
-                    </select>
-                </div>
-
-                <div style="margin-bottom: 16px; padding: 12px 14px; background: #edf6ff; border: 1px solid #cfe2ff; border-radius: 8px; color: #1d4a7b; font-size: 0.95rem; line-height: 1.5;">
-                    <strong>Cadastro no gateway:</strong>
-                    <br>
-                    primeiro cadastre o seu perfil de comerciante no MyGateway para receber pagamentos.
-                    <br>
-                    <a href="https://woovi.com/">
-                        Cadastrar o seu Gateway como comerciante
-                    </a>
-                </div>
+                <p style="margin:12px 0;color:#1d4a7b">Depois do cadastro, conecte seu AppID Woovi para ativar as cobranças Pix automáticas.</p>
                 
                 <button type="button" class="btn" onclick="processPurchase()" style="width: 100%; padding: 15px; font-size: 1.2em;">Finalizar Compra</button>
                 <button type="button" class="btn btn-secondary" onclick="cancelPurchase()" style="width: 100%; padding: 15px; font-size: 1.2em; margin-top: 10px;">Cancelar</button>
@@ -1289,72 +1298,70 @@ Sistema completo de pedidos para restaurantes
         }
         
         // Process purchase
-        function processPurchase() {
-            const establishmentName = document.getElementById('establishmentName').value;
-            const adminName = document.getElementById('adminName').value;
-            const email = document.getElementById('email').value;
-            const phone = document.getElementById('phone').value;
-            const cnpj = document.getElementById('cnpj').value;
+        async function processPurchase() {
+            const establishmentName = document.getElementById('establishmentName').value.trim();
+            const adminName = document.getElementById('adminName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const documentType = document.getElementById('documentType').value;
+            const documentNumber = document.getElementById('documentNumber').value.trim();
+            const pixKeyType = document.getElementById('pixKeyType').value;
+            const pixKey = document.getElementById('pixKey').value.trim();
             const adminPassword = document.getElementById('adminPassword').value;
             const confirmAdminPassword = document.getElementById('confirmAdminPassword').value;
-            const paymentMethod = document.getElementById('paymentMethod').value;
-            
-            if (!establishmentName || !adminName || !email || !phone || !cnpj || !adminPassword || !confirmAdminPassword || !paymentMethod) {
-                alert('Por favor, preencha todos os campos obrigatórios.');
+            const consent = document.getElementById('acceptsCommissionCollection').checked;
+
+            if (!establishmentName || !adminName || !email || !phone || !documentNumber || !pixKey || !adminPassword || !confirmAdminPassword) {
+                alert('Preencha todos os campos obrigatórios.');
                 return;
             }
-            
-            // Validate password confirmation
             if (adminPassword !== confirmAdminPassword) {
-                alert('As senhas não coincidem. Por favor, verifique e tente novamente.');
+                alert('As senhas não coincidem.');
                 return;
             }
-            
-            // Validate password strength (minimum 6 characters)
-            if (adminPassword.length < 6) {
-                alert('A senha deve ter pelo menos 6 caracteres.');
+            if (adminPassword.length < 8) {
+                alert('A senha deve ter pelo menos 8 caracteres.');
                 return;
             }
-            
-            // Generate unique identifier for the establishment
-            const uniqueId = generateEstablishmentId(establishmentName);
-            
-            // Save establishment data to localStorage
-            const establishmentData = {
-                establishmentName: establishmentName,
-                adminName: adminName,
-                email: email,
-                phone: phone,
-                cnpj: cnpj,
-                adminPassword: adminPassword, // Store the password
-                paymentMethod: paymentMethod,
-                purchaseDate: new Date().toISOString(),
-                isAuthenticated: true,
-                uniqueId: uniqueId,
-                // Inicializar assinatura do domínio
-                assinatura: {
-                    valorDominio: 60.00, // R$ 60,00 anualmente
-                    dataCompra: new Date().toISOString(),
-                    dataVencimento: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString(),
-                    ultimoPagamento: new Date().toISOString(),
-                    statusPagamento: 'pago',
-                    avisoMostrado: false
-                }
-            };
-            
-            localStorage.setItem('establishmentData', JSON.stringify(establishmentData));
-            
-            // Hide form and show success message
-            document.getElementById('purchaseForm').classList.add('hidden');
-            document.getElementById('successMessage').classList.remove('hidden');
-            
-            // Update success message with domain information
-            updateSuccessMessageWithDomain(uniqueId);
-            
-            // Scroll to success message
-            document.getElementById('successMessage').scrollIntoView({ behavior: 'smooth' });
+            if (!consent) {
+                alert('É necessário autorizar a cobrança das comissões vencidas para concluir o cadastro.');
+                return;
+            }
+
+            const submitButton = document.querySelector('#purchaseFormElement button[onclick="processPurchase()"]');
+            if (submitButton) { submitButton.disabled = true; submitButton.textContent = 'Cadastrando...'; }
+            try {
+                const response = await fetch('/merchant/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        establishmentName, adminName, email, phone, documentType,
+                        documentNumber, password: adminPassword, pixKey, pixKeyType,
+                        acceptsCommissionCollection: consent
+                    })
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || !data.success) throw new Error(data.error || 'Não foi possível concluir o cadastro.');
+                const uniqueId = generateEstablishmentId(establishmentName);
+                const establishmentData = {
+                    establishmentName, adminName, email, phone, documentType,
+                    documentNumber, pixKeyType, pixKey, merchantId: data.merchant.id,
+                    purchaseDate: new Date().toISOString(), isAuthenticated: true, uniqueId
+                };
+                localStorage.setItem('merchantSessionToken', data.token);
+                localStorage.setItem('merchantProfile', JSON.stringify(data.merchant));
+                localStorage.setItem('establishmentData', JSON.stringify(establishmentData));
+                document.getElementById('purchaseForm').classList.add('hidden');
+                document.getElementById('successMessage').classList.remove('hidden');
+                updateSuccessMessageWithDomain(uniqueId);
+                document.getElementById('successMessage').scrollIntoView({ behavior: 'smooth' });
+            } catch (error) {
+                alert(error.message);
+            } finally {
+                if (submitButton) { submitButton.disabled = false; submitButton.textContent = 'Finalizar Cadastro'; }
+            }
         }
-        
+
         // Generate a unique ID for the establishment based on its name
         function generateEstablishmentId(establishmentName) {
             // Create a URL-friendly version of the name
@@ -1374,46 +1381,25 @@ Sistema completo de pedidos para restaurantes
         
         // Update success message with domain information
         function updateSuccessMessageWithDomain(uniqueId) {
-            const establishmentData = JSON.parse(localStorage.getItem('establishmentData'));
-            const domainName = `${uniqueId}.cardapiodigital.com.br`;
-            
             const successMessageElement = document.getElementById('successMessage');
-            if (successMessageElement) {
-                successMessageElement.innerHTML = `
-                    <h2>✅ Compra Realizada com Sucesso!</h2>
-                    <p>Obrigado por adquirir o Cardápio Digital Universal!</p>
-                    <p>Seu acesso foi liberado e está pronto para uso.</p>
-                    
-                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 10px; margin: 20px 0; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                        <h3 style="margin: 0 0 10px 0; font-size: 18px;">📱 Seu Domínio Único</h3>
-                        <p style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold;">${domainName}</p>
-                        <p style="margin: 10px 0 0 0; font-size: 12px; opacity: 0.8;">Acesse seu cardápio em: http://${domainName}</p>
-                    </div>
-                    
-                    <h3>Próximos passos:</h3>
-                    <ol>
-                        <li>Verifique seu e-mail para instruções de acesso</li>
-                        <li>Acesse sua área administrativa para personalizar seu cardápio</li>
-                        <li>Adicione seu logo, redes sociais e horário de funcionamento</li>
-                        <li>Receba seu QR code único para todo o estabelecimento</li>
-                        <li>Imprima e posicione o mesmo QR code em todas as mesas</li>
-                    </ol>
-                    <button class="btn" onclick="goToAdmin()" style="background-color: #2c3e50; margin-right: 10px;">Acessar Área Administrativa</button>
-                    <button class="btn btn-secondary" onclick="window.location.href='login.html'" style="margin-left: 10px;">Login</button>
-                `;
-            }
+            if (!successMessageElement) return;
+            successMessageElement.innerHTML = `
+                <h2>✅ Cadastro recebido com sucesso!</h2>
+                <p>Seu cadastro de comerciante foi registrado. Agora conecte seu AppID Woovi para ativar as cobranças Pix.</p>
+                <p><strong>Endereço da loja:</strong> ${uniqueId}.cardapiodigital.com.br</p>
+                <p>O sistema registra a comissão de 15% por venda, com vencimento em 7 dias. Se houver comissão vencida, as próximas cobranças poderão direcionar o valor devido à plataforma, conforme sua autorização e a disponibilidade do split na Woovi.</p>
+                <button class="btn" onclick="goToAdmin()">Conectar Woovi e continuar</button>
+            `;
         }
-        
+
         // Go to admin
         function goToAdmin() {
-            // Check if user has admin access
-            const adminAccess = localStorage.getItem('adminAccess');
-            const establishmentData = localStorage.getItem('establishmentData');
-            
-            if (adminAccess && establishmentData) {
-                // User has admin access, redirect to admin panel
-                window.location.href = 'admin.html';
+            if (localStorage.getItem('merchantSessionToken')) {
+                window.location.href = 'admin-credentials.html';
             } else {
+                window.location.href = 'login.html';
+            }
+        } else {
                 // User doesn't have admin access, redirect to login page
                 window.location.href = 'login.html';
             }
