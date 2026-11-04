@@ -112,6 +112,15 @@ function inferPixKeyType(value) {
   if (key.startsWith('+')) return 'PHONE';
   return null;
 }
+function validPixKey(value, type) {
+  const key = String(value || '').trim();
+  if (type === 'CPF') return validCPF(key);
+  if (type === 'CNPJ') return validCNPJ(key);
+  if (type === 'EMAIL') return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(key);
+  if (type === 'PHONE') return /^\\+55\\d{10,11}$/.test(key);
+  if (type === 'RANDOM') return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key);
+  return false;
+}
 function encryptSecret(value) {
   if (!/^[a-f0-9]{64}$/i.test(CREDENTIAL_KEY)) throw new Error('Configure MERCHANT_CREDENTIALS_ENCRYPTION_KEY com 64 caracteres hexadecimais.');
   const iv = crypto.randomBytes(12);
@@ -138,6 +147,7 @@ router.post('/register', async (req, res) => {
     const keyType = String(pixKeyType || '').toUpperCase();
     if (!allowedPixTypes.includes(keyType)) return res.status(400).json({ success: false, error: 'Tipo de chave Pix inválido.' });
     const normalizedPixKey = normalizePixKey(pixKey, keyType);
+    if (!validPixKey(normalizedPixKey, keyType)) return res.status(400).json({ success: false, error: 'A chave Pix não corresponde ao tipo informado.' });
     const encryptedPixKey = encryptSecret(normalizedPixKey);
     const inserted = await query(
       `INSERT INTO merchants
@@ -233,6 +243,9 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
     const platformPixType = String(process.env.PLATFORM_PIX_KEY_TYPE || inferPixKeyType(platformPixKey) || '').toUpperCase();
     const validPixTypes = ['CPF','CNPJ','EMAIL','PHONE','RANDOM'];
     if (!validPixTypes.includes(String(merchantPixType).toUpperCase()) || !validPixTypes.includes(platformPixType)) return res.status(400).json({ success: false, error: 'Informe tipos válidos para a chave Pix do comerciante e da plataforma (CPF, CNPJ, EMAIL, PHONE ou RANDOM).'});
+    merchantPixKey = normalizePixKey(merchantPixKey, String(merchantPixType).toUpperCase());
+    if (!validPixKey(merchantPixKey, String(merchantPixType).toUpperCase())) return res.status(400).json({ success: false, error: 'A chave Pix cadastrada não corresponde ao tipo informado.' });
+    if (!validPixKey(platformPixKey, platformPixType)) return res.status(503).json({ success: false, error: 'PLATFORM_PIX_KEY e PLATFORM_PIX_KEY_TYPE não formam uma chave Pix válida.' });
     const encrypted = encryptSecret(appId);
     const publicApiUrl = String(process.env.PUBLIC_API_URL || '').replace(/\/$/, '');
     const webhookToken = process.env.WOOVI_WEBHOOK_AUTH_TOKEN || '';
