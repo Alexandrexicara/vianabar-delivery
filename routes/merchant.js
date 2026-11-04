@@ -184,7 +184,7 @@ router.post('/login', async (req, res) => {
 });
 
 router.get('/me', requireMerchant, async (req, res) => {
-  const result = await query('SELECT id, establishment_name, store_slug, owner_name, email, phone, document_type, document_number, pix_key, pix_key_encrypted, pix_key_type, status, payout_suspended, woovi_credentials_verified_at FROM merchants WHERE id=$1', [req.merchant.id]);
+  const result = await query('SELECT id, establishment_name, store_slug, owner_name, email, phone, document_type, document_number, pix_key, pix_key_encrypted, pix_key_type, status, payout_suspended, woovi_credentials_verified_at, woovi_kyc_status, woovi_onboarding_url, woovi_account_id FROM merchants WHERE id=$1', [req.merchant.id]);
   if (!result.rows[0]) return res.status(404).json({ success: false, error: 'Comerciante não encontrado.' });
   const merchant = result.rows[0];
   let originalPixKey = merchant.pix_key_encrypted ? decryptSecret(merchant.pix_key_encrypted) : merchant.pix_key;
@@ -232,8 +232,12 @@ router.get('/me/commissions', requireMerchant, async (req, res) => {
 
 router.post('/me/woovi', requireMerchant, async (req, res) => {
   try {
-    const appId = String(req.body?.appId || '').trim();
-    if (!appId) return res.status(400).json({ success: false, error: 'Informe o AppID da Woovi.' });
+    let appId = String(req.body?.appId || '').trim();
+    if (!appId) {
+      const saved = await query('SELECT woovi_app_id_encrypted FROM merchants WHERE id=$1', [req.merchant.id]);
+      if (saved.rows[0]?.woovi_app_id_encrypted) appId = decryptSecret(saved.rows[0].woovi_app_id_encrypted);
+    }
+    if (!appId) return res.status(400).json({ success: false, error: 'Informe o AppID da Woovi ou conclua o cadastro PF pela opção BaaS.' });
     const merchantResult = await query('SELECT pix_key, pix_key_encrypted, pix_key_type, establishment_name FROM merchants WHERE id=$1', [req.merchant.id]);
     const merchantRow = merchantResult.rows[0];
     if (!merchantRow) return res.status(404).json({ success: false, error: 'Comerciante não encontrado.' });
