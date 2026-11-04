@@ -349,7 +349,7 @@ async function processMovementEvent(body) {
           return key && normalizePixKey(key, String(item.pix_key_type || inferPixKeyType(key) || '').toUpperCase()) === destinationAlias;
         });
       }
-      if (destinationAlias && (destinationAlias === PLATFORM_PIX_KEY || isKnownMerchantPixKey)) {
+      if (!destinationAlias || destinationAlias === PLATFORM_PIX_KEY || isKnownMerchantPixKey) {
         await client.query(
           'INSERT INTO woovi_pending_movements (correlation_id,event_type,payload) VALUES ($1,$2,$3) ON CONFLICT (correlation_id) DO NOTHING',
           [correlationID, eventType, body]
