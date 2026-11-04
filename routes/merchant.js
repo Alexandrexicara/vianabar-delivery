@@ -260,7 +260,7 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
 
     // Define a chave original do comerciante como destino normal dos saques da conta.
     // Durante atraso, a cobrança é desviada para a subconta da plataforma; a chave normal não é apagada.
-    const baseUrl = String(process.env.WOOVI_BASE_URL || 'https://api.woovi.com').replace(/\\/+$/, '');
+    const baseUrl = String(process.env.WOOVI_BASE_URL || 'https://api.woovi.com').replace(/\/+$/, '');
     const withdrawUrl = baseUrl + '/api/v1/pix-keys/withdraw';
     let withdrawResponse = await fetch(withdrawUrl, {
       method: 'POST',
