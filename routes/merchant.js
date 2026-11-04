@@ -159,25 +159,41 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
     if (!verified.ok) return res.status(400).json({ success: false, error: data?.errors?.[0]?.message || 'A Woovi recusou o AppID informado.' });
     const publicApiUrl = String(process.env.PUBLIC_API_URL || '').replace(/\/$/, '');
     const webhookToken = process.env.WOOVI_WEBHOOK_AUTH_TOKEN || '';
-    if (!publicApiUrl || !webhookToken) {
-      return res.status(503).json({ success: false, error: 'Configure PUBLIC_API_URL e WOOVI_WEBHOOK_AUTH_TOKEN no servidor antes de conectar a conta.' });
+    const platformPixKey = process.env.PLATFORM_PIX_KEY || '';
+    if (!publicApiUrl || !webhookToken || !platformPixKey) {
+      return res.status(503).json({ success: false, error: 'Configure PUBLIC_API_URL, WOOVI_WEBHOOK_AUTH_TOKEN e PLATFORM_PIX_KEY no servidor.' });
     }
-    const webhookResponse = await fetch((process.env.WOOVI_BASE_URL || 'https://api.woovi.com') + '/api/v1/webhook', {
+
+    // A chave Pix da plataforma é registrada como subconta na conta Woovi do comerciante.
+    const subaccountResponse = await fetch((process.env.WOOVI_BASE_URL || 'https://api.woovi.com') + '/api/v1/subaccount', {
       method: 'POST',
       headers: { Authorization: appId, 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ webhook: {
-        name: 'Vianas Bar Delivery - confirmação de Pix',
-        event: 'OPENPIX:CHARGE_COMPLETED',
-        url: publicApiUrl + '/woovi/webhook',
-        authorization: webhookToken,
-        isActive: true
-      } })
+      body: JSON.stringify({ name: 'Vianas Bar - Comissão da plataforma', pixKey: platformPixKey })
     });
-    const webhookData = await webhookResponse.json().catch(() => ({}));
-    if (!webhookResponse.ok) {
-      return res.status(400).json({ success: false, error: webhookData?.errors?.[0]?.message || webhookData?.message || 'Não foi possível registrar o webhook na Woovi.' });
+    const subaccountData = await subaccountResponse.json().catch(() => ({}));
+    if (!subaccountResponse.ok) {
+      return res.status(400).json({ success: false, error: subaccountData?.errors?.[0]?.message || subaccountData?.message || 'A Woovi não habilitou a subconta Pix. Verifique as funcionalidades Split e Subconta.' });
     }
-    await query("UPDATE merchants SET woovi_app_id_encrypted=$1, woovi_credentials_verified_at=NOW(), woovi_webhook_registered_at=NOW(), status='active', updated_at=NOW() WHERE id=$2", [encrypted, req.merchant.id]);
+
+    const webhookUrl = publicApiUrl + '/woovi/webhook';
+    for (const event of ['OPENPIX:CHARGE_COMPLETED', 'OPENPIX:MOVEMENT_CONFIRMED', 'OPENPIX:MOVEMENT_FAILED']) {
+      const webhookResponse = await fetch((process.env.WOOVI_BASE_URL || 'https://api.woovi.com') + '/api/v1/webhook', {
+        method: 'POST',
+        headers: { Authorization: appId, 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ webhook: {
+          name: 'Vianas Bar Delivery - ' + event,
+          event,
+          url: webhookUrl,
+          authorization: webhookToken,
+          isActive: true
+        } })
+      });
+      const webhookData = await webhookResponse.json().catch(() => ({}));
+      if (!webhookResponse.ok) {
+        return res.status(400).json({ success: false, error: webhookData?.errors?.[0]?.message || webhookData?.message || 'Não foi possível registrar o webhook ' + event + '.' });
+      }
+    }
+    await query("UPDATE merchants SET woovi_app_id_encrypted=$1, woovi_credentials_verified_at=NOW(), woovi_webhook_registered_at=NOW(), commission_subaccount_ready_at=NOW(), status='active', updated_at=NOW() WHERE id=$2", [encrypted, req.merchant.id]);
     res.json({ success: true, message: 'AppID validado e webhook de confirmação Pix registrado.' });
   } catch (error) {
     console.error('[MERCHANT WOOVI CONFIG]', error);
