@@ -77,6 +77,11 @@ function validCNPJ(value) {
   return digit(c.slice(0,12)) === Number(c[12]) &&
     digit(c.slice(0,13)) === Number(c[13]);
 }
+function makeStoreSlug(name) {
+  const base = String(name || 'loja').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 55) || 'loja';
+  return base + '-' + crypto.randomBytes(3).toString('hex');
+}
 function encryptSecret(value) {
   if (!/^[a-f0-9]{64}$/i.test(CREDENTIAL_KEY)) throw new Error('Configure MERCHANT_CREDENTIALS_ENCRYPTION_KEY com 64 caracteres hexadecimais.');
   const iv = crypto.randomBytes(12);
@@ -104,12 +109,12 @@ router.post('/register', async (req, res) => {
     if (!allowedPixTypes.includes(keyType)) return res.status(400).json({ success: false, error: 'Tipo de chave Pix inválido.' });
     const inserted = await query(
       `INSERT INTO merchants
-       (establishment_name, owner_name, email, phone, document_type, document_number,
+       (establishment_name, store_slug, owner_name, email, phone, document_type, document_number,
         password_hash, pix_key, pix_key_type, pix_collection_consent_at, status,
         split_mode, commission_percent)
-       VALUES ($1,$2,LOWER($3),$4,$5,$6,$7,$8,$9,NOW(),'pending','SPLIT_INTERNAL_TRANSFER',15)
-       RETURNING id, establishment_name, owner_name, email, document_type, status`,
-      [establishmentName.trim(), adminName.trim(), email.trim(), phone.trim(), type, doc,
+       VALUES ($1,$2,$3,LOWER($4),$5,$6,$7,$8,$9,$10,NOW(),'pending','SPLIT_INTERNAL_TRANSFER',15)
+       RETURNING id, establishment_name, store_slug, owner_name, email, document_type, status`,
+      [establishmentName.trim(), makeStoreSlug(establishmentName), adminName.trim(), email.trim(), phone.trim(), type, doc,
        hashPassword(password), pixKey.trim(), keyType]
     );
     const merchant = inserted.rows[0];
@@ -137,7 +142,7 @@ router.post('/login', async (req, res) => {
 });
 
 router.get('/me', requireMerchant, async (req, res) => {
-  const result = await query('SELECT id, establishment_name, owner_name, email, phone, document_type, document_number, pix_key, pix_key_type, status, payout_suspended, woovi_credentials_verified_at FROM merchants WHERE id=$1', [req.merchant.id]);
+  const result = await query('SELECT id, establishment_name, store_slug, owner_name, email, phone, document_type, document_number, pix_key, pix_key_type, status, payout_suspended, woovi_credentials_verified_at FROM merchants WHERE id=$1', [req.merchant.id]);
   if (!result.rows[0]) return res.status(404).json({ success: false, error: 'Comerciante não encontrado.' });
   res.json({ success: true, merchant: result.rows[0] });
 });
