@@ -35,6 +35,7 @@ ALTER TABLE merchants ADD COLUMN IF NOT EXISTS pix_key TEXT;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS pix_key_encrypted TEXT;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS woovi_kyc_correlation_id TEXT;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS woovi_onboarding_url TEXT;
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS woovi_onboarding_created_at TIMESTAMPTZ;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS woovi_kyc_status TEXT;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS woovi_account_id TEXT;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS woovi_master_webhook_registered_at TIMESTAMPTZ;
