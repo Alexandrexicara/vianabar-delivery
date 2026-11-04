@@ -199,9 +199,20 @@ router.get('/me', requireMerchant, async (req, res) => {
       WHERE m.id=$1 GROUP BY m.id`, [merchant.id]
   );
   const overdue = Number(commissions.rows[0]?.overdue_cents || 0);
+  // Nunca devolve chave Pix, CPF/CNPJ ou credenciais em texto puro ao navegador.
   res.json({ success: true, merchant: {
-    ...merchant, pix_key: originalPixKey || null, pix_key_masked: maskPixKey(originalPixKey),
-    pix_key_encrypted: undefined, overdue_cents: overdue,
+    id: merchant.id,
+    establishment_name: merchant.establishment_name,
+    store_slug: merchant.store_slug,
+    owner_name: merchant.owner_name,
+    document_type: merchant.document_type,
+    status: merchant.status,
+    woovi_credentials_verified_at: merchant.woovi_credentials_verified_at,
+    woovi_kyc_status: merchant.woovi_kyc_status,
+    woovi_onboarding_url: merchant.woovi_onboarding_url,
+    woovi_account_id: merchant.woovi_account_id,
+    pix_key_masked: maskPixKey(originalPixKey),
+    overdue_cents: overdue,
     pix_receiving_key_status: overdue > 0 ? 'temporarily_replaced_by_platform' : 'merchant_key_active',
     active_pix_recipient: overdue > 0 ? 'platform' : 'merchant'
   }});
