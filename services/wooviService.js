@@ -186,6 +186,8 @@ async function requestSubaccountWithdrawal(record) {
   const lockClient = await pool.connect();
   const lockId = Number(record.merchant_id);
   let locked = false;
+  let withdrawalCorrelationID = null;
+  let pendingWebhookPayload = null;
   try {
     // Evita dois webhooks sacarem simultaneamente o saldo de uma subconta do mesmo comerciante.
     await lockClient.query('SELECT pg_advisory_lock($1::bigint)', [lockId]);
@@ -204,19 +206,25 @@ async function requestSubaccountWithdrawal(record) {
     const path = '/api/v1/subaccount/' + encodeURIComponent(recipientPixKey) + '/withdraw';
     const response = await wooviRequest(appId, path, { method: 'POST' });
     const transaction = response.transaction || {};
-    const correlationID = transaction.correlationID;
+    withdrawalCorrelationID = transaction.correlationID;
     const amountCents = Number(transaction.value || record.amount_cents);
-    if (!correlationID || !Number.isSafeInteger(amountCents) || amountCents <= 0) {
+    if (!withdrawalCorrelationID || !Number.isSafeInteger(amountCents) || amountCents <= 0) {
       throw new Error('A Woovi não retornou os dados da retirada da subconta.');
     }
     await lockClient.query(
       `INSERT INTO woovi_payouts (merchant_id, charge_id, correlation_id, amount_cents, status, payload, payout_type)
        VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (correlation_id) DO NOTHING`,
-      [record.merchant_id, record.id, correlationID, amountCents, String(transaction.status || 'CREATED').toLowerCase(), response, payoutType]
+      [record.merchant_id, record.id, withdrawalCorrelationID, amountCents, String(transaction.status || 'CREATED').toLowerCase(), response, payoutType]
     );
+    const earlyWebhook = await lockClient.query('SELECT payload FROM woovi_pending_movements WHERE correlation_id=$1 LIMIT 1', [withdrawalCorrelationID]);
+    pendingWebhookPayload = earlyWebhook.rows[0]?.payload || null;
   } finally {
     if (locked) await lockClient.query('SELECT pg_advisory_unlock($1::bigint)', [lockId]).catch(() => {});
     lockClient.release();
+  }
+  if (pendingWebhookPayload) {
+    await processMovementEvent(pendingWebhookPayload);
+    await query('DELETE FROM woovi_pending_movements WHERE correlation_id=$1', [withdrawalCorrelationID]);
   }
 }
 
@@ -294,7 +302,14 @@ async function processMovementEvent(body) {
           return key && normalizePixKey(key, String(item.pix_key_type || inferPixKeyType(key) || '').toUpperCase()) === destinationAlias;
         });
       }
-      if (destinationAlias && (destinationAlias === PLATFORM_PIX_KEY || isKnownMerchantPixKey)) throw new Error('Retirada de subconta recebida antes do registro local; a Woovi deve reenviar o webhook.');
+      if (destinationAlias && (destinationAlias === PLATFORM_PIX_KEY || isKnownMerchantPixKey)) {
+        await client.query(
+          'INSERT INTO woovi_pending_movements (correlation_id,event_type,payload) VALUES ($1,$2,$3) ON CONFLICT (correlation_id) DO NOTHING',
+          [correlationID, eventType, body]
+        );
+        await client.query('COMMIT');
+        return { queued: true };
+      }
       await client.query('COMMIT');
       return { ignored: true };
     }
