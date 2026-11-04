@@ -234,15 +234,15 @@ async function applyCreditToOverdueCommissions(client, merchantId) {
   let credit = Number(merchant.rows[0]?.commission_credit_cents || 0);
   if (credit <= 0) return 0;
   const due = await client.query(
-    `SELECT id, commission_amount_cents, paid_cents
+    `SELECT id, commission_amount_cents, paid_cents, reserved_cents
        FROM merchant_commissions
-      WHERE merchant_id=$1 AND due_at <= NOW() AND paid_cents < commission_amount_cents
+      WHERE merchant_id=$1 AND due_at <= NOW() AND paid_cents+reserved_cents < commission_amount_cents
       ORDER BY due_at ASC, id ASC FOR UPDATE`,
     [merchantId]
   );
   for (const row of due.rows) {
     if (credit <= 0) break;
-    const remaining = Number(row.commission_amount_cents) - Number(row.paid_cents);
+    const remaining = Number(row.commission_amount_cents) - Number(row.paid_cents) - Number(row.reserved_cents || 0);
     const applied = Math.min(credit, remaining);
     if (applied > 0) {
       await client.query('UPDATE merchant_commissions SET paid_cents=paid_cents+$1 WHERE id=$2', [applied, row.id]);
@@ -283,62 +283,65 @@ async function applyCreditToCommission(client, merchantId, commissionId, commiss
   }
 }
 
-async function requestSubaccountWithdrawal(record) {
-  const payoutType = record.recipient_type || (Number(record.arrears_split_cents) > 0 ? 'platform' : 'merchant');
-  const lockClient = await pool.connect();
-  const lockId = Number(record.merchant_id);
-  let locked = false;
-  let withdrawalCorrelationID = null;
-  let pendingWebhookPayload = null;
-  try {
-    // Evita saques concorrentes da mesma conta Woovi.
-    await lockClient.query('SELECT pg_advisory_lock($1::bigint)', [lockId]);
-    locked = true;
-    const previous = await lockClient.query(
-      'SELECT correlation_id, status FROM woovi_payouts WHERE charge_id=$1 ORDER BY created_at DESC LIMIT 1',
-      [record.id]
+async function requestSubaccountWithdrawal(record, allocation, index) {
+  const item=allocation || {};
+  const payoutType=item.type || record.recipient_type || (Number(record.arrears_split_cents)>0?'platform':'merchant');
+  const amountCents=Number(item.amountCents || record.amount_cents);
+  const allocationKey=String(item.allocationKey || (payoutType+':'+(item.deliveryId || item.motoboyId || 'general')+':'+Number(index||0)));
+  const lockClient=await pool.connect();
+  const lockId=Number(record.merchant_id);
+  let locked=false,withdrawalCorrelationID=null,pendingWebhookPayload=null;
+  try{
+    await lockClient.query('SELECT pg_advisory_lock($1::bigint)',[lockId]); locked=true;
+    const previous=await lockClient.query(
+      'SELECT id,correlation_id,status FROM woovi_payouts WHERE charge_id=$1 AND allocation_key=$2 ORDER BY created_at DESC LIMIT 1',
+      [record.id,allocationKey]
     );
-    if (previous.rows[0] && previous.rows[0].status !== 'failed') {
-      withdrawalCorrelationID = previous.rows[0].correlation_id;
-    } else {
-      const merchantResult = await lockClient.query(
-        'SELECT woovi_app_id_encrypted, pix_key, pix_key_encrypted, pix_key_type FROM merchants WHERE id=$1',
-        [record.merchant_id]
+    if(previous.rows[0] && previous.rows[0].status!=='failed'){
+      withdrawalCorrelationID=previous.rows[0].correlation_id;
+    }else{
+      const merchantResult=await lockClient.query(
+        'SELECT woovi_app_id_encrypted FROM merchants WHERE id=$1',[record.merchant_id]
       );
-      const merchant = merchantResult.rows[0];
-      const appId = decryptSecret(merchant?.woovi_app_id_encrypted);
-      const merchantPixKey = merchant?.pix_key_encrypted ? decryptSecret(merchant.pix_key_encrypted) : merchant?.pix_key;
-      const recipientPixKey = payoutType === 'platform'
-        ? PLATFORM_PIX_KEY
-        : normalizePixKey(merchantPixKey, String(merchant?.pix_key_type || inferPixKeyType(merchantPixKey) || '').toUpperCase());
-      if (!recipientPixKey) throw new Error('Chave Pix da subconta de recebimento não encontrada.');
-      const path = '/api/v1/subaccount/' + encodeURIComponent(recipientPixKey) + '/withdraw';
-      // Retira exatamente o valor desta venda, sem misturar saldo de cobranças diferentes.
-      const response = await wooviRequest(appId, path, {
-        method: 'POST',
-        body: JSON.stringify({ value: Number(record.amount_cents) })
+      const appId=decryptSecret(merchantResult.rows[0]?.woovi_app_id_encrypted);
+      const recipientPixKey=decryptSecret(item.recipientPixKeyEncrypted);
+      if(!recipientPixKey || !Number.isSafeInteger(amountCents) || amountCents<=0)throw new Error('Destinatário ou valor de repasse inválido.');
+      const response=await wooviRequest(appId,'/api/v1/subaccount/'+encodeURIComponent(recipientPixKey)+'/withdraw',{
+        method:'POST',body:JSON.stringify({value:amountCents})
       });
-      const transaction = response.transaction || {};
-      withdrawalCorrelationID = transaction.correlationID;
-      const amountCents = Number(transaction.value || record.amount_cents);
-      if (!withdrawalCorrelationID || !Number.isSafeInteger(amountCents) || amountCents !== Number(record.amount_cents)) {
-        throw new Error('A Woovi não confirmou a retirada pelo valor exato da cobrança.');
+      const transaction=response.transaction||{};
+      withdrawalCorrelationID=transaction.correlationID;
+      const actualAmount=Number(transaction.value||amountCents);
+      if(!withdrawalCorrelationID || !Number.isSafeInteger(actualAmount) || actualAmount!==amountCents)
+        throw new Error('A Woovi não confirmou o saque pelo valor exato reservado.');
+      const payoutValues=[
+        record.merchant_id,record.id,withdrawalCorrelationID,actualAmount,
+        String(transaction.status||'CREATED').toLowerCase(),response,payoutType,
+        allocationKey,item.motoboyId||null,item.deliveryId||null,
+        item.recipientPixKeyEncrypted,JSON.stringify(item)
+      ];
+      if(previous.rows[0]){
+        await lockClient.query(
+          'UPDATE woovi_payouts SET correlation_id=$1,amount_cents=$2,status=$3,payload=$4,payout_type=$5,motoboy_id=$6,delivery_id=$7,recipient_pix_key_encrypted=$8,allocation_details=$9 WHERE id=$10',
+          [withdrawalCorrelationID,actualAmount,String(transaction.status||'CREATED').toLowerCase(),response,payoutType,
+           item.motoboyId||null,item.deliveryId||null,item.recipientPixKeyEncrypted,JSON.stringify(item),previous.rows[0].id]
+        );
+      }else{
+        await lockClient.query(
+          'INSERT INTO woovi_payouts (merchant_id,charge_id,correlation_id,amount_cents,status,payload,payout_type,allocation_key,motoboy_id,delivery_id,recipient_pix_key_encrypted,allocation_details) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
+          payoutValues
+        );
       }
-      await lockClient.query(
-        `INSERT INTO woovi_payouts (merchant_id, charge_id, correlation_id, amount_cents, status, payload, payout_type)
-         VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (correlation_id) DO NOTHING`,
-        [record.merchant_id, record.id, withdrawalCorrelationID, amountCents, String(transaction.status || 'CREATED').toLowerCase(), response, payoutType]
-      );
     }
-    const earlyWebhook = await lockClient.query('SELECT payload FROM woovi_pending_movements WHERE correlation_id=$1 LIMIT 1', [withdrawalCorrelationID]);
-    pendingWebhookPayload = earlyWebhook.rows[0]?.payload || null;
-  } finally {
-    if (locked) await lockClient.query('SELECT pg_advisory_unlock($1::bigint)', [lockId]).catch(() => {});
+    const early=await lockClient.query('SELECT payload FROM woovi_pending_movements WHERE correlation_id=$1 LIMIT 1',[withdrawalCorrelationID]);
+    pendingWebhookPayload=early.rows[0]?.payload||null;
+  }finally{
+    if(locked)await lockClient.query('SELECT pg_advisory_unlock($1::bigint)',[lockId]).catch(()=>{});
     lockClient.release();
   }
-  if (pendingWebhookPayload) {
+  if(pendingWebhookPayload){
     await processMovementEvent(pendingWebhookPayload);
-    await query('DELETE FROM woovi_pending_movements WHERE correlation_id=$1', [withdrawalCorrelationID]);
+    await query('DELETE FROM woovi_pending_movements WHERE correlation_id=$1',[withdrawalCorrelationID]);
   }
 }
 
@@ -387,9 +390,19 @@ async function processChargeCompleted(body) {
     throw error;
   } finally { client.release(); }
 
-  // O saldo da subconta só é transferido após a confirmação da cobrança.
-  // A quitação da dívida só é registrada no webhook MOVEMENT_CONFIRMED.
-  if (record) await requestSubaccountWithdrawal(record);
+  // Cada recebedor tem sua própria subconta e seu próprio saque rastreado por webhook.
+  if (record) {
+    const allocations=Array.isArray(record.split_allocations)?record.split_allocations:[];
+    if(allocations.length){
+      for(let i=0;i<allocations.length;i++) await requestSubaccountWithdrawal(record,allocations[i],i);
+    }else{
+      const merchant=await query('SELECT pix_key,pix_key_encrypted,pix_key_type FROM merchants WHERE id=$1',[record.merchant_id]);
+      const type=record.recipient_type|| (Number(record.arrears_split_cents)>0?'platform':'merchant');
+      const key=type==='platform'?PLATFORM_PIX_KEY:(merchant.rows[0]?.pix_key_encrypted?decryptSecret(merchant.rows[0].pix_key_encrypted):merchant.rows[0]?.pix_key);
+      const legacy={type,amountCents:Number(record.amount_cents),recipientPixKeyEncrypted:encryptPixKey(key)};
+      await requestSubaccountWithdrawal(record,legacy,0);
+    }
+  }
   return { processed: !duplicateEvent, duplicate: duplicateEvent, correlationID };
 }
 
