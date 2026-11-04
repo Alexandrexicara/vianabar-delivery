@@ -151,8 +151,28 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
     });
     const data = await verified.json().catch(() => ({}));
     if (!verified.ok) return res.status(400).json({ success: false, error: data?.errors?.[0]?.message || 'A Woovi recusou o AppID informado.' });
-    await query('UPDATE merchants SET woovi_app_id_encrypted=$1, woovi_credentials_verified_at=NOW(), status=\'active\', updated_at=NOW() WHERE id=$2', [encrypted, req.merchant.id]);
-    res.json({ success: true, message: 'AppID validado e salvo com segurança. Configure o webhook e a chave Pix da plataforma para ativar a cobrança de débitos.' });
+    const publicApiUrl = String(process.env.PUBLIC_API_URL || '').replace(/\/$/, '');
+    const webhookToken = process.env.WOOVI_WEBHOOK_AUTH_TOKEN || '';
+    if (!publicApiUrl || !webhookToken) {
+      return res.status(503).json({ success: false, error: 'Configure PUBLIC_API_URL e WOOVI_WEBHOOK_AUTH_TOKEN no servidor antes de conectar a conta.' });
+    }
+    const webhookResponse = await fetch((process.env.WOOVI_BASE_URL || 'https://api.woovi.com') + '/api/v1/webhook', {
+      method: 'POST',
+      headers: { Authorization: appId, 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ webhook: {
+        name: 'Vianas Bar Delivery - confirmação de Pix',
+        event: 'OPENPIX:CHARGE_COMPLETED',
+        url: publicApiUrl + '/woovi/webhook',
+        authorization: webhookToken,
+        isActive: true
+      } })
+    });
+    const webhookData = await webhookResponse.json().catch(() => ({}));
+    if (!webhookResponse.ok) {
+      return res.status(400).json({ success: false, error: webhookData?.errors?.[0]?.message || webhookData?.message || 'Não foi possível registrar o webhook na Woovi.' });
+    }
+    await query("UPDATE merchants SET woovi_app_id_encrypted=$1, woovi_credentials_verified_at=NOW(), woovi_webhook_registered_at=NOW(), status='active', updated_at=NOW() WHERE id=$2", [encrypted, req.merchant.id]);
+    res.json({ success: true, message: 'AppID validado e webhook de confirmação Pix registrado.' });
   } catch (error) {
     console.error('[MERCHANT WOOVI CONFIG]', error);
     res.status(500).json({ success: false, error: error.message });
