@@ -161,7 +161,8 @@ async function startCpfOnboarding(merchantId) {
   await query(
     `UPDATE merchants
         SET woovi_kyc_correlation_id=$1, woovi_onboarding_url=$2,
-            woovi_kyc_status=$3, woovi_onboarding_created_at=COALESCE(woovi_onboarding_created_at,NOW()),
+            woovi_kyc_status=CASE WHEN woovi_kyc_status IN ('APPROVED','IN_REVIEW','DOCUMENTS_REQUESTED','REJECTED') THEN woovi_kyc_status ELSE $3 END,
+            woovi_onboarding_created_at=COALESCE(woovi_onboarding_created_at,NOW()),
             woovi_master_webhook_registered_at=NOW(), updated_at=NOW()
       WHERE id=$4`,
     [correlationID, onboardingUrl, response.accountRegister?.status || 'PENDING', merchantId]
