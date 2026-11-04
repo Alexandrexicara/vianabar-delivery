@@ -231,7 +231,8 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
     const merchantPixType = merchantRow.pix_key_type || inferPixKeyType(merchantPixKey);
     const platformPixKey = normalizePixKey(process.env.PLATFORM_PIX_KEY || '', process.env.PLATFORM_PIX_KEY_TYPE || inferPixKeyType(process.env.PLATFORM_PIX_KEY || ''));
     const platformPixType = String(process.env.PLATFORM_PIX_KEY_TYPE || inferPixKeyType(platformPixKey) || '').toUpperCase();
-    if (!merchantPixType || !platformPixType) return res.status(400).json({ success: false, error: 'Informe tipos válidos para a chave Pix do comerciante e PLATFORM_PIX_KEY_TYPE (CPF, CNPJ, EMAIL, PHONE ou RANDOM).'});
+    const validPixTypes = ['CPF','CNPJ','EMAIL','PHONE','RANDOM'];
+    if (!validPixTypes.includes(String(merchantPixType).toUpperCase()) || !validPixTypes.includes(platformPixType)) return res.status(400).json({ success: false, error: 'Informe tipos válidos para a chave Pix do comerciante e da plataforma (CPF, CNPJ, EMAIL, PHONE ou RANDOM).'});
     const encrypted = encryptSecret(appId);
     const publicApiUrl = String(process.env.PUBLIC_API_URL || '').replace(/\/$/, '');
     const webhookToken = process.env.WOOVI_WEBHOOK_AUTH_TOKEN || '';
