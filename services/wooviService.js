@@ -168,21 +168,32 @@ async function applyCreditToCommission(client, merchantId, commissionId, commiss
 async function requestCommissionWithdrawal(record) {
   if (!Number(record.arrears_split_cents)) return;
   if (!PLATFORM_PIX_KEY) throw new Error('PLATFORM_PIX_KEY não configurada para retirar a subconta.');
-  const merchantResult = await query('SELECT woovi_app_id_encrypted FROM merchants WHERE id=$1', [record.merchant_id]);
-  const appId = decryptSecret(merchantResult.rows[0]?.woovi_app_id_encrypted);
-  const path = '/api/v1/subaccount/' + encodeURIComponent(PLATFORM_PIX_KEY) + '/withdraw';
-  const response = await wooviRequest(appId, path, { method: 'POST' });
-  const transaction = response.transaction || {};
-  const correlationID = transaction.correlationID;
-  const amountCents = Number(transaction.value || record.arrears_split_cents);
-  if (!correlationID || !Number.isSafeInteger(amountCents) || amountCents <= 0) {
-    throw new Error('A Woovi não retornou os dados da retirada da subconta.');
+  const lockClient = await pool.connect();
+  const lockId = Number(record.merchant_id);
+  let locked = false;
+  try {
+    // Evita dois webhooks sacarem simultaneamente o saldo da mesma subconta.
+    await lockClient.query('SELECT pg_advisory_lock($1::bigint)', [lockId]);
+    locked = true;
+    const merchantResult = await lockClient.query('SELECT woovi_app_id_encrypted FROM merchants WHERE id=$1', [record.merchant_id]);
+    const appId = decryptSecret(merchantResult.rows[0]?.woovi_app_id_encrypted);
+    const path = '/api/v1/subaccount/' + encodeURIComponent(PLATFORM_PIX_KEY) + '/withdraw';
+    const response = await wooviRequest(appId, path, { method: 'POST' });
+    const transaction = response.transaction || {};
+    const correlationID = transaction.correlationID;
+    const amountCents = Number(transaction.value || record.arrears_split_cents);
+    if (!correlationID || !Number.isSafeInteger(amountCents) || amountCents <= 0) {
+      throw new Error('A Woovi não retornou os dados da retirada da subconta.');
+    }
+    await lockClient.query(
+      `INSERT INTO woovi_payouts (merchant_id, charge_id, correlation_id, amount_cents, status, payload)
+       VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (correlation_id) DO NOTHING`,
+      [record.merchant_id, record.id, correlationID, amountCents, String(transaction.status || 'CREATED').toLowerCase(), response]
+    );
+  } finally {
+    if (locked) await lockClient.query('SELECT pg_advisory_unlock($1::bigint)', [lockId]).catch(() => {});
+    lockClient.release();
   }
-  await query(
-    `INSERT INTO woovi_payouts (merchant_id, charge_id, correlation_id, amount_cents, status, payload)
-     VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (correlation_id) DO NOTHING`,
-    [record.merchant_id, record.id, correlationID, amountCents, String(transaction.status || 'CREATED').toLowerCase(), response]
-  );
 }
 
 async function processChargeCompleted(body) {
