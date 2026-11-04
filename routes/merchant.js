@@ -270,7 +270,7 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
     let withdrawData = await withdrawResponse.json().catch(() => ({}));
     if (!withdrawResponse.ok) {
       const withdrawError = String(withdrawData?.error || withdrawData?.message || withdrawData?.errors?.[0]?.message || '');
-      if (withdrawResponse.status === 400 && /já existente|already exists|already registered/i.test(withdrawError)) {
+      if (withdrawResponse.status === 400 && /já existente|existing pix key|already exists|already registered/i.test(withdrawError)) {
         withdrawResponse = await fetch(withdrawUrl, {
           method: 'PUT',
           headers: { Authorization: appId, 'Content-Type': 'application/json', Accept: 'application/json' },
