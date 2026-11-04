@@ -265,7 +265,7 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
     let withdrawResponse = await fetch(withdrawUrl, {
       method: 'POST',
       headers: { Authorization: appId, 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ pixKey: merchantPixKey })
+      body: JSON.stringify({ pixKey: merchantPixKey, pixKeyType: merchantPixType })
     });
     let withdrawData = await withdrawResponse.json().catch(() => ({}));
     if (!withdrawResponse.ok) {
