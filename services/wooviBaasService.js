@@ -57,11 +57,11 @@ async function getWebhookPublicKeys() {
   }
 }
 
-async function verifyKycWebhook(req) {
+async function verifyWooviWebhook(req, tokenEnv = 'WOOVI_WEBHOOK_AUTH_TOKEN') {
   const signature = String(req.headers['x-webhook-signature'] || '');
   if (!signature) {
     // A Woovi pode enviar um POST de validação durante o cadastro do webhook.
-    const token = process.env.WOOVI_MASTER_WEBHOOK_AUTH_TOKEN || '';
+    const token = process.env[tokenEnv] || '';
     return Boolean(!req.body?.event && token && String(req.headers.authorization || '') === token);
   }
   const rawBody = req.rawBody || JSON.stringify(req.body);
@@ -217,4 +217,4 @@ async function processKycWebhook(body) {
   return { processed: true, merchantId: merchant.id, status: status || 'UNCHANGED' };
 }
 
-module.exports = { startCpfOnboarding, processKycWebhook, verifyKycWebhook };
+module.exports = { startCpfOnboarding, processKycWebhook, verifyWooviWebhook };
