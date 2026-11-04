@@ -1,3 +1,15 @@
+-- Viana Bar Delivery: cadastro PF/PJ, cobranças Pix Woovi e controle de comissões.
+CREATE TABLE IF NOT EXISTS merchants (
+  id SERIAL PRIMARY KEY,
+  establishment_id INTEGER,
+  woovi_app_id VARCHAR(255),
+  woovi_api_key BYTEA,
+  split_mode VARCHAR(30) NOT NULL DEFAULT 'SPLIT_INTERNAL_TRANSFER',
+  split_details JSONB,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 -- CPF/CNPJ merchant accounts, secure Woovi credentials and commission collection.
 ALTER TABLE merchants ALTER COLUMN establishment_id DROP NOT NULL;
 ALTER TABLE merchants ALTER COLUMN woovi_app_id DROP NOT NULL;
