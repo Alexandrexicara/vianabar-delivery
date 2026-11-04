@@ -74,14 +74,25 @@ async function createMerchantCharge({ merchantId, orderReference, valueCents, de
     const encrypted = encryptPixKey(originalPixKey);
     await query('UPDATE merchants SET pix_key_encrypted=$1, pix_key=NULL WHERE id=$2', [encrypted, merchantId]);
   }
-  const debtResult = await query(
-    `SELECT GREATEST(0, COALESCE(SUM(c.commission_amount_cents-c.paid_cents),0)-m.commission_credit_cents)::bigint AS debt
-       FROM merchant_commissions c JOIN merchants m ON m.id=c.merchant_id
-      WHERE c.merchant_id=$1 AND c.due_at <= NOW() AND c.paid_cents < c.commission_amount_cents
-      GROUP BY m.commission_credit_cents`,
-    [merchantId]
-  );
-  const overdueDebt = Number(debtResult.rows[0]?.debt || 0);
+  const debtClient = await pool.connect();
+  let overdueDebt = 0;
+  try {
+    await debtClient.query('BEGIN');
+    await applyCreditToOverdueCommissions(debtClient, merchantId);
+    const debtResult = await debtClient.query(
+      `SELECT COALESCE(SUM(commission_amount_cents-paid_cents),0)::bigint AS debt
+         FROM merchant_commissions
+        WHERE merchant_id=$1 AND due_at <= NOW() AND paid_cents < commission_amount_cents`,
+      [merchantId]
+    );
+    overdueDebt = Number(debtResult.rows[0]?.debt || 0);
+    await debtClient.query('COMMIT');
+  } catch (error) {
+    await debtClient.query('ROLLBACK');
+    throw error;
+  } finally {
+    debtClient.release();
+  }
   const recipientType = overdueDebt > 0 ? 'platform' : 'merchant';
   let arrearsSplit = overdueDebt > 0 ? valueCents : 0;
   const activePixRecipient = recipientType === 'platform' ? PLATFORM_PIX_KEY : originalPixKey;
@@ -153,7 +164,33 @@ async function getPublicChargeStatus({ storeSlug, correlationID }) {
   return result.rows[0];
 }
 
+async function applyCreditToOverdueCommissions(client, merchantId) {
+  const merchant = await client.query('SELECT commission_credit_cents FROM merchants WHERE id=$1 FOR UPDATE', [merchantId]);
+  let credit = Number(merchant.rows[0]?.commission_credit_cents || 0);
+  if (credit <= 0) return 0;
+  const due = await client.query(
+    `SELECT id, commission_amount_cents, paid_cents
+       FROM merchant_commissions
+      WHERE merchant_id=$1 AND due_at <= NOW() AND paid_cents < commission_amount_cents
+      ORDER BY due_at ASC, id ASC FOR UPDATE`,
+    [merchantId]
+  );
+  for (const row of due.rows) {
+    if (credit <= 0) break;
+    const remaining = Number(row.commission_amount_cents) - Number(row.paid_cents);
+    const applied = Math.min(credit, remaining);
+    if (applied > 0) {
+      await client.query('UPDATE merchant_commissions SET paid_cents=paid_cents+$1 WHERE id=$2', [applied, row.id]);
+      credit -= applied;
+    }
+  }
+  const used = Number(merchant.rows[0]?.commission_credit_cents || 0) - credit;
+  if (used > 0) await client.query('UPDATE merchants SET commission_credit_cents=$1 WHERE id=$2', [credit, merchantId]);
+  return credit;
+}
+
 async function applyArrearsPayment(client, merchantId, amountCents) {
+  await applyCreditToOverdueCommissions(client, merchantId);
   let remaining = amountCents;
   const due = await client.query(
     `SELECT id, commission_amount_cents, paid_cents FROM merchant_commissions
