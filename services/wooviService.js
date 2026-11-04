@@ -97,24 +97,39 @@ async function createMerchantCharge({ merchantId, orderReference, valueCents, de
     arrearsSplit = valueCents;
     payload.splits = [{ value: valueCents, pixKey: activePixRecipient, pixKeyType: platformPixKeyType, splitType: 'SPLIT_SUB_ACCOUNT' }];
   }
-  const response = await wooviRequest(appId, '/api/v1/charge', { method: 'POST', body: JSON.stringify(payload) });
-  const charge = response.charge || response;
-  const inserted = await query(
+  // Registra a correlação antes de chamar a Woovi para que um webhook rápido nunca fique sem pedido local.
+  const pending = await query(
     `INSERT INTO woovi_charges
-      (merchant_id, order_reference, correlation_id, woovi_charge_id, amount_cents, arrears_split_cents, status, br_code, payment_link_url)
-     VALUES ($1,$2,$3,$4,$5,$6,'pending',$7,$8)
-     RETURNING id, correlation_id, status, br_code, payment_link_url, amount_cents, arrears_split_cents`,
-    [merchantId, String(orderReference), payload.correlationID, charge.identifier || charge.transactionID || null,
-     valueCents, arrearsSplit, response.brCode || charge.brCode || null, charge.paymentLinkUrl || null]
+      (merchant_id, order_reference, correlation_id, amount_cents, arrears_split_cents, status)
+     VALUES ($1,$2,$3,$4,$5,'creating')
+     RETURNING id, correlation_id, status, amount_cents, arrears_split_cents`,
+    [merchantId, String(orderReference), payload.correlationID, valueCents, arrearsSplit]
   );
-  if (overdueDebt > 0) await query('UPDATE merchants SET payout_suspended=TRUE WHERE id=$1', [merchantId]);
-  return {
-    success: true,
-    charge: inserted.rows[0],
-    qrCode: response.brCode || charge.brCode || null,
-    qrCodeImage: response.qrCodeImage || charge.qrCodeImage || null,
-    paymentLinkUrl: charge.paymentLinkUrl || null
-  };
+  try {
+    const response = await wooviRequest(appId, '/api/v1/charge', { method: 'POST', body: JSON.stringify(payload) });
+    const charge = response.charge || response;
+    const updated = await query(
+      `UPDATE woovi_charges
+          SET woovi_charge_id=$1,
+              status=CASE WHEN status='creating' THEN 'pending' ELSE status END,
+              br_code=$2, payment_link_url=$3
+        WHERE id=$4
+        RETURNING id, correlation_id, status, br_code, payment_link_url, amount_cents, arrears_split_cents`,
+      [charge.identifier || charge.transactionID || null, response.brCode || charge.brCode || null,
+       charge.paymentLinkUrl || null, pending.rows[0].id]
+    );
+    if (overdueDebt > 0) await query('UPDATE merchants SET payout_suspended=TRUE WHERE id=$1', [merchantId]);
+    return {
+      success: true,
+      charge: updated.rows[0],
+      qrCode: response.brCode || charge.brCode || null,
+      qrCodeImage: response.qrCodeImage || charge.qrCodeImage || null,
+      paymentLinkUrl: charge.paymentLinkUrl || null
+    };
+  } catch (error) {
+    await query("UPDATE woovi_charges SET status='failed' WHERE id=$1 AND status='creating'", [pending.rows[0].id]).catch(() => {});
+    throw error;
+  }
 }
 
 async function createMerchantChargeBySlug({ storeSlug, orderReference, valueCents, description }) {
