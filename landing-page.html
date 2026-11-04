@@ -1337,7 +1337,7 @@ Sistema completo de pedidos para restaurantes
                     body: JSON.stringify({
                         establishmentName, adminName, email, phone, documentType,
                         documentNumber, password: adminPassword, pixKey, pixKeyType,
-                        acceptsCommissionCollection: consent
+                        acceptsCommissionCollection: consent, acceptsDeliveryCollection: consent
                     })
                 });
                 const data = await response.json().catch(() => ({}));
