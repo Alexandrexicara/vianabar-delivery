@@ -87,6 +87,7 @@ function encryptSecret(value) {
 
 router.post('/register', async (req, res) => {
   try {
+    if (!TOKEN_SECRET) return res.status(503).json({ success: false, error: 'MERCHANT_AUTH_SECRET não configurado no servidor.' });
     const { establishmentName, adminName, email, phone, documentType, documentNumber, password, pixKey, pixKeyType, acceptsCommissionCollection } = req.body || {};
     const type = String(documentType || '').toUpperCase();
     const doc = onlyDigits(documentNumber);
