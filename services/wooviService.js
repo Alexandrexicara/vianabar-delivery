@@ -18,7 +18,7 @@ function normalizePixKey(value, type) {
   return key;
 }
 const WOOVI_BASE_URL = process.env.WOOVI_BASE_URL || 'https://api.woovi.com';
-const PLATFORM_PIX_KEY = normalizePixKey(process.env.PLATFORM_PIX_KEY || '', process.env.PLATFORM_PIX_KEY_TYPE || inferPixKeyType(process.env.PLATFORM_PIX_KEY || ''));
+const PLATFORM_PIX_KEY = normalizePixKey(process.env.PLATFORM_PIX_KEY || '', String(process.env.PLATFORM_PIX_KEY_TYPE || inferPixKeyType(process.env.PLATFORM_PIX_KEY || '') || '').toUpperCase());
 
 function encryptPixKey(value) {
   const keyHex = process.env.MERCHANT_CREDENTIALS_ENCRYPTION_KEY || '';
