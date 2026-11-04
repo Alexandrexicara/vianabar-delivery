@@ -3,6 +3,7 @@ ALTER TABLE merchants ALTER COLUMN establishment_id DROP NOT NULL;
 ALTER TABLE merchants ALTER COLUMN woovi_app_id DROP NOT NULL;
 ALTER TABLE merchants ALTER COLUMN woovi_api_key DROP NOT NULL;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS establishment_name TEXT;
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS store_slug VARCHAR(100);
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS owner_name TEXT;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS phone TEXT;
@@ -17,6 +18,7 @@ ALTER TABLE merchants ADD COLUMN IF NOT EXISTS woovi_webhook_registered_at TIMES
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS pix_collection_consent_at TIMESTAMPTZ;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS commission_percent NUMERIC(5,2) NOT NULL DEFAULT 15;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS payout_suspended BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE UNIQUE INDEX IF NOT EXISTS merchants_store_slug_unique ON merchants (store_slug) WHERE store_slug IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS merchants_email_lower_unique ON merchants (LOWER(email)) WHERE email IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS merchants_document_unique ON merchants (document_type, document_number) WHERE document_type IS NOT NULL AND document_number IS NOT NULL;
 CREATE TABLE IF NOT EXISTS woovi_charges (
