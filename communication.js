@@ -52,6 +52,17 @@ const DeliveryCommunication = {
                     console.log('✅ [COMMUNICATION] WebSocket conectado!');
                     this.reconnectAttempts = 0;
                     this.sendHeartbeat();
+                    // Reautentica o motoboy após cada conexão/reconexão.
+                    try {
+                        const token = sessionStorage.getItem('motoboyToken');
+                        const session = JSON.parse(sessionStorage.getItem('motoboySession') || 'null');
+                        if (token && session) {
+                            this.ws.send(JSON.stringify({
+                                type: 'motoboyLogin', token,
+                                motoboyInfo: { id: session.id, name: session.name, phone: session.phone }
+                            }));
+                        }
+                    } catch (error) { console.warn('[COMMUNICATION] Não foi possível reautenticar motoboy:', error); }
                 };
 
                 this.ws.onmessage = (event) => {
@@ -211,6 +222,9 @@ const DeliveryCommunication = {
                 (message.orders || []).forEach(order => {
                     this.broadcastToMotoboy(order);
                 });
+                break;
+            case 'motoboyLoginError':
+                window.dispatchEvent(new CustomEvent('motoboyLoginError', { detail: message }));
                 break;
             case 'deliveryOrderConfirmation':
                 window.dispatchEvent(new CustomEvent('deliveryOrderConfirmed', { detail: message }));
