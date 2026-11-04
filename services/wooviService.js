@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { query, pool } = require('../database');
+
 const WOOVI_BASE_URL = process.env.WOOVI_BASE_URL || 'https://api.woovi.com';
 const PLATFORM_PIX_KEY = process.env.PLATFORM_PIX_KEY || '';
 
@@ -13,6 +14,7 @@ function decryptSecret(value) {
   decipher.setAuthTag(Buffer.from(tag64, 'base64'));
   return Buffer.concat([decipher.update(Buffer.from(data64, 'base64')), decipher.final()]).toString('utf8');
 }
+
 async function wooviRequest(appId, path, options = {}) {
   const response = await fetch(WOOVI_BASE_URL + path, {
     ...options,
@@ -26,15 +28,19 @@ async function wooviRequest(appId, path, options = {}) {
   }
   return data;
 }
+
 async function createMerchantCharge({ merchantId, orderReference, valueCents, description }) {
   if (!Number.isSafeInteger(valueCents) || valueCents < 100) throw new Error('O valor da cobrança deve ser de pelo menos R$ 1,00.');
   const merchantResult = await query(
-    'SELECT id, pix_key, pix_collection_consent_at, woovi_app_id_encrypted, woovi_credentials_verified_at, woovi_webhook_registered_at FROM merchants WHERE id=$1',
+    'SELECT id, pix_key, pix_collection_consent_at, woovi_app_id_encrypted, woovi_credentials_verified_at, woovi_webhook_registered_at, commission_subaccount_ready_at, commission_percent, commission_credit_cents FROM merchants WHERE id=$1',
     [merchantId]
   );
   const merchant = merchantResult.rows[0];
   if (!merchant) throw new Error('Comerciante não encontrado.');
-  if (!merchant.woovi_credentials_verified_at || !merchant.woovi_app_id_encrypted || !merchant.woovi_webhook_registered_at) throw new Error('Conecte o AppID e registre o webhook de confirmação da Woovi antes de cobrar.');
+  if (!merchant.woovi_credentials_verified_at || !merchant.woovi_app_id_encrypted ||
+      !merchant.woovi_webhook_registered_at || !merchant.commission_subaccount_ready_at) {
+    throw new Error('Conecte a Woovi e habilite Split/Subconta antes de receber Pix pelo sistema.');
+  }
   const appId = decryptSecret(merchant.woovi_app_id_encrypted);
   const debtResult = await query(
     `SELECT COALESCE(SUM(commission_amount_cents - paid_cents),0)::bigint AS debt
@@ -42,15 +48,21 @@ async function createMerchantCharge({ merchantId, orderReference, valueCents, de
       WHERE merchant_id=$1 AND due_at <= NOW() AND paid_cents < commission_amount_cents`,
     [merchantId]
   );
-  const overdueDebt = Number(debtResult.rows[0]?.debt || 0);
+  const grossDebt = Number(debtResult.rows[0]?.debt || 0);
+  const credit = Number(merchant.commission_credit_cents || 0);
+  const overdueDebt = Math.max(0, grossDebt - credit);
   let arrearsSplit = 0;
-  const payload = { correlationID: crypto.randomUUID(), value: valueCents, comment: String(description || ('Pedido ' + orderReference)).slice(0, 140) };
+  const payload = {
+    correlationID: crypto.randomUUID(),
+    value: valueCents,
+    comment: String(description || ('Pedido ' + orderReference)).slice(0, 140)
+  };
   if (merchant.pix_key) payload.pixKey = merchant.pix_key;
   if (overdueDebt > 0) {
     if (!merchant.pix_collection_consent_at) throw new Error('O comerciante ainda não autorizou a cobrança automática de débitos.');
-    if (!PLATFORM_PIX_KEY) throw new Error('PLATFORM_PIX_KEY não configurada; cobrança suspensa para evitar desvio incorreto.');
+    if (!PLATFORM_PIX_KEY) throw new Error('PLATFORM_PIX_KEY não configurada.');
     arrearsSplit = Math.min(valueCents, overdueDebt);
-    payload.splits = [{ value: arrearsSplit, pixKey: PLATFORM_PIX_KEY, splitType: 'SPLIT_INTERNAL_TRANSFER' }];
+    payload.splits = [{ value: arrearsSplit, pixKey: PLATFORM_PIX_KEY, splitType: 'SPLIT_SUB_ACCOUNT' }];
   }
   const response = await wooviRequest(appId, '/api/v1/charge', { method: 'POST', body: JSON.stringify(payload) });
   const charge = response.charge || response;
@@ -63,13 +75,21 @@ async function createMerchantCharge({ merchantId, orderReference, valueCents, de
      valueCents, arrearsSplit, response.brCode || charge.brCode || null, charge.paymentLinkUrl || null]
   );
   if (overdueDebt > 0) await query('UPDATE merchants SET payout_suspended=TRUE WHERE id=$1', [merchantId]);
-  return { success: true, charge: inserted.rows[0], qrCode: response.brCode || charge.brCode || null, qrCodeImage: response.qrCodeImage || charge.qrCodeImage || null, paymentLinkUrl: charge.paymentLinkUrl || null };
+  return {
+    success: true,
+    charge: inserted.rows[0],
+    qrCode: response.brCode || charge.brCode || null,
+    qrCodeImage: response.qrCodeImage || charge.qrCodeImage || null,
+    paymentLinkUrl: charge.paymentLinkUrl || null
+  };
 }
+
 async function createMerchantChargeBySlug({ storeSlug, orderReference, valueCents, description }) {
-  const result = await query('SELECT id FROM merchants WHERE store_slug=$1 AND status=\\'active\\' LIMIT 1', [storeSlug]);
+  const result = await query("SELECT id FROM merchants WHERE store_slug=$1 AND status='active' LIMIT 1", [storeSlug]);
   if (!result.rows[0]) throw new Error('Loja não encontrada ou ainda não ativada para receber Pix.');
   return createMerchantCharge({ merchantId: result.rows[0].id, orderReference, valueCents, description });
 }
+
 async function getPublicChargeStatus({ storeSlug, correlationID }) {
   const result = await query(
     `SELECT c.correlation_id, c.status, c.amount_cents, c.paid_at
@@ -80,6 +100,7 @@ async function getPublicChargeStatus({ storeSlug, correlationID }) {
   if (!result.rows[0]) throw new Error('Cobrança não encontrada.');
   return result.rows[0];
 }
+
 async function applyArrearsPayment(client, merchantId, amountCents) {
   let remaining = amountCents;
   const due = await client.query(
@@ -93,12 +114,47 @@ async function applyArrearsPayment(client, merchantId, amountCents) {
     await client.query('UPDATE merchant_commissions SET paid_cents=paid_cents+$1 WHERE id=$2', [applied, row.id]);
     remaining -= applied;
   }
+  if (remaining > 0) {
+    await client.query('UPDATE merchants SET commission_credit_cents=commission_credit_cents+$1 WHERE id=$2', [remaining, merchantId]);
+  }
 }
+
+async function applyCreditToCommission(client, merchantId, commissionId, commissionCents) {
+  const result = await client.query('SELECT commission_credit_cents FROM merchants WHERE id=$1 FOR UPDATE', [merchantId]);
+  const credit = Number(result.rows[0]?.commission_credit_cents || 0);
+  const applied = Math.min(credit, commissionCents);
+  if (applied > 0) {
+    await client.query('UPDATE merchant_commissions SET paid_cents=paid_cents+$1 WHERE id=$2', [applied, commissionId]);
+    await client.query('UPDATE merchants SET commission_credit_cents=commission_credit_cents-$1 WHERE id=$2', [applied, merchantId]);
+  }
+}
+
+async function requestCommissionWithdrawal(record) {
+  if (!Number(record.arrears_split_cents)) return;
+  if (!PLATFORM_PIX_KEY) throw new Error('PLATFORM_PIX_KEY não configurada para retirar a subconta.');
+  const merchantResult = await query('SELECT woovi_app_id_encrypted FROM merchants WHERE id=$1', [record.merchant_id]);
+  const appId = decryptSecret(merchantResult.rows[0]?.woovi_app_id_encrypted);
+  const path = '/api/v1/subaccount/' + encodeURIComponent(PLATFORM_PIX_KEY) + '/withdraw';
+  const response = await wooviRequest(appId, path, { method: 'POST' });
+  const transaction = response.transaction || {};
+  const correlationID = transaction.correlationID;
+  const amountCents = Number(transaction.value || record.arrears_split_cents);
+  if (!correlationID || !Number.isSafeInteger(amountCents) || amountCents <= 0) {
+    throw new Error('A Woovi não retornou os dados da retirada da subconta.');
+  }
+  await query(
+    `INSERT INTO woovi_payouts (merchant_id, charge_id, correlation_id, amount_cents, status, payload)
+     VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (correlation_id) DO NOTHING`,
+    [record.merchant_id, record.id, correlationID, amountCents, String(transaction.status || 'CREATED').toLowerCase(), response]
+  );
+}
+
 async function processChargeCompleted(body) {
   const charge = body?.charge || {};
   const correlationID = charge.correlationID || body?.correlationID;
   if (!correlationID) throw new Error('Webhook sem correlationID.');
   const client = await pool.connect();
+  let record = null;
   try {
     await client.query('BEGIN');
     const eventKey = String(body.event || 'OPENPIX:CHARGE_COMPLETED') + ':' + correlationID;
@@ -108,27 +164,86 @@ async function processChargeCompleted(body) {
     );
     if (!event.rowCount) { await client.query('COMMIT'); return { duplicate: true }; }
     const found = await client.query('SELECT * FROM woovi_charges WHERE correlation_id=$1 FOR UPDATE', [correlationID]);
-    const record = found.rows[0];
+    record = found.rows[0];
     if (!record) throw new Error('Cobrança não encontrada para este correlationID.');
     if (Number(charge.value ?? record.amount_cents) !== Number(record.amount_cents)) throw new Error('Valor confirmado difere do valor cobrado.');
     if (record.status !== 'paid') {
       await client.query("UPDATE woovi_charges SET status='paid', paid_at=NOW() WHERE id=$1", [record.id]);
-      if (Number(record.arrears_split_cents) > 0) await applyArrearsPayment(client, record.merchant_id, Number(record.arrears_split_cents));
-      const commission = Math.round(Number(record.amount_cents) * 0.15);
-      await client.query(
+      const rateResult = await client.query('SELECT commission_percent FROM merchants WHERE id=$1', [record.merchant_id]);
+      const rate = Number(rateResult.rows[0]?.commission_percent || 15);
+      const commission = Math.round(Number(record.amount_cents) * rate / 100);
+      const inserted = await client.query(
         `INSERT INTO merchant_commissions (merchant_id, charge_id, sale_amount_cents, commission_amount_cents, due_at)
-         VALUES ($1,$2,$3,$4,NOW() + INTERVAL '7 days')`,
+         VALUES ($1,$2,$3,$4,NOW() + INTERVAL '7 days') RETURNING id`,
         [record.merchant_id, record.id, record.amount_cents, commission]
       );
+      await applyCreditToCommission(client, record.merchant_id, inserted.rows[0].id, commission);
       const balance = await client.query(
-        `SELECT COALESCE(SUM(commission_amount_cents-paid_cents),0)::bigint AS debt
-           FROM merchant_commissions WHERE merchant_id=$1 AND due_at <= NOW()`, [record.merchant_id]
+        `SELECT GREATEST(0, COALESCE(SUM(commission_amount_cents-paid_cents),0)-m.commission_credit_cents)::bigint AS debt
+           FROM merchant_commissions c JOIN merchants m ON m.id=c.merchant_id
+          WHERE c.merchant_id=$1 AND c.due_at <= NOW() GROUP BY m.commission_credit_cents`,
+        [record.merchant_id]
       );
-      await client.query('UPDATE merchants SET payout_suspended=$1 WHERE id=$2', [Number(balance.rows[0].debt || 0) > 0, record.merchant_id]);
+      await client.query('UPDATE merchants SET payout_suspended=$1 WHERE id=$2', [Number(balance.rows[0]?.debt || 0) > 0, record.merchant_id]);
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally { client.release(); }
+
+  // O saldo da subconta só é transferido após a confirmação da cobrança.
+  // A quitação da dívida só é registrada no webhook MOVEMENT_CONFIRMED.
+  if (record && Number(record.arrears_split_cents) > 0) {
+    try { await requestCommissionWithdrawal(record); }
+    catch (error) { console.error('[WOOVI SUBACCOUNT WITHDRAW]', error.message); }
+  }
+  return { processed: true, correlationID };
+}
+
+async function processMovementEvent(body) {
+  const transaction = body?.transaction || body?.movement || {};
+  const correlationID = transaction.correlationID || body?.correlationID;
+  if (!correlationID) throw new Error('Webhook de movimentação sem correlationID.');
+  const eventType = String(body.event || '');
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const eventKey = eventType + ':' + correlationID;
+    const event = await client.query(
+      'INSERT INTO woovi_webhook_events (event_key,event_type,correlation_id,payload) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING event_key',
+      [eventKey, eventType, correlationID, body]
+    );
+    if (!event.rowCount) { await client.query('COMMIT'); return { duplicate: true }; }
+    const found = await client.query('SELECT * FROM woovi_payouts WHERE correlation_id=$1 FOR UPDATE', [correlationID]);
+    const payout = found.rows[0];
+    if (!payout) { await client.query('COMMIT'); return { ignored: true }; }
+    if (eventType === 'OPENPIX:MOVEMENT_CONFIRMED' && payout.status !== 'confirmed') {
+      const value = Number(transaction.value || payout.amount_cents);
+      await applyArrearsPayment(client, payout.merchant_id, value);
+      await client.query("UPDATE woovi_payouts SET status='confirmed', confirmed_at=NOW(), payload=$1 WHERE id=$2", [body, payout.id]);
+      const balance = await client.query(
+        `SELECT GREATEST(0, COALESCE(SUM(c.commission_amount_cents-c.paid_cents),0)-m.commission_credit_cents)::bigint AS debt
+           FROM merchant_commissions c JOIN merchants m ON m.id=c.merchant_id
+          WHERE c.merchant_id=$1 AND c.due_at <= NOW() GROUP BY m.commission_credit_cents`,
+        [payout.merchant_id]
+      );
+      await client.query('UPDATE merchants SET payout_suspended=$1 WHERE id=$2', [Number(balance.rows[0]?.debt || 0) > 0, payout.merchant_id]);
+    } else if (eventType === 'OPENPIX:MOVEMENT_FAILED') {
+      await client.query("UPDATE woovi_payouts SET status='failed', payload=$1 WHERE id=$2", [body, payout.id]);
     }
     await client.query('COMMIT');
     return { processed: true, correlationID };
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
 }
-module.exports = { createMerchantCharge, createMerchantChargeBySlug, getPublicChargeStatus, processChargeCompleted, decryptSecret, wooviRequest };
+
+module.exports = {
+  createMerchantCharge,
+  createMerchantChargeBySlug,
+  getPublicChargeStatus,
+  processChargeCompleted,
+  processMovementEvent,
+  decryptSecret,
+  wooviRequest
+};
