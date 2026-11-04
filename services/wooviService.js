@@ -17,7 +17,7 @@ function normalizePixKey(value, type) {
   if (type === 'PHONE') { const digits = key.replace(/\D/g, ''); return '+' + (digits.startsWith('55') ? digits : '55' + digits); }
   return key;
 }
-const WOOVI_BASE_URL = String(process.env.WOOVI_BASE_URL || 'https://api.woovi.com').replace(/\\/+$/, '');
+const WOOVI_BASE_URL = String(process.env.WOOVI_BASE_URL || 'https://api.woovi.com').replace(/\/+$/, '');
 const PLATFORM_PIX_KEY = normalizePixKey(process.env.PLATFORM_PIX_KEY || '', String(process.env.PLATFORM_PIX_KEY_TYPE || inferPixKeyType(process.env.PLATFORM_PIX_KEY || '') || '').toUpperCase());
 
 function encryptPixKey(value) {
