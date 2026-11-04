@@ -258,8 +258,34 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
       return res.status(503).json({ success: false, error: 'Configure PUBLIC_API_URL, WOOVI_WEBHOOK_AUTH_TOKEN e PLATFORM_PIX_KEY no servidor.' });
     }
 
-    // A chave Pix da plataforma é registrada como subconta na conta Woovi do comerciante.
+    // Define a chave original do comerciante como destino normal dos saques da conta.
+    // Durante atraso, a cobrança é desviada para a subconta da plataforma; a chave normal não é apagada.
     const baseUrl = process.env.WOOVI_BASE_URL || 'https://api.woovi.com';
+    const withdrawUrl = baseUrl + '/api/v1/pix-keys/withdraw';
+    let withdrawResponse = await fetch(withdrawUrl, {
+      method: 'POST',
+      headers: { Authorization: appId, 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ pixKey: merchantPixKey })
+    });
+    let withdrawData = await withdrawResponse.json().catch(() => ({}));
+    if (!withdrawResponse.ok) {
+      const withdrawError = String(withdrawData?.error || withdrawData?.message || withdrawData?.errors?.[0]?.message || '');
+      if (withdrawResponse.status === 400 && /já existente|already exists|already registered/i.test(withdrawError)) {
+        withdrawResponse = await fetch(withdrawUrl, {
+          method: 'PUT',
+          headers: { Authorization: appId, 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ pixKey: merchantPixKey })
+        });
+        withdrawData = await withdrawResponse.json().catch(() => ({}));
+      }
+      if (!withdrawResponse.ok) {
+        return res.status(400).json({
+          success: false,
+          error: withdrawData?.error || withdrawData?.message || withdrawData?.errors?.[0]?.message ||
+            'A Woovi não permitiu configurar a chave Pix original como destino normal de saque. Habilite a API de chave Pix de saque e os escopos PIX_KEY_WITHDRAW_POST/PUT.'
+        });
+      }
+    }
     // A API devolve subAccounts como objeto { subaccount: {...} } e pagina os resultados.
     const subaccounts = [];
     let skip = 0;
