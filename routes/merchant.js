@@ -306,7 +306,9 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
       hasNextPage = pageInfo.hasNextPage === true;
       skip += Number(pageInfo.limit || 100);
     }
-    const hasPlatformSubaccount = subaccounts.some(item => (item.pixKey || item.pix_key) === platformPixKey);
+    const platformSubaccount = subaccounts.find(item => (item.pixKey || item.pix_key) === platformPixKey);
+    if (platformSubaccount?.withdrawBlocked === true) return res.status(400).json({ success: false, error: 'A subconta da chave Pix da plataforma está bloqueada para saque na Woovi. Corrija a chave e solicite o desbloqueio antes de ativar.' });
+    const hasPlatformSubaccount = Boolean(platformSubaccount);
     if (!hasPlatformSubaccount) {
       const subaccountResponse = await fetch(baseUrl + '/api/v1/subaccount', {
         method: 'POST',
@@ -317,6 +319,8 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
       if (!subaccountResponse.ok) {
         return res.status(400).json({ success: false, error: subaccountData?.errors?.[0]?.message || subaccountData?.message || 'Não foi possível criar a subconta Pix da plataforma.' });
       }
+      const createdSubaccount = subaccountData.SubAccount || subaccountData.subAccount || {};
+      if (createdSubaccount.withdrawBlocked === true) return res.status(400).json({ success: false, error: 'A Woovi criou a subconta, mas bloqueou o saque para a chave Pix da plataforma. Verifique se a chave está ativa e peça o desbloqueio.' });
     }
 
     const webhookUrl = publicApiUrl + '/woovi/webhook';
