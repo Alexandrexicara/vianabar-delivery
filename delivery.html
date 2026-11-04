@@ -1416,6 +1416,9 @@
             // Criar objeto do pedido COM SETORES
             const order = {
                 id: `DEL_${Date.now()}`,
+                merchantId: new URLSearchParams(window.location.search).get('merchantId') || null,
+                storeSlug: new URLSearchParams(window.location.search).get('storeSlug') || null,
+                establishmentId: new URLSearchParams(window.location.search).get('storeId') || null,
                 customerName: deliveryAddress?.name || deliveryAddress?.phone?.split(' ')[0] || 'Cliente Delivery',
                 customerPhone: deliveryAddress?.phone || '',
                 address: deliveryAddress?.type === 'retirada' ? 'Retirada no Local' : 
