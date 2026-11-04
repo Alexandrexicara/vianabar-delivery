@@ -133,7 +133,7 @@ function encryptSecret(value) {
 router.post('/register', async (req, res) => {
   try {
     if (!TOKEN_SECRET) return res.status(503).json({ success: false, error: 'MERCHANT_AUTH_SECRET não configurado no servidor.' });
-    const { establishmentName, adminName, email, phone, documentType, documentNumber, password, pixKey, pixKeyType, acceptsCommissionCollection } = req.body || {};
+    const { establishmentName, adminName, email, phone, documentType, documentNumber, password, pixKey, pixKeyType, acceptsCommissionCollection, acceptsDeliveryCollection } = req.body || {};
     const type = String(documentType || '').toUpperCase();
     const doc = onlyDigits(documentNumber);
     if (!establishmentName || !adminName || !email || !phone || !password || !pixKey) {
@@ -143,7 +143,7 @@ router.post('/register', async (req, res) => {
     if (!['CPF','CNPJ'].includes(type) || !(type === 'CPF' ? validCPF(doc) : validCNPJ(doc))) {
       return res.status(400).json({ success: false, error: 'CPF ou CNPJ inválido.' });
     }
-    if (acceptsCommissionCollection !== true) return res.status(400).json({ success: false, error: 'É necessário autorizar expressamente a cobrança das comissões vencidas via Pix.' });
+    if (acceptsCommissionCollection !== true || acceptsDeliveryCollection !== true) return res.status(400).json({ success: false, error: 'É necessário autorizar expressamente a regularização automática das comissões e dos valores vencidos dos motoboys via Pix.' });
     const allowedPixTypes = ['CPF','CNPJ','EMAIL','PHONE','RANDOM'];
     const keyType = String(pixKeyType || '').toUpperCase();
     if (!allowedPixTypes.includes(keyType)) return res.status(400).json({ success: false, error: 'Tipo de chave Pix inválido.' });
@@ -161,6 +161,7 @@ router.post('/register', async (req, res) => {
        hashPassword(password), encryptedPixKey, keyType]
     );
     const merchant = inserted.rows[0];
+    await query('UPDATE merchants SET delivery_collection_consent_at=NOW() WHERE id=$1',[merchant.id]);
     const token = issueToken(merchant.id);
     return res.status(201).json({ success: true, token, merchant });
   } catch (error) {
@@ -185,7 +186,7 @@ router.post('/login', async (req, res) => {
 });
 
 router.get('/me', requireMerchant, async (req, res) => {
-  const result = await query('SELECT id, establishment_name, store_slug, owner_name, email, phone, document_type, document_number, pix_key, pix_key_encrypted, pix_key_type, status, payout_suspended, woovi_credentials_verified_at, woovi_kyc_status, woovi_onboarding_url, woovi_account_id FROM merchants WHERE id=$1', [req.merchant.id]);
+  const result = await query('SELECT id, establishment_name, store_slug, owner_name, email, phone, document_type, document_number, pix_key, pix_key_encrypted, pix_key_type, status, payout_suspended, delivery_collection_consent_at, woovi_credentials_verified_at, woovi_kyc_status, woovi_onboarding_url, woovi_account_id FROM merchants WHERE id=$1', [req.merchant.id]);
   if (!result.rows[0]) return res.status(404).json({ success: false, error: 'Comerciante não encontrado.' });
   const merchant = result.rows[0];
   let originalPixKey = merchant.pix_key_encrypted ? decryptSecret(merchant.pix_key_encrypted) : merchant.pix_key;
@@ -239,6 +240,17 @@ router.get('/me/commissions', requireMerchant, async (req, res) => {
   } catch (error) {
     console.error('[MERCHANT COMMISSIONS]', error);
     res.status(500).json({ success: false, error: 'Não foi possível consultar as comissões.' });
+  }
+});
+
+router.post('/me/delivery-consent', requireMerchant, async (req,res) => {
+  try {
+    if (req.body?.accepted !== true) return res.status(400).json({success:false,error:'Confirme a autorização para continuar.'});
+    await query('UPDATE merchants SET delivery_collection_consent_at=NOW(),updated_at=NOW() WHERE id=$1',[req.merchant.id]);
+    res.json({success:true,message:'Autorização para regularização automática dos valores dos motoboys registrada.'});
+  } catch(error) {
+    console.error('[MERCHANT DELIVERY CONSENT]',error);
+    res.status(500).json({success:false,error:'Não foi possível registrar a autorização.'});
   }
 });
 
