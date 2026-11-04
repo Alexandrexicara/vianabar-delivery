@@ -1,64 +1,49 @@
-// Anúncio falado de novos pedidos usando a síntese de voz do navegador.
+// Anúncio de novos pedidos usando a síntese de voz nativa do navegador.
+// Não expõe chaves de API no navegador e não depende de serviço externo.
 (function () {
-    'use strict';
+  'use strict';
+  const announcedOrders = new Set();
+  let enabled = true;
 
-    const announcedOrders = new Set();
+  function orderText(order) {
+    const id = String(order.id || order.orderNumber || 'sem número');
+    const items = Array.isArray(order.items) ? order.items.map(item => {
+      const quantity = Number(item.quantity) || 1;
+      const name = item.name || item.productName || 'item';
+      return quantity + ' ' + name;
+    }).join(', ') : '';
+    const customer = order.customerName || order.customer?.name || order.nome || '';
+    const place = order.tableNumber || order.table || order.mesa ||
+      (order.deliveryType === 'delivery' ? 'entrega' : '');
+    return 'Novo pedido ' + id + '.' +
+      (customer ? ' Cliente: ' + customer + '.' : '') +
+      (items ? ' Itens: ' + items + '.' : '') +
+      (place ? ' Local: ' + place + '.' : '');
+  }
 
-    function getOrderItems(order) {
-        const items = Array.isArray(order?.items) ? order.items : [];
-        return items.map(item => {
-            const quantity = Number(item.quantity) || 1;
-            const name = item.name || item.productName || 'item';
-            return `${quantity} ${name}`;
-        }).join(', ');
-    }
+  window.setOrderVoiceEnabled = function (value) {
+    enabled = Boolean(value);
+    if (!enabled && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+    return enabled;
+  };
 
-    function getOrderLocation(order) {
-        return order?.tableNumber || order?.table || order?.mesa || order?.deliveryType === 'delivery'
-            ? ` na ${order.tableNumber || order.table || order.mesa || 'entrega'}`
-            : '';
-    }
-
-    window.announceNewOrder = function (order) {
-        if (!order || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
-            return false;
-        }
-
-        const orderId = String(order.id || order.orderNumber || Date.now());
-        if (announcedOrders.has(orderId)) {
-            return false;
-        }
-        announcedOrders.add(orderId);
-        if (announcedOrders.size > 100) {
-            announcedOrders.delete(announcedOrders.values().next().value);
-        }
-
-        const items = getOrderItems(order);
-        const location = getOrderLocation(order);
-        const customer = order.customerName || order.customer?.name || order.nome;
-        const customerText = customer ? ` Cliente: ${customer}.` : '';
-        const itemsText = items ? ` Itens: ${items}.` : '';
-        const message = `Novo pedido número ${orderId}.${customerText}${itemsText}${location}.`;
-
-        // Anunciar pedido usando ElevenLabs API
-        const apiKey = 'sk_24897df608e0ff85018935b958591f53953a7228e4b533a4b533a4b533a4b533a7228e';
-        fetch('https://api.elevenlabs.io/v1/text-to-speech', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                text: message
-            })
-        })
-        .then(response => response.blob())
-        .then(blob => {
-            const audioUrl = URL.createObjectURL(blob);
-            const audio = new Audio(audioUrl);
-            audio.play();
-        })
-        .catch(error => console.error('Erro ao anunciar pedido:', error));
-        return true;
-    };
+  window.announceNewOrder = function (order) {
+    if (!enabled || !order || !('speechSynthesis' in window) ||
+        typeof window.SpeechSynthesisUtterance === 'undefined') return false;
+    const id = String(order.id || order.orderNumber || '');
+    if (!id || announcedOrders.has(id)) return false;
+    announcedOrders.add(id);
+    if (announcedOrders.size > 200) announcedOrders.delete(announcedOrders.values().next().value);
+    const utterance = new SpeechSynthesisUtterance(orderText(order));
+    utterance.lang = 'pt-BR';
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    const voices = window.speechSynthesis.getVoices();
+    const portuguese = voices.find(voice => /^pt(-|_)?br$/i.test(voice.lang)) ||
+      voices.find(voice => /^pt/i.test(voice.lang));
+    if (portuguese) utterance.voice = portuguese;
+    window.speechSynthesis.speak(utterance);
+    return true;
+  };
 })();
