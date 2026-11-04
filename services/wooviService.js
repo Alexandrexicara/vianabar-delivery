@@ -85,7 +85,6 @@ async function createMerchantCharge({ merchantId, orderReference, valueCents, de
   const overdueDebt = Math.max(0, grossDebt - credit);
   let arrearsSplit = 0;
   const activePixRecipient = overdueDebt > 0 ? PLATFORM_PIX_KEY : originalPixKey;
-  if (!activePixKeyType) throw new Error('Tipo da chave Pix ativa não identificado.');
   const payload = {
     correlationID: crypto.randomUUID(),
     value: valueCents,
@@ -95,9 +94,9 @@ async function createMerchantCharge({ merchantId, orderReference, valueCents, de
   // mas durante atraso a cobrança inteira vai para a subconta da plataforma.
   if (overdueDebt > 0) {
     if (!merchant.pix_collection_consent_at) throw new Error('O comerciante ainda não autorizou a cobrança automática de débitos.');
-    if (!PLATFORM_PIX_KEY) throw new Error('PLATFORM_PIX_KEY não configurada.');
+    if (!PLATFORM_PIX_KEY || !platformPixKeyType) throw new Error('Configure PLATFORM_PIX_KEY e PLATFORM_PIX_KEY_TYPE para receber a recuperação de comissões.');
     arrearsSplit = valueCents;
-    payload.splits = [{ value: valueCents, pixKey: activePixRecipient, pixKeyType: String(process.env.PLATFORM_PIX_KEY_TYPE || inferPixKeyType(activePixRecipient) || '').toUpperCase(), splitType: 'SPLIT_SUB_ACCOUNT' }];
+    payload.splits = [{ value: valueCents, pixKey: activePixRecipient, pixKeyType: platformPixKeyType, splitType: 'SPLIT_SUB_ACCOUNT' }];
   }
   const response = await wooviRequest(appId, '/api/v1/charge', { method: 'POST', body: JSON.stringify(payload) });
   const charge = response.charge || response;
