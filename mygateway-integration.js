@@ -10,7 +10,26 @@ class MyGatewayIntegration {
     this.motoboyPercent = 25;
   }
 
-  getRegistrationLink() { return 'https://woovi.com/'; }
+  getRegistrationLink(profileType = 'merchant') {
+    const profile = String(profileType || 'merchant').toLowerCase();
+    if (profile === 'motoboy') return '/motoboy-login.html';
+    if (profile === 'platform' || profile === 'creator' || profile === 'admin') return '/creator-login.html';
+    return '/landing-page.html';
+  }
+
+  // Mantém a interface antiga para páginas que ainda chamem estes métodos.
+  // O cadastro real de comerciante agora é feito pelo endpoint próprio do Vianas Bar.
+  async criarContaComerciante() {
+    throw new Error('Use o cadastro de comerciante do Vianas Bar. A criação de conta MyGateway foi desativada porque o provedor não está integrado.');
+  }
+
+  async criarContaMotoboy() {
+    throw new Error('O cadastro de motoboy continua no módulo de entregas do Vianas Bar; não existe integração MyGateway ativa.');
+  }
+
+  async criarContaCriador() {
+    throw new Error('O cadastro de administrador/criador continua no painel do Vianas Bar; não existe integração MyGateway ativa.');
+  }
 
   getStoreSlug() {
     const host = String(window.location.hostname || '').toLowerCase();
