@@ -492,6 +492,7 @@ const DeliveryCommunication = {
     registerMotoboyLogin(motoboyInfo) {
         this.send({
             type: 'motoboyLogin',
+            token: sessionStorage.getItem('motoboyToken') || '',
             motoboyInfo: motoboyInfo
         });
     }
