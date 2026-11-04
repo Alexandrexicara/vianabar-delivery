@@ -117,7 +117,7 @@ function validPixKey(value, type) {
   if (type === 'CPF') return validCPF(key);
   if (type === 'CNPJ') return validCNPJ(key);
   if (type === 'EMAIL') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(key);
-  if (type === 'PHONE') return /^\+55\\d{10,11}$/.test(key);
+  if (type === 'PHONE') return /^\+55\d{10,11}$/.test(key);
   if (type === 'RANDOM') return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key);
   return false;
 }
@@ -238,7 +238,7 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
     if (!merchantRow) return res.status(404).json({ success: false, error: 'Comerciante não encontrado.' });
     let merchantPixKey = merchantRow.pix_key_encrypted ? decryptSecret(merchantRow.pix_key_encrypted) : merchantRow.pix_key;
     if (!merchantPixKey) return res.status(400).json({ success: false, error: 'Cadastre uma chave Pix válida antes de conectar a Woovi.' });
-    const merchantPixType = merchantRow.pix_key_type || inferPixKeyType(merchantPixKey);
+    const merchantPixType = String(merchantRow.pix_key_type || inferPixKeyType(merchantPixKey) || '').toUpperCase();
     const platformPixKey = normalizePixKey(process.env.PLATFORM_PIX_KEY || '', String(process.env.PLATFORM_PIX_KEY_TYPE || inferPixKeyType(process.env.PLATFORM_PIX_KEY || '') || '').toUpperCase());
     const platformPixType = String(process.env.PLATFORM_PIX_KEY_TYPE || inferPixKeyType(platformPixKey) || '').toUpperCase();
     const validPixTypes = ['CPF','CNPJ','EMAIL','PHONE','RANDOM'];
