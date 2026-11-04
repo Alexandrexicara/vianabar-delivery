@@ -1343,9 +1343,10 @@ Sistema completo de pedidos para restaurantes
                 const data = await response.json().catch(() => ({}));
                 if (!response.ok || !data.success) throw new Error(data.error || 'Não foi possível concluir o cadastro.');
                 const uniqueId = data.merchant.store_slug || generateEstablishmentId(establishmentName);
+                // Não duplicar CPF/CNPJ, telefone, e-mail ou chave Pix em armazenamento local.
+                // Esses dados ficam apenas no backend; o navegador guarda o identificador da loja e a sessão.
                 const establishmentData = {
-                    establishmentName, adminName, email, phone, documentType,
-                    documentNumber, pixKeyType, pixKey, merchantId: data.merchant.id,
+                    establishmentName, adminName, merchantId: data.merchant.id,
                     purchaseDate: new Date().toISOString(), isAuthenticated: true, uniqueId
                 };
                 localStorage.setItem('merchantSessionToken', data.token);
