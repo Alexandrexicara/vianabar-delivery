@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const { query } = require('../database');
 
-const WOOVI_BASE_URL = process.env.WOOVI_BASE_URL || 'https://api.woovi.com';
+const WOOVI_BASE_URL = String(process.env.WOOVI_BASE_URL || 'https://api.woovi.com').replace(/\\/+$/, '');
 
 function encryptAppId(value) {
   const keyHex = process.env.MERCHANT_CREDENTIALS_ENCRYPTION_KEY || '';
