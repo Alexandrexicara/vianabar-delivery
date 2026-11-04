@@ -691,53 +691,57 @@
         }
 
         // Verificar autenticação do motoboy
-        function checkMotoboyAuth() {
+        async function checkMotoboyAuth() {
             const session = sessionStorage.getItem('motoboySession');
+            const token = sessionStorage.getItem('motoboyToken');
             const motoboyAccess = localStorage.getItem('motoboyAccess');
-            
-            // Se for o criador acessando, dar acesso direto
+
+            // Acesso especial já existente do criador, preservado.
             if (motoboyAccess === 'true') {
                 const creatorMotoboyData = {
-                    name: 'Motoboy Criador',
-                    phone: '(11) 99999-5555',
-                    vehicle: 'Moto Criador',
-                    plate: 'CREATOR-001',
-                    status: 'active',
-                    role: 'creator-motoboy'
+                    name: 'Motoboy Criador', phone: '(11) 99999-5555',
+                    vehicle: 'Moto Criador', plate: 'CREATOR-001',
+                    status: 'active', role: 'creator-motoboy'
                 };
                 sessionStorage.setItem('motoboySession', JSON.stringify(creatorMotoboyData));
                 motoboyData = creatorMotoboyData;
                 initializeMotoboyCommunication();
                 initializeMotoboy();
-                console.log('[MOTOBOY] Criador acessando painel com permissões totais');
                 return;
             }
-            
-            // Se já tiver sessão normal, carregar
-            if (session) {
-                motoboyData = JSON.parse(session);
-                // Limpar pedidos antigos ao carregar
+
+            // Não existe mais acesso automático de demonstração: exige conta autenticada.
+            if (!session || !token) {
+                window.location.replace('motoboy-login.html');
+                return;
+            }
+            try {
+                const response = await fetch('/api/accounts/motoboy/me', {
+                    headers: { Authorization: 'Bearer ' + token }
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) throw new Error(data.error || 'Sessão inválida.');
+                motoboyData = {
+                    ...JSON.parse(session),
+                    ...data.motoboy,
+                    vehicle: data.motoboy.vehicle_data || JSON.parse(session).vehicle || {},
+                    cnh: data.motoboy.cnh_data || {},
+                    stats: JSON.parse(session).stats || {
+                        todayDeliveries: 0, totalDeliveries: 0, avgTime: 25, rating: 5.0
+                    },
+                    status: 'active'
+                };
+                sessionStorage.setItem('motoboySession', JSON.stringify(motoboyData));
                 limparPedidosAntigos();
                 initializeMotoboyCommunication();
                 initializeMotoboy();
-                return;
+            } catch (error) {
+                console.error('[MOTOBOY AUTH]', error);
+                sessionStorage.removeItem('motoboyToken');
+                sessionStorage.removeItem('motoboySession');
+                alert('Sua sessão expirou. Entre novamente.');
+                window.location.replace('motoboy-login.html');
             }
-            
-            // Se não tiver nada, criar acesso automático
-            const autoMotoboyData = {
-                name: 'Motoboy Teste',
-                phone: '(11) 99999-5555',
-                vehicle: 'Moto Teste',
-                plate: 'AUTO-001',
-                status: 'active',
-                role: 'auto-access'
-            };
-            sessionStorage.setItem('motoboySession', JSON.stringify(autoMotoboyData));
-            motoboyData = autoMotoboyData;
-            
-            initializeMotoboyCommunication();
-            initializeMotoboy();
-            console.log('[MOTOBOY] Acesso automático concedido');
         }
 
         // ============================================
