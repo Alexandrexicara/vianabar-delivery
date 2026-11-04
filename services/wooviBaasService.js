@@ -37,31 +37,41 @@ async function masterRequest(path, options = {}) {
   return data;
 }
 
-function decryptSecret(value) {
-  if (!value) return null;
-  const keyHex = process.env.MERCHANT_CREDENTIALS_ENCRYPTION_KEY || '';
-  if (!/^[a-f0-9]{64}$/i.test(keyHex)) throw new Error('MERCHANT_CREDENTIALS_ENCRYPTION_KEY não configurada.');
-  const [iv64, tag64, data64] = String(value).split('.');
-  const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(keyHex, 'hex'), Buffer.from(iv64, 'base64'));
-  decipher.setAuthTag(Buffer.from(tag64, 'base64'));
-  return Buffer.concat([decipher.update(Buffer.from(data64, 'base64')), decipher.final()]).toString('utf8');
+let cachedWebhookPublicKeys = null;
+let webhookKeysCacheExpiresAt = 0;
+
+async function getWebhookPublicKeys() {
+  if (cachedWebhookPublicKeys && Date.now() < webhookKeysCacheExpiresAt) return cachedWebhookPublicKeys;
+  try {
+    const response = await fetch(WOOVI_BASE_URL + '/api/v1/webhook/public-keys');
+    if (!response.ok) throw new Error('Não foi possível consultar as chaves públicas da Woovi.');
+    const data = await response.json();
+    const keys = Array.isArray(data.public_keys) ? data.public_keys.map(item => item.key).filter(Boolean) : [];
+    if (!keys.length) throw new Error('A Woovi não retornou chaves públicas de webhook.');
+    cachedWebhookPublicKeys = keys;
+    webhookKeysCacheExpiresAt = Date.now() + 60 * 60 * 1000;
+    return keys;
+  } catch (error) {
+    if (cachedWebhookPublicKeys?.length) return cachedWebhookPublicKeys;
+    throw error;
+  }
 }
 
 async function verifyKycWebhook(req) {
-  const event = String(req.body?.event || '');
-  const signature = String(req.headers['x-openpix-signature'] || '');
-  if (event && signature) {
-    const result = await query('SELECT secret_encrypted FROM woovi_master_webhook_secrets WHERE event_type=$1', [event]);
-    if (result.rows[0]?.secret_encrypted) {
-      const secret = decryptSecret(result.rows[0].secret_encrypted);
-      const expected = crypto.createHmac('sha1', secret).update(req.rawBody || JSON.stringify(req.body)).digest('base64');
-      const expectedBuffer = Buffer.from(expected);
-      const receivedBuffer = Buffer.from(signature);
-      return expectedBuffer.length === receivedBuffer.length && crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
-    }
+  const signature = String(req.headers['x-webhook-signature'] || '');
+  if (!signature) {
+    // A Woovi pode enviar um POST de validação durante o cadastro do webhook.
+    const token = process.env.WOOVI_MASTER_WEBHOOK_AUTH_TOKEN || '';
+    return Boolean(!req.body?.event && token && String(req.headers.authorization || '') === token);
   }
-  const expectedToken = process.env.WOOVI_MASTER_WEBHOOK_AUTH_TOKEN || '';
-  return Boolean(expectedToken && String(req.headers.authorization || '') === expectedToken);
+  const rawBody = req.rawBody || JSON.stringify(req.body);
+  const keys = await getWebhookPublicKeys();
+  return keys.some(publicKey => {
+    const verifier = crypto.createVerify('sha256');
+    verifier.update(Buffer.from(rawBody));
+    verifier.end();
+    return verifier.verify(publicKey, signature, 'base64');
+  });
 }
 
 async function ensureMasterKycWebhooks() {
@@ -87,7 +97,7 @@ async function ensureMasterKycWebhooks() {
   for (const event of events) {
     const alreadyRegistered = existing.some(item => item.event === event && item.url === webhookUrl && item.isActive !== false);
     if (alreadyRegistered) continue;
-    const created = await masterRequest('/api/v1/webhook', {
+    await masterRequest('/api/v1/webhook', {
       method: 'POST',
       body: JSON.stringify({
         webhook: {
@@ -99,15 +109,6 @@ async function ensureMasterKycWebhooks() {
         }
       })
     });
-    const hmacSecret = created?.webhook?.hmacSecretKey || created?.hmacSecretKey;
-    if (hmacSecret) {
-      await query(
-        `INSERT INTO woovi_master_webhook_secrets (event_type, secret_encrypted, updated_at)
-         VALUES ($1,$2,NOW()) ON CONFLICT (event_type)
-         DO UPDATE SET secret_encrypted=EXCLUDED.secret_encrypted, updated_at=NOW()`,
-        [event, encryptAppId(hmacSecret)]
-      );
-    }
   }
   return webhookUrl;
 }
