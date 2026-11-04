@@ -135,6 +135,14 @@ async function startCpfOnboarding(merchantId) {
 
   const webhookUrl = await ensureMasterKycWebhooks();
   const correlationID = merchant.woovi_kyc_correlation_id || ('vianas-merchant-' + merchant.id);
+  // Grava a correlação antes da chamada externa para não perder webhook de aprovação rápido.
+  await query(
+    `UPDATE merchants SET woovi_kyc_correlation_id=$1,
+      woovi_onboarding_created_at=COALESCE(woovi_onboarding_created_at,NOW()),
+      woovi_master_webhook_registered_at=NOW(), updated_at=NOW()
+      WHERE id=$2`,
+    [correlationID, merchantId]
+  );
   const response = await masterRequest('/api/v1/kyc/onboarding', {
     method: 'POST',
     body: JSON.stringify({
