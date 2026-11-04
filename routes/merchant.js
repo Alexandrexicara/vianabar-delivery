@@ -242,14 +242,26 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
 
     // A chave Pix da plataforma é registrada como subconta na conta Woovi do comerciante.
     const baseUrl = process.env.WOOVI_BASE_URL || 'https://api.woovi.com';
-    const subaccountListResponse = await fetch(baseUrl + '/api/v1/subaccount', {
-      headers: { Authorization: appId, Accept: 'application/json' }
-    });
-    const subaccountList = await subaccountListResponse.json().catch(() => ({}));
-    if (!subaccountListResponse.ok) {
-      return res.status(400).json({ success: false, error: subaccountList?.errors?.[0]?.message || 'A conta não possui acesso à funcionalidade Subconta da Woovi.' });
+    // A API devolve subAccounts como objeto { subaccount: {...} } e pagina os resultados.
+    const subaccounts = [];
+    let skip = 0;
+    let hasNextPage = true;
+    while (hasNextPage && skip < 1000) {
+      const listUrl = baseUrl + '/api/v1/subaccount?skip=' + skip + '&limit=100';
+      const subaccountListResponse = await fetch(listUrl, {
+        headers: { Authorization: appId, Accept: 'application/json' }
+      });
+      const subaccountList = await subaccountListResponse.json().catch(() => ({}));
+      if (!subaccountListResponse.ok) {
+        return res.status(400).json({ success: false, error: subaccountList?.errors?.[0]?.message || 'A conta não possui acesso à funcionalidade Subconta da Woovi.' });
+      }
+      const raw = subaccountList.subAccounts || subaccountList.subaccounts || subaccountList.accounts || [];
+      const pageItems = Array.isArray(raw) ? raw : raw?.subaccount ? (Array.isArray(raw.subaccount) ? raw.subaccount : [raw.subaccount]) : Object.values(raw || {}).filter(item => item && typeof item === 'object');
+      subaccounts.push(...pageItems);
+      const pageInfo = subaccountList.pageInfo || {};
+      hasNextPage = pageInfo.hasNextPage === true;
+      skip += Number(pageInfo.limit || 100);
     }
-    const subaccounts = subaccountList.subAccounts || subaccountList.subaccounts || subaccountList.accounts || [];
     const hasPlatformSubaccount = subaccounts.some(item => (item.pixKey || item.pix_key) === platformPixKey);
     if (!hasPlatformSubaccount) {
       const subaccountResponse = await fetch(baseUrl + '/api/v1/subaccount', {
