@@ -259,7 +259,12 @@ async function processMovementEvent(body) {
     await client.query('BEGIN');
     const found = await client.query('SELECT * FROM woovi_payouts WHERE correlation_id=$1 FOR UPDATE', [correlationID]);
     const payout = found.rows[0];
-    if (!payout) { await client.query('COMMIT'); return { ignored: true }; }
+    if (!payout) {
+      const destinationAlias = String(transaction.destinationAlias || body?.destination?.pixKey || '');
+      if (destinationAlias && destinationAlias === PLATFORM_PIX_KEY) throw new Error('Retirada da subconta recebida antes do registro local; a Woovi deve reenviar o webhook.');
+      await client.query('COMMIT');
+      return { ignored: true };
+    }
     const eventKey = eventType + ':' + correlationID;
     const event = await client.query(
       'INSERT INTO woovi_webhook_events (event_key,event_type,correlation_id,payload) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING event_key',
