@@ -50,7 +50,8 @@ router.post('/webhook', async (req, res) => {
       return res.status(401).json({ success: false, error: 'Webhook não autorizado.' });
     }
     const body = req.body || {};
-    if (body.event === 'OPENPIX:CHARGE_COMPLETED') await processChargeCompleted(body);\n    if (body.event === 'OPENPIX:MOVEMENT_CONFIRMED' || body.event === 'OPENPIX:MOVEMENT_FAILED') await processMovementEvent(body);
+    if (body.event === 'OPENPIX:CHARGE_COMPLETED') await processChargeCompleted(body);
+    if (body.event === 'OPENPIX:MOVEMENT_CONFIRMED' || body.event === 'OPENPIX:MOVEMENT_FAILED') await processMovementEvent(body);
     return res.status(200).json({ success: true });
   } catch (error) {
     console.error('[WOOVI WEBHOOK]', error);
