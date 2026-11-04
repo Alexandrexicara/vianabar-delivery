@@ -209,15 +209,15 @@ async function processMovementEvent(body) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const found = await client.query('SELECT * FROM woovi_payouts WHERE correlation_id=$1 FOR UPDATE', [correlationID]);
+    const payout = found.rows[0];
+    if (!payout) { await client.query('COMMIT'); return { ignored: true }; }
     const eventKey = eventType + ':' + correlationID;
     const event = await client.query(
       'INSERT INTO woovi_webhook_events (event_key,event_type,correlation_id,payload) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING event_key',
       [eventKey, eventType, correlationID, body]
     );
     if (!event.rowCount) { await client.query('COMMIT'); return { duplicate: true }; }
-    const found = await client.query('SELECT * FROM woovi_payouts WHERE correlation_id=$1 FOR UPDATE', [correlationID]);
-    const payout = found.rows[0];
-    if (!payout) { await client.query('COMMIT'); return { ignored: true }; }
     if (eventType === 'OPENPIX:MOVEMENT_CONFIRMED' && payout.status !== 'confirmed') {
       const value = Number(transaction.value || payout.amount_cents);
       await applyArrearsPayment(client, payout.merchant_id, value);
