@@ -100,7 +100,7 @@ async function createMerchantCharge({ merchantId, orderReference, valueCents, de
     if (!merchant.pix_collection_consent_at) throw new Error('O comerciante ainda não autorizou a cobrança automática de débitos.');
     if (!PLATFORM_PIX_KEY) throw new Error('PLATFORM_PIX_KEY não configurada.');
   }
-  payload.splits = [{ value: valueCents, pixKey: activePixRecipient, pixKeyType: activePixKeyType, splitType: 'SPLIT_SUB_ACCOUNT' }];
+  payload.splits = [{ value: valueCents, pixKey: activePixRecipient, splitType: 'SPLIT_SUB_ACCOUNT' }];
   // Registra a correlação antes de chamar a Woovi para que um webhook rápido nunca fique sem pedido local.
   const pending = await query(
     `INSERT INTO woovi_charges
