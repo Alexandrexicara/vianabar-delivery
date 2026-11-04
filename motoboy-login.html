@@ -348,14 +348,22 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="pixKey">Chave PIX (opcional)</label>
-                        <input type="text" id="pixKey" placeholder="CPF, email, telefone ou aleatória">
+                        <label for="pixKey">Chave Pix para receber suas entregas *</label>
+                        <input type="text" id="pixKey" required placeholder="Informe sua chave Pix">
+                        <select id="pixKeyType" required style="margin-top:8px;">
+                            <option value="">Tipo da chave Pix...</option>
+                            <option value="CPF">CPF</option>
+                            <option value="CNPJ">CNPJ</option>
+                            <option value="EMAIL">E-mail</option>
+                            <option value="PHONE">Telefone com DDI 55</option>
+                            <option value="RANDOM">Chave aleatória</option>
+                        </select>
                     </div>
 
                     <div style="margin-top: 15px; padding: 12px 14px; background: #f2f9f3; border: 1px solid #cfead8; border-radius: 8px; color: #204c2f; font-size: 0.95rem; line-height: 1.5;">
-                        <strong>Sua chave pix e importate você concluir o cadastro:</strong>
+                        <strong>A chave Pix é obrigatória.</strong>
                         <br>
-                        cadastre seu perfil no MyGateway para receber pagamentos.
+                        Ela será usada para os repasses das entregas, após confirmação dos pagamentos.
                         <br>
                         <a href="" target="_blank" rel="noopener noreferrer" style="color: #0d6efd; text-decoration: underline; font-weight: 600;">
                             
@@ -526,13 +534,7 @@
         async function handleRegister(event) {
             event.preventDefault();
             const pixKey = document.getElementById('pixKey').value.trim();
-            const digits = pixKey.replace(/\D/g, '');
-            let pixKeyType = '';
-            if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pixKey)) pixKeyType = 'EMAIL';
-            else if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pixKey)) pixKeyType = 'RANDOM';
-            else if (digits.length === 11) pixKeyType = 'CPF';
-            else if (digits.length === 14) pixKeyType = 'CNPJ';
-            else if (pixKey.startsWith('+')) pixKeyType = 'PHONE';
+            const pixKeyType = document.getElementById('pixKeyType').value.toUpperCase();
             const formData = {
                 name: document.getElementById('registerName').value.trim(),
                 email: document.getElementById('registerEmail').value.trim(),
