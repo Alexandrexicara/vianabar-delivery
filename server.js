@@ -10,6 +10,7 @@ const express = require('express');
 const multer = require('multer');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const { query: dbQuery } = require('./database');
 
 const app = express();
 const server = http.createServer(app);
@@ -747,6 +748,9 @@ wss.on('connection', (ws) => {
           order.status = 'completed';
           order.completedAt = new Date().toISOString();
           persistDeliveryOrders();
+          persistMotoboyDeliveryPayable(order).catch(error => {
+            console.error('[COURIER PAYABLE] Falha ao registrar valor devido ao motoboy:', error);
+          });
           
           // Notify customer
           broadcastToCustomer(data.orderId, {
@@ -780,6 +784,46 @@ wss.on('connection', (ws) => {
     clients.delete(ws.clientId);
   });
 });
+
+
+async function persistMotoboyDeliveryPayable(order) {
+  const motoboyId = Number(order?.motoboyId);
+  const amountCents = Number.isSafeInteger(Number(order?.motoboyAmountCents))
+    ? Number(order.motoboyAmountCents)
+    : Math.round(Number(order?.total || 0) * 10); // regra atual do painel: 10% do pedido
+  if (!Number.isSafeInteger(motoboyId) || motoboyId <= 0 || !Number.isSafeInteger(amountCents) || amountCents <= 0) {
+    console.warn('[COURIER PAYABLE] Pedido sem motoboyId/valor válido; não foi criado título financeiro.', order?.id);
+    return;
+  }
+  let merchantResult;
+  if (order.merchantId) {
+    merchantResult = await dbQuery('SELECT id FROM merchants WHERE id=$1 LIMIT 1', [Number(order.merchantId)]);
+  } else if (order.storeSlug) {
+    merchantResult = await dbQuery('SELECT id FROM merchants WHERE store_slug=$1 LIMIT 1', [String(order.storeSlug)]);
+  } else if (order.establishmentId) {
+    merchantResult = await dbQuery('SELECT id FROM merchants WHERE establishment_id=$1 LIMIT 1', [Number(order.establishmentId)]);
+  } else {
+    console.warn('[COURIER PAYABLE] Pedido sem merchantId/storeSlug/establishmentId; não é possível vincular a dívida.', order?.id);
+    return;
+  }
+  const merchantId = merchantResult?.rows?.[0]?.id;
+  if (!merchantId) {
+    console.warn('[COURIER PAYABLE] Comerciante não encontrado para o pedido.', order?.id);
+    return;
+  }
+  const motoboy = await dbQuery('SELECT id FROM motoboys WHERE id=$1 AND status=\'active\' LIMIT 1', [motoboyId]);
+  if (!motoboy.rows[0]) {
+    console.warn('[COURIER PAYABLE] Motoboy não encontrado/ativo no banco.', motoboyId);
+    return;
+  }
+  await dbQuery(
+    `INSERT INTO motoboy_deliveries (merchant_id,motoboy_id,order_reference,amount_cents,due_at)
+     VALUES ($1,$2,$3,$4,NOW()+INTERVAL '48 hours')
+     ON CONFLICT (merchant_id,order_reference,motoboy_id) DO NOTHING`,
+    [merchantId,motoboyId,String(order.id),amountCents]
+  );
+  console.log('[COURIER PAYABLE] Entrega registrada com vencimento em 48 horas.', { merchantId,motoboyId,orderId:order.id,amountCents });
+}
 
 // Start HTTP server
 server.listen(httpPort, hostname, () => {
