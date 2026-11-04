@@ -37,6 +37,33 @@ async function masterRequest(path, options = {}) {
   return data;
 }
 
+function decryptSecret(value) {
+  if (!value) return null;
+  const keyHex = process.env.MERCHANT_CREDENTIALS_ENCRYPTION_KEY || '';
+  if (!/^[a-f0-9]{64}$/i.test(keyHex)) throw new Error('MERCHANT_CREDENTIALS_ENCRYPTION_KEY não configurada.');
+  const [iv64, tag64, data64] = String(value).split('.');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(keyHex, 'hex'), Buffer.from(iv64, 'base64'));
+  decipher.setAuthTag(Buffer.from(tag64, 'base64'));
+  return Buffer.concat([decipher.update(Buffer.from(data64, 'base64')), decipher.final()]).toString('utf8');
+}
+
+async function verifyKycWebhook(req) {
+  const event = String(req.body?.event || '');
+  const signature = String(req.headers['x-openpix-signature'] || '');
+  if (event && signature) {
+    const result = await query('SELECT secret_encrypted FROM woovi_master_webhook_secrets WHERE event_type=$1', [event]);
+    if (result.rows[0]?.secret_encrypted) {
+      const secret = decryptSecret(result.rows[0].secret_encrypted);
+      const expected = crypto.createHmac('sha1', secret).update(req.rawBody || JSON.stringify(req.body)).digest('base64');
+      const expectedBuffer = Buffer.from(expected);
+      const receivedBuffer = Buffer.from(signature);
+      return expectedBuffer.length === receivedBuffer.length && crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
+    }
+  }
+  const expectedToken = process.env.WOOVI_MASTER_WEBHOOK_AUTH_TOKEN || '';
+  return Boolean(expectedToken && String(req.headers.authorization || '') === expectedToken);
+}
+
 async function ensureMasterKycWebhooks() {
   const publicApiUrl = String(process.env.PUBLIC_API_URL || '').replace(/\/$/, '');
   const webhookToken = process.env.WOOVI_MASTER_WEBHOOK_AUTH_TOKEN || '';
@@ -58,8 +85,10 @@ async function ensureMasterKycWebhooks() {
     'ACCOUNT_REGISTER_REJECTED'
   ];
   for (const event of events) {
-    if (existing.some(item => item.event === event && item.url === webhookUrl && item.isActive !== false)) continue;
-    await masterRequest('/api/v1/webhook', {
+    const secretResult = await query('SELECT secret_encrypted FROM woovi_master_webhook_secrets WHERE event_type=$1', [event]);
+    const alreadyRegistered = existing.some(item => item.event === event && item.url === webhookUrl && item.isActive !== false);
+    if (alreadyRegistered) continue;
+    const created = await masterRequest('/api/v1/webhook', {
       method: 'POST',
       body: JSON.stringify({
         webhook: {
@@ -71,6 +100,15 @@ async function ensureMasterKycWebhooks() {
         }
       })
     });
+    const hmacSecret = created?.webhook?.hmacSecretKey || created?.hmacSecretKey;
+    if (hmacSecret) {
+      await query(
+        `INSERT INTO woovi_master_webhook_secrets (event_type, secret_encrypted, updated_at)
+         VALUES ($1,$2,NOW()) ON CONFLICT (event_type)
+         DO UPDATE SET secret_encrypted=EXCLUDED.secret_encrypted, updated_at=NOW()`,
+        [event, encryptAppId(hmacSecret)]
+      );
+    }
   }
   return webhookUrl;
 }
@@ -179,4 +217,4 @@ async function processKycWebhook(body) {
   return { processed: true, merchantId: merchant.id, status: status || 'UNCHANGED' };
 }
 
-module.exports = { startCpfOnboarding, processKycWebhook };
+module.exports = { startCpfOnboarding, processKycWebhook, verifyKycWebhook };
