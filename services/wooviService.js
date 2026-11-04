@@ -181,7 +181,7 @@ async function applyCreditToCommission(client, merchantId, commissionId, commiss
   }
 }
 
-async function requestCommissionWithdrawal(record) {
+async function requestSubaccountWithdrawal(record) {
   const payoutType = record.recipient_type || (Number(record.arrears_split_cents) > 0 ? 'platform' : 'merchant');
   const lockClient = await pool.connect();
   const lockId = Number(record.merchant_id);
@@ -267,7 +267,7 @@ async function processChargeCompleted(body) {
   // O saldo da subconta só é transferido após a confirmação da cobrança.
   // A quitação da dívida só é registrada no webhook MOVEMENT_CONFIRMED.
   if (record) {
-    try { await requestCommissionWithdrawal(record); }
+    try { await requestSubaccountWithdrawal(record); }
     catch (error) { console.error('[WOOVI SUBACCOUNT WITHDRAW]', error.message); }
   }
   return { processed: !duplicateEvent, duplicate: duplicateEvent, correlationID };
