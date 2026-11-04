@@ -4,6 +4,15 @@ const { query, pool } = require('../database');
 const WOOVI_BASE_URL = process.env.WOOVI_BASE_URL || 'https://api.woovi.com';
 const PLATFORM_PIX_KEY = process.env.PLATFORM_PIX_KEY || '';
 
+function encryptPixKey(value) {
+  const keyHex = process.env.MERCHANT_CREDENTIALS_ENCRYPTION_KEY || '';
+  if (!/^[a-f0-9]{64}$/i.test(keyHex)) throw new Error('MERCHANT_CREDENTIALS_ENCRYPTION_KEY não configurada.');
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(keyHex, 'hex'), iv);
+  const encrypted = Buffer.concat([cipher.update(String(value), 'utf8'), cipher.final()]);
+  return [iv, cipher.getAuthTag(), encrypted].map(b => b.toString('base64')).join('.');
+}
+
 function decryptSecret(value) {
   if (!value) throw new Error('AppID Woovi não configurado para este comerciante.');
   const keyHex = process.env.MERCHANT_CREDENTIALS_ENCRYPTION_KEY || '';
@@ -32,7 +41,7 @@ async function wooviRequest(appId, path, options = {}) {
 async function createMerchantCharge({ merchantId, orderReference, valueCents, description }) {
   if (!Number.isSafeInteger(valueCents) || valueCents < 100) throw new Error('O valor da cobrança deve ser de pelo menos R$ 1,00.');
   const merchantResult = await query(
-    'SELECT id, pix_key, pix_collection_consent_at, woovi_app_id_encrypted, woovi_credentials_verified_at, woovi_webhook_registered_at, commission_subaccount_ready_at, commission_percent, commission_credit_cents FROM merchants WHERE id=$1',
+    'SELECT id, pix_key, pix_key_encrypted, pix_key_type, pix_collection_consent_at, woovi_app_id_encrypted, woovi_credentials_verified_at, woovi_webhook_registered_at, commission_subaccount_ready_at, commission_percent, commission_credit_cents FROM merchants WHERE id=$1',
     [merchantId]
   );
   const merchant = merchantResult.rows[0];
@@ -42,6 +51,12 @@ async function createMerchantCharge({ merchantId, orderReference, valueCents, de
     throw new Error('Conecte a Woovi e habilite Split/Subconta antes de receber Pix pelo sistema.');
   }
   const appId = decryptSecret(merchant.woovi_app_id_encrypted);
+  let originalPixKey = merchant.pix_key_encrypted ? decryptSecret(merchant.pix_key_encrypted) : merchant.pix_key;
+  if (!originalPixKey) throw new Error('Chave Pix original do comerciante não encontrada.');
+  if (!merchant.pix_key_encrypted) {
+    const encrypted = encryptPixKey(originalPixKey);
+    await query('UPDATE merchants SET pix_key_encrypted=$1, pix_key=NULL WHERE id=$2', [encrypted, merchantId]);
+  }
   const debtResult = await query(
     `SELECT COALESCE(SUM(commission_amount_cents - paid_cents),0)::bigint AS debt
        FROM merchant_commissions
@@ -52,17 +67,21 @@ async function createMerchantCharge({ merchantId, orderReference, valueCents, de
   const credit = Number(merchant.commission_credit_cents || 0);
   const overdueDebt = Math.max(0, grossDebt - credit);
   let arrearsSplit = 0;
+  const activePixRecipient = overdueDebt > 0 ? PLATFORM_PIX_KEY : originalPixKey;
+  const activePixKeyType = overdueDebt > 0 ? (process.env.PLATFORM_PIX_KEY_TYPE || inferPixKeyType(PLATFORM_PIX_KEY)) : (merchant.pix_key_type || inferPixKeyType(originalPixKey));
+  if (!activePixKeyType) throw new Error('Tipo da chave Pix ativa não identificado.');
   const payload = {
     correlationID: crypto.randomUUID(),
     value: valueCents,
     comment: String(description || ('Pedido ' + orderReference)).slice(0, 140)
   };
-  if (merchant.pix_key) payload.pixKey = merchant.pix_key;
+  // A chave efetiva é decidida exclusivamente no servidor: a original fica preservada,
+  // mas durante atraso a cobrança inteira vai para a subconta da plataforma.
   if (overdueDebt > 0) {
     if (!merchant.pix_collection_consent_at) throw new Error('O comerciante ainda não autorizou a cobrança automática de débitos.');
     if (!PLATFORM_PIX_KEY) throw new Error('PLATFORM_PIX_KEY não configurada.');
-    arrearsSplit = Math.min(valueCents, overdueDebt);
-    payload.splits = [{ value: arrearsSplit, pixKey: PLATFORM_PIX_KEY, splitType: 'SPLIT_SUB_ACCOUNT' }];
+    arrearsSplit = valueCents;
+    payload.splits = [{ value: valueCents, pixKey: activePixRecipient, pixKeyType: activePixKeyType, splitType: 'SPLIT_SUB_ACCOUNT' }];
   }
   const response = await wooviRequest(appId, '/api/v1/charge', { method: 'POST', body: JSON.stringify(payload) });
   const charge = response.charge || response;
@@ -236,6 +255,17 @@ async function processMovementEvent(body) {
     return { processed: true, correlationID };
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
+}
+
+function inferPixKeyType(value) {
+  const key = String(value || '').trim();
+  if (/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(key)) return 'EMAIL';
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key)) return 'RANDOM';
+  const digits = key.replace(/\\D/g, '');
+  if (digits.length === 11) return 'CPF';
+  if (digits.length === 14) return 'CNPJ';
+  if (key.startsWith('+')) return 'PHONE';
+  return null;
 }
 
 module.exports = {
