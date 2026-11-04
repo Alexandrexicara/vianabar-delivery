@@ -29,6 +29,7 @@ app.use("/motoboy", require("./routes/motoboy"));
 app.use("/google-pay", require("./routes/google-pay"));
 app.use("/anti-chargeback", require("./routes/antiChargeback"));
 app.use("/merchant", require("./routes/merchant").router);
+app.use("/merchant/woovi-baas", require("./routes/wooviBaas"));
 app.use("/woovi", require("./routes/woovi"));
 
 // Configure multer for file uploads
