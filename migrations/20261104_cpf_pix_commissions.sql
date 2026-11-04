@@ -101,3 +101,10 @@ CREATE TABLE IF NOT EXISTS woovi_payouts (
   payout_type VARCHAR(20) NOT NULL DEFAULT 'platform'
 );
 
+
+CREATE TABLE IF NOT EXISTS woovi_pending_movements (
+  correlation_id VARCHAR(100) PRIMARY KEY,
+  event_type VARCHAR(100) NOT NULL,
+  payload JSONB NOT NULL,
+  received_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
