@@ -1955,6 +1955,9 @@
                             displayCombinedOrders(window.ordersData);
                         }
                         
+                        // Anunciar o pedido em português sem API externa.
+                        if (window.announceNewOrder) window.announceNewOrder(data.order);
+
                         // Show notification
                         playTripleBeep(); // Som sonoro para novo pedido recebido
                         
@@ -2618,12 +2621,10 @@
             // Calculate commission for this table
             const commission = calculateWaiterCommission(order.table, order.total);
             let message = `Confirmar pagamento via PIX para o pedido ${orderId}?`;
-            message += `
-Valor do pedido: R$ ${order.total.toFixed(2).replace('.', ',')}`;
+            message += `\nValor do pedido: R$ ${order.total.toFixed(2).replace('.', ',')}`;
             if (commission > 0) {
                 const percentage = getSavedCommissionPercentage(order.table);
-                message += `
-Comissão do garçom para mesa ${order.table} (${percentage}%): R$ ${commission.toFixed(2).replace('.', ',')}`;
+                message += `\nComissão do garçom para mesa ${order.table} (${percentage}%): R$ ${commission.toFixed(2).replace('.', ',')}`;
             }
             
             if (confirm(message)) {
@@ -2651,14 +2652,11 @@ Comissão do garçom para mesa ${order.table} (${percentage}%): R$ ${commission.
             const totalWithCommission = total + commission;
             
             let message = `Confirmar pagamento via PIX para a mesa ${table}?`;
-            message += `
-Valor total dos pedidos: R$ ${total.toFixed(2).replace('.', ',')}`;
+            message += `\nValor total dos pedidos: R$ ${total.toFixed(2).replace('.', ',')}`;
             if (commission > 0) {
                 const percentage = getSavedCommissionPercentage(table);
-                message += `
-Comissão do garçom (${percentage}%): R$ ${commission.toFixed(2).replace('.', ',')}`;
-                message += `
-Total com comissão: R$ ${totalWithCommission.toFixed(2).replace('.', ',')}`;
+                message += `\nComissão do garçom (${percentage}%): R$ ${commission.toFixed(2).replace('.', ',')}`;
+                message += `\nTotal com comissão: R$ ${totalWithCommission.toFixed(2).replace('.', ',')}`;
             }
             
             if (confirm(message)) {
@@ -2693,14 +2691,10 @@ Total com comissão: R$ ${totalWithCommission.toFixed(2).replace('.', ',')}`;
             let promptMessage = `Valor total do pedido: R$ ${order.total.toFixed(2).replace('.', ',')}`;
             if (commission > 0) {
                 const percentage = getSavedCommissionPercentage(order.table);
-                promptMessage += `
-Comissão do garçom (${percentage}%): R$ ${commission.toFixed(2).replace('.', ',')}`;
-                promptMessage += `
-Total com comissão: R$ ${totalWithCommission.toFixed(2).replace('.', ',')}`;
+                promptMessage += `\nComissão do garçom (${percentage}%): R$ ${commission.toFixed(2).replace('.', ',')}`;
+                promptMessage += `\nTotal com comissão: R$ ${totalWithCommission.toFixed(2).replace('.', ',')}`;
             }
-            promptMessage += `
-
-Digite o valor pago pelo cliente:`;
+            promptMessage += `\n\nDigite o valor pago pelo cliente:`;
             
             const amountPaidStr = prompt(promptMessage);
 
@@ -2712,9 +2706,7 @@ Digite o valor pago pelo cliente:`;
                 }
 
                 const change = paid - totalWithCommission;
-                const confirmation = confirm(`Troco a ser devolvido: R$ ${change.toFixed(2).replace('.', ',')}.
-
-Deseja confirmar o pagamento?`);
+                const confirmation = confirm(`Troco a ser devolvido: R$ ${change.toFixed(2).replace('.', ',')}.\n\nDeseja confirmar o pagamento?`);
 
                 if (confirmation) {
                     updatePaymentStatus(orderId, 'completed', section);
@@ -2741,12 +2733,10 @@ Deseja confirmar o pagamento?`);
                 // Calculate commission for this table
                 const commission = calculateWaiterCommission(order.table, order.total);
                 let message = `Confirmar pagamento com cartão de ${cardType} para o pedido ${orderId}?`;
-                message += `
-Valor do pedido: R$ ${order.total.toFixed(2).replace('.', ',')}`;
+                message += `\nValor do pedido: R$ ${order.total.toFixed(2).replace('.', ',')}`;
                 if (commission > 0) {
                     const percentage = getSavedCommissionPercentage(order.table);
-                    message += `
-Comissão do garçom para mesa ${order.table} (${percentage}%): R$ ${commission.toFixed(2).replace('.', ',')}`;
+                    message += `\nComissão do garçom para mesa ${order.table} (${percentage}%): R$ ${commission.toFixed(2).replace('.', ',')}`;
                 }
                 
                 if (confirm(message)) {
@@ -4196,8 +4186,7 @@ Comissão do garçom para mesa ${order.table} (${percentage}%): R$ ${commission.
                 }
                 
                 // Criar CSV
-                let csv = 'ID,Data,Status,Pagamento,Total,Endereço,Itens
-';
+                let csv = 'ID,Data,Status,Pagamento,Total,Endereço,Itens\n';
                 
                 deliveryOrders.forEach(order => {
                     const items = order.items.map(item => `${item.name}(${item.quantity})`).join(';');
@@ -4205,8 +4194,7 @@ Comissão do garçom para mesa ${order.table} (${percentage}%): R$ ${commission.
                         'Retirada no local' : 
                         `${order.address.rua}, ${order.address.numero} - ${order.address.bairro}`;
                     
-                    csv += `${order.id},"${new Date(order.date).toLocaleString('pt-BR')}","${getDeliveryStatusText(order.status)}","${getPaymentText(order.payment)}",${order.total},"${address}","${items}"
-`;
+                    csv += `${order.id},"${new Date(order.date).toLocaleString('pt-BR')}","${getDeliveryStatusText(order.status)}","${getPaymentText(order.payment)}",${order.total},"${address}","${items}"\n`;
                 });
                 
                 // Download do arquivo
