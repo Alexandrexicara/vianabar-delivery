@@ -5,7 +5,7 @@ const { query } = require('../database');
 
 const TOKEN_SECRET = process.env.MERCHANT_AUTH_SECRET || '';
 const CREDENTIAL_KEY = process.env.MERCHANT_CREDENTIALS_ENCRYPTION_KEY || '';
-const baseUrl = String(process.env.WOOVI_BASE_URL || 'https://api.woovi.com').replace(/\\/+$/, '');
+const baseUrl = String(process.env.WOOVI_BASE_URL || 'https://api.woovi.com').replace(/\/+$/, '');
 
 function b64(value) { return Buffer.from(value).toString('base64url'); }
 function issueToken(merchantId) {
