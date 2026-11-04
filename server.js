@@ -17,7 +17,7 @@ const server = http.createServer(app);
 // Middleware
 app.use(cors());
 
-app.use(express.json());
+app.use(express.json({ verify: (req, res, buffer) => { req.rawBody = Buffer.from(buffer); } }));
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static('uploads'));
 
@@ -28,7 +28,7 @@ app.use("/vendedor", require("./routes/vendedor"));
 app.use("/motoboy", require("./routes/motoboy"));
 app.use("/google-pay", require("./routes/google-pay"));
 app.use("/anti-chargeback", require("./routes/antiChargeback"));
-app.use("/woovi", require("./routes/woovi"));
+app.use("/merchant", require("./routes/merchant").router);\napp.use("/woovi", require("./routes/woovi"));
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
