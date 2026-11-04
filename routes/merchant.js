@@ -99,7 +99,7 @@ function maskPixKey(value) {
 function normalizePixKey(value, type) {
   const key = String(value || '').trim();
   if (type === 'CPF' || type === 'CNPJ') return key.replace(/\D/g, '');
-  if (type === 'PHONE') return '+' + key.replace(/\D/g, '').replace(/^55/, '55');
+  if (type === 'PHONE') { const digits = key.replace(/\D/g, ''); return '+' + (digits.startsWith('55') ? digits : '55' + digits); }
   return key;
 }
 function inferPixKeyType(value) {
