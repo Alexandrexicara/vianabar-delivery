@@ -229,7 +229,7 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
     let merchantPixKey = merchantRow.pix_key_encrypted ? decryptSecret(merchantRow.pix_key_encrypted) : merchantRow.pix_key;
     if (!merchantPixKey) return res.status(400).json({ success: false, error: 'Cadastre uma chave Pix válida antes de conectar a Woovi.' });
     const merchantPixType = merchantRow.pix_key_type || inferPixKeyType(merchantPixKey);
-    const platformPixKey = normalizePixKey(process.env.PLATFORM_PIX_KEY || '', process.env.PLATFORM_PIX_KEY_TYPE || inferPixKeyType(process.env.PLATFORM_PIX_KEY || ''));
+    const platformPixKey = normalizePixKey(process.env.PLATFORM_PIX_KEY || '', String(process.env.PLATFORM_PIX_KEY_TYPE || inferPixKeyType(process.env.PLATFORM_PIX_KEY || '') || '').toUpperCase());
     const platformPixType = String(process.env.PLATFORM_PIX_KEY_TYPE || inferPixKeyType(platformPixKey) || '').toUpperCase();
     const validPixTypes = ['CPF','CNPJ','EMAIL','PHONE','RANDOM'];
     if (!validPixTypes.includes(String(merchantPixType).toUpperCase()) || !validPixTypes.includes(platformPixType)) return res.status(400).json({ success: false, error: 'Informe tipos válidos para a chave Pix do comerciante e da plataforma (CPF, CNPJ, EMAIL, PHONE ou RANDOM).'});
