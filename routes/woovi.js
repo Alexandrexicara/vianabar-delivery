@@ -1,7 +1,34 @@
 const express = require('express');
 const router = express.Router();
 const { requireMerchant } = require('./merchant');
-const { createMerchantCharge, processChargeCompleted } = require('../services/wooviService');
+const { createMerchantCharge, createMerchantChargeBySlug, getPublicChargeStatus, processChargeCompleted } = require('../services/wooviService');
+
+router.post('/public/charge/create', async (req, res) => {
+  try {
+    const { storeSlug, pedidoId, valorTotalCents, descricao } = req.body || {};
+    if (!storeSlug || !pedidoId || !Number.isSafeInteger(Number(valorTotalCents)) || !descricao) {
+      return res.status(400).json({ success: false, error: 'Loja, pedido, valor em centavos e descrição são obrigatórios.' });
+    }
+    const result = await createMerchantChargeBySlug({
+      storeSlug: String(storeSlug), orderReference: String(pedidoId),
+      valueCents: Number(valorTotalCents), description: descricao
+    });
+    res.status(201).json(result);
+  } catch (error) {
+    console.error('[WOOVI PUBLIC CHARGE]', error);
+    res.status(error.status || 400).json({ success: false, error: error.message });
+  }
+});
+router.get('/public/charge/:correlationId', async (req, res) => {
+  try {
+    const storeSlug = String(req.query.storeSlug || '');
+    if (!storeSlug) return res.status(400).json({ success: false, error: 'storeSlug obrigatório.' });
+    const charge = await getPublicChargeStatus({ storeSlug, correlationID: req.params.correlationId });
+    res.json({ success: true, charge });
+  } catch (error) {
+    res.status(404).json({ success: false, error: error.message });
+  }
+});
 
 router.post('/charge/create', requireMerchant, async (req, res) => {
   try {
