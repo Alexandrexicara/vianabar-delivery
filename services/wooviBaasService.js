@@ -83,7 +83,7 @@ async function ensureMasterKycWebhooks() {
     throw error;
   }
   const webhookUrl = publicApiUrl + '/woovi/kyc-webhook';
-  const existingResponse = await masterRequest('/api/v1/webhook?url=' + encodeURIComponent(webhookUrl));
+  const existingResponse = await masterRequest('/api/v1/webhook?url=' + encodeURIComponent(webhookUrl) + '&skip=0&limit=100');
   const existing = Array.isArray(existingResponse.webhooks) ? existingResponse.webhooks : [];
   const events = [
     'ACCOUNT_REGISTER_STEP_UPDATED',
