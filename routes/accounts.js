@@ -59,6 +59,13 @@ router.post('/motoboy/register',async(req,res)=>{
   if(!name||!email||!phone||!validCPF(cpf)||password.length<8||!pixKey)
    return res.status(400).json({success:false,error:'Preencha nome, e-mail, telefone, CPF válido, senha de 8 caracteres e chave Pix.'});
   if(!['CPF','CNPJ','EMAIL','PHONE','RANDOM'].includes(pixKeyType))return res.status(400).json({success:false,error:'Tipo de chave Pix inválido.'});
+  const pixDigits=digits(pixKey);
+  const validPix = pixKeyType==='CPF' ? validCPF(pixKey) :
+    pixKeyType==='CNPJ' ? pixDigits.length===14 && !/^(\\d)\\1{13}$/.test(pixDigits) :
+    pixKeyType==='EMAIL' ? /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(pixKey) :
+    pixKeyType==='PHONE' ? /^\\+55\\d{10,11}$/.test(pixKey) :
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pixKey);
+  if(!validPix)return res.status(400).json({success:false,error:'A chave Pix não corresponde ao tipo informado.'});
   const hash=crypto.createHash('sha256').update(cpf).digest('hex');
   const r=await query(`INSERT INTO motoboys(name,email,phone,cpf_hash,cpf_encrypted,password_hash,vehicle_data,cnh_data,pix_key_encrypted,pix_key_type,status)
    VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10,'active')
