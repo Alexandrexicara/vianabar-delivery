@@ -27,6 +27,7 @@ ALTER TABLE merchants ADD COLUMN IF NOT EXISTS pix_key_type VARCHAR(12);
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS woovi_app_id_encrypted TEXT;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS woovi_credentials_verified_at TIMESTAMPTZ;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS woovi_webhook_registered_at TIMESTAMPTZ;
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS commission_subaccount_ready_at TIMESTAMPTZ;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS pix_collection_consent_at TIMESTAMPTZ;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS commission_percent NUMERIC(5,2) NOT NULL DEFAULT 15;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS payout_suspended BOOLEAN NOT NULL DEFAULT FALSE;
@@ -65,4 +66,16 @@ CREATE TABLE IF NOT EXISTS woovi_webhook_events (
   correlation_id VARCHAR(100),
   payload JSONB NOT NULL,
   received_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS woovi_payouts (
+  id BIGSERIAL PRIMARY KEY,
+  merchant_id INTEGER NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
+  charge_id BIGINT REFERENCES woovi_charges(id) ON DELETE SET NULL,
+  correlation_id VARCHAR(100) NOT NULL UNIQUE,
+  amount_cents INTEGER NOT NULL CHECK (amount_cents > 0),
+  status VARCHAR(20) NOT NULL DEFAULT 'created',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  confirmed_at TIMESTAMPTZ,
+  payload JSONB
 );
