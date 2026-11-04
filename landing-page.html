@@ -1342,7 +1342,7 @@ Sistema completo de pedidos para restaurantes
                 });
                 const data = await response.json().catch(() => ({}));
                 if (!response.ok || !data.success) throw new Error(data.error || 'Não foi possível concluir o cadastro.');
-                const uniqueId = generateEstablishmentId(establishmentName);
+                const uniqueId = data.merchant.store_slug || generateEstablishmentId(establishmentName);
                 const establishmentData = {
                     establishmentName, adminName, email, phone, documentType,
                     documentNumber, pixKeyType, pixKey, merchantId: data.merchant.id,
