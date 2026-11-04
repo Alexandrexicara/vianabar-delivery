@@ -116,8 +116,8 @@ function validPixKey(value, type) {
   const key = String(value || '').trim();
   if (type === 'CPF') return validCPF(key);
   if (type === 'CNPJ') return validCNPJ(key);
-  if (type === 'EMAIL') return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(key);
-  if (type === 'PHONE') return /^\\+55\\d{10,11}$/.test(key);
+  if (type === 'EMAIL') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(key);
+  if (type === 'PHONE') return /^\+55\\d{10,11}$/.test(key);
   if (type === 'RANDOM') return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key);
   return false;
 }
