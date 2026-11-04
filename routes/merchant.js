@@ -82,6 +82,36 @@ function makeStoreSlug(name) {
     .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 55) || 'loja';
   return base + '-' + crypto.randomBytes(3).toString('hex');
 }
+function decryptSecret(value) {
+  if (!value) return null;
+  if (!/^[a-f0-9]{64}$/i.test(CREDENTIAL_KEY)) throw new Error('Configure MERCHANT_CREDENTIALS_ENCRYPTION_KEY com 64 caracteres hexadecimais.');
+  const [iv64, tag64, data64] = String(value).split('.');
+  if (!iv64 || !tag64 || !data64) throw new Error('Chave Pix criptografada em formato inválido.');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(CREDENTIAL_KEY, 'hex'), Buffer.from(iv64, 'base64'));
+  decipher.setAuthTag(Buffer.from(tag64, 'base64'));
+  return Buffer.concat([decipher.update(Buffer.from(data64, 'base64')), decipher.final()]).toString('utf8');
+}
+function maskPixKey(value) {
+  const key = String(value || '');
+  if (key.length <= 6) return '••••';
+  return key.slice(0, 3) + '••••••' + key.slice(-3);
+}
+function normalizePixKey(value, type) {
+  const key = String(value || '').trim();
+  if (type === 'CPF' || type === 'CNPJ') return key.replace(/\\D/g, '');
+  if (type === 'PHONE') return '+' + key.replace(/\\D/g, '').replace(/^55/, '55');
+  return key;
+}
+function inferPixKeyType(value) {
+  const key = String(value || '').trim();
+  if (/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(key)) return 'EMAIL';
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key)) return 'RANDOM';
+  const digits = key.replace(/\\D/g, '');
+  if (digits.length === 11) return 'CPF';
+  if (digits.length === 14) return 'CNPJ';
+  if (key.startsWith('+')) return 'PHONE';
+  return null;
+}
 function encryptSecret(value) {
   if (!/^[a-f0-9]{64}$/i.test(CREDENTIAL_KEY)) throw new Error('Configure MERCHANT_CREDENTIALS_ENCRYPTION_KEY com 64 caracteres hexadecimais.');
   const iv = crypto.randomBytes(12);
@@ -107,15 +137,17 @@ router.post('/register', async (req, res) => {
     const allowedPixTypes = ['CPF','CNPJ','EMAIL','PHONE','RANDOM'];
     const keyType = String(pixKeyType || '').toUpperCase();
     if (!allowedPixTypes.includes(keyType)) return res.status(400).json({ success: false, error: 'Tipo de chave Pix inválido.' });
+    const normalizedPixKey = normalizePixKey(pixKey, keyType);
+    const encryptedPixKey = encryptSecret(normalizedPixKey);
     const inserted = await query(
       `INSERT INTO merchants
        (establishment_name, store_slug, owner_name, email, phone, document_type, document_number,
-        password_hash, pix_key, pix_key_type, pix_collection_consent_at, status,
+        password_hash, pix_key_encrypted, pix_key_type, pix_collection_consent_at, status,
         split_mode, commission_percent)
        VALUES ($1,$2,$3,LOWER($4),$5,$6,$7,$8,$9,$10,NOW(),'pending','SPLIT_SUB_ACCOUNT',15)
        RETURNING id, establishment_name, store_slug, owner_name, email, document_type, status`,
       [establishmentName.trim(), makeStoreSlug(establishmentName), adminName.trim(), email.trim(), phone.trim(), type, doc,
-       hashPassword(password), pixKey.trim(), keyType]
+       hashPassword(password), encryptedPixKey, keyType]
     );
     const merchant = inserted.rows[0];
     const token = issueToken(merchant.id);
@@ -142,9 +174,26 @@ router.post('/login', async (req, res) => {
 });
 
 router.get('/me', requireMerchant, async (req, res) => {
-  const result = await query('SELECT id, establishment_name, store_slug, owner_name, email, phone, document_type, document_number, pix_key, pix_key_type, status, payout_suspended, woovi_credentials_verified_at FROM merchants WHERE id=$1', [req.merchant.id]);
+  const result = await query('SELECT id, establishment_name, store_slug, owner_name, email, phone, document_type, document_number, pix_key, pix_key_encrypted, pix_key_type, status, payout_suspended, woovi_credentials_verified_at FROM merchants WHERE id=$1', [req.merchant.id]);
   if (!result.rows[0]) return res.status(404).json({ success: false, error: 'Comerciante não encontrado.' });
-  res.json({ success: true, merchant: result.rows[0] });
+  const merchant = result.rows[0];
+  let originalPixKey = merchant.pix_key_encrypted ? decryptSecret(merchant.pix_key_encrypted) : merchant.pix_key;
+  if (originalPixKey && !merchant.pix_key_encrypted) {
+    const encrypted = encryptSecret(originalPixKey);
+    await query('UPDATE merchants SET pix_key_encrypted=$1, pix_key=NULL WHERE id=$2', [encrypted, merchant.id]);
+  }
+  const commissions = await query(
+    `SELECT GREATEST(0, COALESCE(SUM(c.commission_amount_cents-c.paid_cents),0)-m.commission_credit_cents)::bigint AS overdue_cents
+       FROM merchants m LEFT JOIN merchant_commissions c ON c.merchant_id=m.id AND c.due_at<=NOW()
+      WHERE m.id=$1 GROUP BY m.id`, [merchant.id]
+  );
+  const overdue = Number(commissions.rows[0]?.overdue_cents || 0);
+  res.json({ success: true, merchant: {
+    ...merchant, pix_key: originalPixKey || null, pix_key_masked: maskPixKey(originalPixKey),
+    pix_key_encrypted: undefined, overdue_cents: overdue,
+    pix_receiving_key_status: overdue > 0 ? 'temporarily_replaced_by_platform' : 'merchant_key_active',
+    active_pix_recipient: overdue > 0 ? 'platform' : 'merchant'
+  }});
 });
 
 router.get('/me/commissions', requireMerchant, async (req, res) => {
@@ -174,6 +223,15 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
   try {
     const appId = String(req.body?.appId || '').trim();
     if (!appId) return res.status(400).json({ success: false, error: 'Informe o AppID da Woovi.' });
+    const merchantResult = await query('SELECT pix_key, pix_key_encrypted, pix_key_type, establishment_name FROM merchants WHERE id=$1', [req.merchant.id]);
+    const merchantRow = merchantResult.rows[0];
+    if (!merchantRow) return res.status(404).json({ success: false, error: 'Comerciante não encontrado.' });
+    let merchantPixKey = merchantRow.pix_key_encrypted ? decryptSecret(merchantRow.pix_key_encrypted) : merchantRow.pix_key;
+    if (!merchantPixKey) return res.status(400).json({ success: false, error: 'Cadastre uma chave Pix válida antes de conectar a Woovi.' });
+    const merchantPixType = merchantRow.pix_key_type || inferPixKeyType(merchantPixKey);
+    const platformPixKey = normalizePixKey(process.env.PLATFORM_PIX_KEY || '', process.env.PLATFORM_PIX_KEY_TYPE || inferPixKeyType(process.env.PLATFORM_PIX_KEY || ''));
+    const platformPixType = String(process.env.PLATFORM_PIX_KEY_TYPE || inferPixKeyType(platformPixKey) || '').toUpperCase();
+    if (!merchantPixType || !platformPixType) return res.status(400).json({ success: false, error: 'Informe tipos válidos para a chave Pix do comerciante e PLATFORM_PIX_KEY_TYPE (CPF, CNPJ, EMAIL, PHONE ou RANDOM).'});
     const encrypted = encryptSecret(appId);
     const verified = await fetch((process.env.WOOVI_BASE_URL || 'https://api.woovi.com') + '/api/v1/charge', {
       headers: { Authorization: appId, Accept: 'application/json' }
@@ -182,7 +240,6 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
     if (!verified.ok) return res.status(400).json({ success: false, error: data?.errors?.[0]?.message || 'A Woovi recusou o AppID informado.' });
     const publicApiUrl = String(process.env.PUBLIC_API_URL || '').replace(/\/$/, '');
     const webhookToken = process.env.WOOVI_WEBHOOK_AUTH_TOKEN || '';
-    const platformPixKey = process.env.PLATFORM_PIX_KEY || '';
     if (!publicApiUrl || !webhookToken || !platformPixKey) {
       return res.status(503).json({ success: false, error: 'Configure PUBLIC_API_URL, WOOVI_WEBHOOK_AUTH_TOKEN e PLATFORM_PIX_KEY no servidor.' });
     }
@@ -202,7 +259,7 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
       const subaccountResponse = await fetch(baseUrl + '/api/v1/subaccount', {
         method: 'POST',
         headers: { Authorization: appId, 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ name: 'Vianas Bar - Comissão da plataforma', pixKey: platformPixKey })
+        body: JSON.stringify({ name: 'Vianas Bar - Comissão da plataforma', pixKey: platformPixKey, pixKeyType: platformPixType })
       });
       const subaccountData = await subaccountResponse.json().catch(() => ({}));
       if (!subaccountResponse.ok) {
@@ -238,7 +295,7 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
         return res.status(400).json({ success: false, error: webhookData?.errors?.[0]?.message || webhookData?.message || 'Não foi possível registrar o webhook ' + event + '.' });
       }
     }
-    await query("UPDATE merchants SET woovi_app_id_encrypted=$1, woovi_credentials_verified_at=NOW(), woovi_webhook_registered_at=NOW(), commission_subaccount_ready_at=NOW(), status='active', updated_at=NOW() WHERE id=$2", [encrypted, req.merchant.id]);
+    await query("UPDATE merchants SET woovi_app_id_encrypted=$1, pix_key_encrypted=COALESCE(pix_key_encrypted,$2), pix_key=NULL, woovi_credentials_verified_at=NOW(), woovi_webhook_registered_at=NOW(), commission_subaccount_ready_at=NOW(), status='active', updated_at=NOW() WHERE id=$3", [encrypted, encryptSecret(merchantPixKey), req.merchant.id]);
     res.json({ success: true, message: 'AppID validado e webhook de confirmação Pix registrado.' });
   } catch (error) {
     console.error('[MERCHANT WOOVI CONFIG]', error);
