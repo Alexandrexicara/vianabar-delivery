@@ -1,0 +1,36 @@
+name: Vianas Bar - Pix integration checks
+
+on:
+  pull_request:
+    paths:
+      - "routes/**"
+      - "services/**"
+      - "server.js"
+      - "scripts/**"
+      - "migrations/**"
+      - ".github/workflows/pix-integration-check.yml"
+  push:
+    branches:
+      - cpf-pix-voice-fixes
+
+jobs:
+  node-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Check JavaScript syntax
+        run: |
+          node --check server.js
+          node --check routes/merchant.js
+          node --check routes/woovi.js
+          node --check routes/wooviBaas.js
+          node --check services/wooviService.js
+          node --check services/wooviBaasService.js
+          node --check scripts/migrate.js
+          node --check mygateway-integration.js
+          node --check order-voice-announcer.js
