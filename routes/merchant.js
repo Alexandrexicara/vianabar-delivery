@@ -147,6 +147,29 @@ router.get('/me', requireMerchant, async (req, res) => {
   res.json({ success: true, merchant: result.rows[0] });
 });
 
+router.get('/me/commissions', requireMerchant, async (req, res) => {
+  try {
+    const summary = await query(
+      `SELECT m.payout_suspended, m.commission_credit_cents,
+        COALESCE(SUM(CASE WHEN c.due_at <= NOW() THEN c.commission_amount_cents-c.paid_cents ELSE 0 END),0)::bigint AS overdue_cents,
+        COALESCE(SUM(c.commission_amount_cents-c.paid_cents),0)::bigint AS total_open_cents
+       FROM merchants m LEFT JOIN merchant_commissions c ON c.merchant_id=m.id
+       WHERE m.id=$1 GROUP BY m.id`,
+      [req.merchant.id]
+    );
+    const rows = await query(
+      `SELECT sale_amount_cents, commission_amount_cents, paid_cents, due_at, created_at
+         FROM merchant_commissions WHERE merchant_id=$1
+        ORDER BY due_at DESC LIMIT 30`,
+      [req.merchant.id]
+    );
+    res.json({ success: true, summary: summary.rows[0] || {}, commissions: rows.rows });
+  } catch (error) {
+    console.error('[MERCHANT COMMISSIONS]', error);
+    res.status(500).json({ success: false, error: 'Não foi possível consultar as comissões.' });
+  }
+});
+
 router.post('/me/woovi', requireMerchant, async (req, res) => {
   try {
     const appId = String(req.body?.appId || '').trim();
