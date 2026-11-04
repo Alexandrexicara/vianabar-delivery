@@ -202,6 +202,7 @@ async function processChargeCompleted(body) {
   if (!correlationID) throw new Error('Webhook sem correlationID.');
   const client = await pool.connect();
   let record = null;
+  let duplicateEvent = false;
   try {
     await client.query('BEGIN');
     const eventKey = String(body.event || 'OPENPIX:CHARGE_COMPLETED') + ':' + correlationID;
@@ -209,7 +210,7 @@ async function processChargeCompleted(body) {
       'INSERT INTO woovi_webhook_events (event_key,event_type,correlation_id,payload) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING event_key',
       [eventKey, body.event || 'OPENPIX:CHARGE_COMPLETED', correlationID, body]
     );
-    const duplicateEvent = !event.rowCount;
+    duplicateEvent = !event.rowCount;
     const found = await client.query('SELECT * FROM woovi_charges WHERE correlation_id=$1 FOR UPDATE', [correlationID]);
     record = found.rows[0];
     if (!record) throw new Error('Cobrança não encontrada para este correlationID.');
@@ -245,7 +246,7 @@ async function processChargeCompleted(body) {
     try { await requestCommissionWithdrawal(record); }
     catch (error) { console.error('[WOOVI SUBACCOUNT WITHDRAW]', error.message); }
   }
-  return { processed: true, duplicate: false, correlationID };
+  return { processed: !duplicateEvent, duplicate: duplicateEvent, correlationID };
 }
 
 async function processMovementEvent(body) {
