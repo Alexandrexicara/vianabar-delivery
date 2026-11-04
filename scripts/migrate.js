@@ -13,9 +13,9 @@ const ORDERED_MIGRATIONS = [
 
 async function migrate() {
   const dir = path.join(__dirname, '..', 'migrations');
-  await pool.query(\`CREATE TABLE IF NOT EXISTS schema_migrations (
+  await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
     filename TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )\`);
+  )`);
   for (const filename of ORDERED_MIGRATIONS) {
     const file = path.join(dir, filename);
     if (!fs.existsSync(file)) throw new Error('Migration obrigatória não encontrada: ' + filename);
