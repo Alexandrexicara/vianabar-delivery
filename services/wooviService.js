@@ -69,6 +69,7 @@ async function createMerchantCharge({ merchantId, orderReference, valueCents, de
   const appId = decryptSecret(merchant.woovi_app_id_encrypted);
   let originalPixKey = merchant.pix_key_encrypted ? decryptSecret(merchant.pix_key_encrypted) : merchant.pix_key;
   if (!originalPixKey) throw new Error('Chave Pix original do comerciante não encontrada.');
+  originalPixKey = normalizePixKey(originalPixKey, String(merchant.pix_key_type || inferPixKeyType(originalPixKey) || '').toUpperCase());
   if (!merchant.pix_key_encrypted) {
     const encrypted = encryptPixKey(originalPixKey);
     await query('UPDATE merchants SET pix_key_encrypted=$1, pix_key=NULL WHERE id=$2', [encrypted, merchantId]);
@@ -84,7 +85,7 @@ async function createMerchantCharge({ merchantId, orderReference, valueCents, de
   const overdueDebt = Math.max(0, grossDebt - credit);
   let arrearsSplit = 0;
   const activePixRecipient = overdueDebt > 0 ? PLATFORM_PIX_KEY : originalPixKey;
-  const activePixKeyType = overdueDebt > 0 ? (process.env.PLATFORM_PIX_KEY_TYPE || inferPixKeyType(PLATFORM_PIX_KEY)) : (merchant.pix_key_type || inferPixKeyType(originalPixKey));
+  const activePixKeyType = overdueDebt > 0 ? String(process.env.PLATFORM_PIX_KEY_TYPE || inferPixKeyType(PLATFORM_PIX_KEY) || '').toUpperCase() : String(merchant.pix_key_type || inferPixKeyType(originalPixKey) || '').toUpperCase();
   if (!activePixKeyType) throw new Error('Tipo da chave Pix ativa não identificado.');
   const payload = {
     correlationID: crypto.randomUUID(),
