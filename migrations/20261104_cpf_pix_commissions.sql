@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS woovi_charges (
   woovi_charge_id VARCHAR(120),
   amount_cents INTEGER NOT NULL CHECK (amount_cents > 0),
   arrears_split_cents INTEGER NOT NULL DEFAULT 0 CHECK (arrears_split_cents >= 0),
+  recipient_type VARCHAR(20) NOT NULL DEFAULT 'merchant',
   status VARCHAR(20) NOT NULL DEFAULT 'pending',
   br_code TEXT,
   payment_link_url TEXT,
@@ -96,6 +97,7 @@ CREATE TABLE IF NOT EXISTS woovi_payouts (
   status VARCHAR(20) NOT NULL DEFAULT 'created',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   confirmed_at TIMESTAMPTZ,
-  payload JSONB
+  payload JSONB,
+  payout_type VARCHAR(20) NOT NULL DEFAULT 'platform'
 );
 
