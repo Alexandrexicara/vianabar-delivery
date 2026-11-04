@@ -84,6 +84,7 @@ async function createMerchantCharge({ merchantId, orderReference, valueCents, de
   const overdueDebt = Number(debtResult.rows[0]?.debt || 0);
   let arrearsSplit = 0;
   const activePixRecipient = overdueDebt > 0 ? PLATFORM_PIX_KEY : originalPixKey;
+  const platformPixKeyType = String(process.env.PLATFORM_PIX_KEY_TYPE || inferPixKeyType(PLATFORM_PIX_KEY) || '').toUpperCase();
   const payload = {
     correlationID: crypto.randomUUID(),
     value: valueCents,
