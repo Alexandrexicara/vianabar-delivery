@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { requireMerchant } = require('./merchant');
 const { createMerchantCharge, createMerchantChargeBySlug, getPublicChargeStatus, processChargeCompleted, processMovementEvent } = require('../services/wooviService');
+const { processKycWebhook } = require('../services/wooviBaasService');
 
 router.post('/public/charge/create', async (req, res) => {
   try {
@@ -43,6 +44,22 @@ router.post('/charge/create', requireMerchant, async (req, res) => {
     res.status(error.status || 400).json({ success: false, error: error.message });
   }
 });
+router.post('/kyc-webhook', async (req, res) => {
+  try {
+    const expectedToken = process.env.WOOVI_MASTER_WEBHOOK_AUTH_TOKEN || '';
+    if (!expectedToken || String(req.headers.authorization || '') !== expectedToken) {
+      return res.status(401).json({ success: false, error: 'Webhook BaaS não autorizado.' });
+    }
+    // A Woovi envia um POST de validação ao cadastrar o webhook.
+    if (!req.body?.event) return res.status(200).json({ success: true });
+    await processKycWebhook(req.body);
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('[WOOVI KYC WEBHOOK]', error);
+    return res.status(500).json({ success: false, error: 'Falha ao processar atualização do cadastro Woovi.' });
+  }
+});
+
 router.post('/webhook', async (req, res) => {
   try {
     const expectedToken = process.env.WOOVI_WEBHOOK_AUTH_TOKEN || '';
