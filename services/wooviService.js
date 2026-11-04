@@ -419,15 +419,22 @@ async function processMovementEvent(body) {
     const payout = found.rows[0];
     if (!payout) {
       const destinationAlias = String(transaction.destinationAlias || body?.destination?.pixKey || '');
-      let isKnownMerchantPixKey = false;
+      let isKnownRecipientPixKey = false;
       if (destinationAlias) {
-        const merchantKeys = await client.query('SELECT pix_key, pix_key_encrypted, pix_key_type FROM merchants');
-        isKnownMerchantPixKey = merchantKeys.rows.some(item => {
+        const merchantKeys = await client.query('SELECT pix_key,pix_key_encrypted,pix_key_type FROM merchants');
+        isKnownRecipientPixKey = merchantKeys.rows.some(item => {
           const key = item.pix_key_encrypted ? decryptSecret(item.pix_key_encrypted) : item.pix_key;
-          return key && normalizePixKey(key, String(item.pix_key_type || inferPixKeyType(key) || '').toUpperCase()) === destinationAlias;
+          return key && normalizePixKey(key,String(item.pix_key_type || inferPixKeyType(key) || '').toUpperCase()) === destinationAlias;
         });
+        if (!isKnownRecipientPixKey) {
+          const courierKeys = await client.query('SELECT pix_key_encrypted FROM motoboys WHERE status=$1',['active']);
+          isKnownRecipientPixKey = courierKeys.rows.some(item => {
+            const key = item.pix_key_encrypted ? decryptSecret(item.pix_key_encrypted) : null;
+            return key && key === destinationAlias;
+          });
+        }
       }
-      if (!destinationAlias || destinationAlias === PLATFORM_PIX_KEY || isKnownMerchantPixKey) {
+      if (!destinationAlias || destinationAlias === PLATFORM_PIX_KEY || isKnownRecipientPixKey) {
         await client.query(
           'INSERT INTO woovi_pending_movements (correlation_id,event_type,payload) VALUES ($1,$2,$3) ON CONFLICT (correlation_id) DO NOTHING',
           [correlationID, eventType, body]
@@ -446,15 +453,40 @@ async function processMovementEvent(body) {
     if (!event.rowCount) { await client.query('COMMIT'); return { duplicate: true }; }
     if (eventType === 'OPENPIX:MOVEMENT_CONFIRMED' && payout.status !== 'confirmed') {
       const value = Number(transaction.value || payout.amount_cents);
-      if ((payout.payout_type || 'platform') === 'platform') await applyArrearsPayment(client, payout.merchant_id, value);
-      await client.query("UPDATE woovi_payouts SET status='confirmed', confirmed_at=NOW(), payload=$1 WHERE id=$2", [body, payout.id]);
-      const balance = await client.query(
-        `SELECT GREATEST(0, COALESCE(SUM(c.commission_amount_cents-c.paid_cents),0)-m.commission_credit_cents)::bigint AS debt
-           FROM merchant_commissions c JOIN merchants m ON m.id=c.merchant_id
-          WHERE c.merchant_id=$1 AND c.due_at <= NOW() GROUP BY m.commission_credit_cents`,
+      const details = payout.allocation_details || {};
+      if ((payout.payout_type || 'platform') === 'motoboy' && payout.delivery_id) {
+        await client.query(
+          "UPDATE motoboy_deliveries SET paid_cents=LEAST(amount_cents,paid_cents+$1),reserved_cents=GREATEST(0,reserved_cents-$1)," +
+          "status=CASE WHEN paid_cents+$1>=amount_cents THEN 'paid' ELSE status END," +
+          "paid_at=CASE WHEN paid_cents+$1>=amount_cents THEN NOW() ELSE paid_at END WHERE id=$2",
+          [value,payout.delivery_id]
+        );
+      } else if ((payout.payout_type || 'platform') === 'platform') {
+        const debts = Array.isArray(details.commissionAllocations) ? details.commissionAllocations : [];
+        if (debts.length) {
+          for (const debt of debts) {
+            await client.query(
+              "UPDATE merchant_commissions SET paid_cents=LEAST(commission_amount_cents,paid_cents+$1),reserved_cents=GREATEST(0,reserved_cents-$1) WHERE id=$2 AND merchant_id=$3",
+              [debt.amountCents,debt.commissionId,payout.merchant_id]
+            );
+          }
+        } else {
+          await applyArrearsPayment(client,payout.merchant_id,value);
+        }
+      }
+      await client.query("UPDATE woovi_payouts SET status='confirmed',confirmed_at=NOW(),payload=$1 WHERE id=$2",[body,payout.id]);
+      const courierBalance = await client.query(
+        "SELECT COALESCE(SUM(amount_cents-paid_cents),0)::bigint AS debt FROM motoboy_deliveries WHERE merchant_id=$1 AND due_at<=NOW()",
         [payout.merchant_id]
       );
-      await client.query('UPDATE merchants SET payout_suspended=$1 WHERE id=$2', [Number(balance.rows[0]?.debt || 0) > 0, payout.merchant_id]);
+      const commissionBalance = await client.query(
+        "SELECT GREATEST(0,COALESCE(SUM(c.commission_amount_cents-c.paid_cents),0)-m.commission_credit_cents)::bigint AS debt " +
+        "FROM merchant_commissions c JOIN merchants m ON m.id=c.merchant_id " +
+        "WHERE c.merchant_id=$1 AND c.due_at<=NOW() GROUP BY m.commission_credit_cents",
+        [payout.merchant_id]
+      );
+      const totalDebt=Number(courierBalance.rows[0]?.debt||0)+Number(commissionBalance.rows[0]?.debt||0);
+      await client.query('UPDATE merchants SET payout_suspended=$1 WHERE id=$2',[totalDebt>0,payout.merchant_id]);
     } else if (eventType === 'OPENPIX:MOVEMENT_FAILED') {
       await client.query("UPDATE woovi_payouts SET status='failed', payload=$1 WHERE id=$2", [body, payout.id]);
     }
