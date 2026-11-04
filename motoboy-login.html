@@ -526,9 +526,9 @@
         async function handleRegister(event) {
             event.preventDefault();
             const pixKey = document.getElementById('pixKey').value.trim();
-            const digits = pixKey.replace(/\\D/g, '');
+            const digits = pixKey.replace(/\D/g, '');
             let pixKeyType = '';
-            if (/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(pixKey)) pixKeyType = 'EMAIL';
+            if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pixKey)) pixKeyType = 'EMAIL';
             else if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pixKey)) pixKeyType = 'RANDOM';
             else if (digits.length === 11) pixKeyType = 'CPF';
             else if (digits.length === 14) pixKeyType = 'CNPJ';
