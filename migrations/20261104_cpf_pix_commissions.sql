@@ -30,6 +30,7 @@ ALTER TABLE merchants ADD COLUMN IF NOT EXISTS woovi_webhook_registered_at TIMES
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS commission_subaccount_ready_at TIMESTAMPTZ;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS pix_collection_consent_at TIMESTAMPTZ;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS commission_percent NUMERIC(5,2) NOT NULL DEFAULT 15;
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS commission_credit_cents BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS payout_suspended BOOLEAN NOT NULL DEFAULT FALSE;
 CREATE UNIQUE INDEX IF NOT EXISTS merchants_store_slug_unique ON merchants (store_slug) WHERE store_slug IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS merchants_email_lower_unique ON merchants (LOWER(email)) WHERE email IS NOT NULL;
