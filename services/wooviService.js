@@ -238,7 +238,8 @@ async function processChargeCompleted(body) {
 }
 
 async function processMovementEvent(body) {
-  const transaction = body?.transaction || body?.movement || {};
+  // A Woovi pode enviar o PixOut no objeto payment (payload documentado) ou transaction/movement.
+  const transaction = body?.payment || body?.transaction || body?.movement || {};
   const correlationID = transaction.correlationID || body?.correlationID;
   if (!correlationID) throw new Error('Webhook de movimentação sem correlationID.');
   const eventType = String(body.event || '');
