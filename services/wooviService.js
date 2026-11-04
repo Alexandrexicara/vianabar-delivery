@@ -75,14 +75,13 @@ async function createMerchantCharge({ merchantId, orderReference, valueCents, de
     await query('UPDATE merchants SET pix_key_encrypted=$1, pix_key=NULL WHERE id=$2', [encrypted, merchantId]);
   }
   const debtResult = await query(
-    `SELECT COALESCE(SUM(commission_amount_cents - paid_cents),0)::bigint AS debt
-       FROM merchant_commissions
-      WHERE merchant_id=$1 AND due_at <= NOW() AND paid_cents < commission_amount_cents`,
+    `SELECT GREATEST(0, COALESCE(SUM(c.commission_amount_cents-c.paid_cents),0)-m.commission_credit_cents)::bigint AS debt
+       FROM merchant_commissions c JOIN merchants m ON m.id=c.merchant_id
+      WHERE c.merchant_id=$1 AND c.due_at <= NOW() AND c.paid_cents < c.commission_amount_cents
+      GROUP BY m.commission_credit_cents`,
     [merchantId]
   );
-  const grossDebt = Number(debtResult.rows[0]?.debt || 0);
-  const credit = Number(merchant.commission_credit_cents || 0);
-  const overdueDebt = Math.max(0, grossDebt - credit);
+  const overdueDebt = Number(debtResult.rows[0]?.debt || 0);
   let arrearsSplit = 0;
   const activePixRecipient = overdueDebt > 0 ? PLATFORM_PIX_KEY : originalPixKey;
   const payload = {
