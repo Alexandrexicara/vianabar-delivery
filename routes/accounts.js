@@ -43,10 +43,10 @@ router.post('/customer/register',async(req,res)=>{
   const name=String(req.body?.name||'').trim(), cpf=digits(req.body?.cpf), phone=String(req.body?.phone||'').trim();
   if(!name||!validCPF(cpf)||!phone)return res.status(400).json({success:false,error:'Informe nome, CPF válido e telefone.'});
   const hash=crypto.createHash('sha256').update(cpf).digest('hex');
-  const r=await query(\`INSERT INTO customers(name,cpf_hash,cpf_encrypted,phone,last_table,visit_count)
+  const r=await query(`INSERT INTO customers(name,cpf_hash,cpf_encrypted,phone,last_table,visit_count)
    VALUES($1,$2,$3,$4,$5,1) ON CONFLICT(cpf_hash) DO UPDATE SET name=EXCLUDED.name,phone=EXCLUDED.phone,
    last_table=COALESCE(EXCLUDED.last_table,customers.last_table),visit_count=customers.visit_count+1,updated_at=NOW()
-   RETURNING id,name,phone,last_table,visit_count\`,
+   RETURNING id,name,phone,last_table,visit_count`,
    [name,hash,encryptSecret(cpf),phone,req.body?.tableNumber==null?null:String(req.body.tableNumber)]);
   res.status(201).json({success:true,customer:r.rows[0],token:issueToken('customer',r.rows[0].id)});
  } catch(e){console.error('[CUSTOMER REGISTER]',e);res.status(500).json({success:false,error:'Não foi possível concluir o cadastro do cliente.'});}
@@ -60,9 +60,9 @@ router.post('/motoboy/register',async(req,res)=>{
    return res.status(400).json({success:false,error:'Preencha nome, e-mail, telefone, CPF válido, senha de 8 caracteres e chave Pix.'});
   if(!['CPF','CNPJ','EMAIL','PHONE','RANDOM'].includes(pixKeyType))return res.status(400).json({success:false,error:'Tipo de chave Pix inválido.'});
   const hash=crypto.createHash('sha256').update(cpf).digest('hex');
-  const r=await query(\`INSERT INTO motoboys(name,email,phone,cpf_hash,cpf_encrypted,password_hash,vehicle_data,cnh_data,pix_key_encrypted,pix_key_type,status)
+  const r=await query(`INSERT INTO motoboys(name,email,phone,cpf_hash,cpf_encrypted,password_hash,vehicle_data,cnh_data,pix_key_encrypted,pix_key_type,status)
    VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10,'pending')
-   RETURNING id,name,email,phone,status,created_at\`,
+   RETURNING id,name,email,phone,status,created_at`,
    [name,email,phone,hash,encryptSecret(cpf),hashPassword(password),JSON.stringify(b.vehicle||{}),JSON.stringify(b.cnh||{}),encryptSecret(pixKey),pixKeyType]);
   res.status(201).json({success:true,motoboy:r.rows[0],token:issueToken('motoboy',r.rows[0].id),message:'Cadastro recebido e aguardando aprovação.'});
  } catch(e){if(e.code==='23505')return res.status(409).json({success:false,error:'Este e-mail ou CPF já está cadastrado.'});
@@ -81,8 +81,8 @@ router.get('/motoboy/me',auth('motoboy'),async(req,res)=>{
  try {
   const r=await query('SELECT id,name,email,phone,status,created_at FROM motoboys WHERE id=$1',[req.accountId]);
   if(!r.rows[0])return res.status(404).json({success:false,error:'Motoboy não encontrado.'});
-  const b=await query(\`SELECT COALESCE(SUM(amount_cents-paid_cents),0)::bigint AS pending_cents,
-    MIN(due_at) FILTER(WHERE paid_cents<amount_cents) AS next_due_at FROM motoboy_deliveries WHERE motoboy_id=$1\`,[req.accountId]);
+  const b=await query(`SELECT COALESCE(SUM(amount_cents-paid_cents),0)::bigint AS pending_cents,
+    MIN(due_at) FILTER(WHERE paid_cents<amount_cents) AS next_due_at FROM motoboy_deliveries WHERE motoboy_id=$1`,[req.accountId]);
   res.json({success:true,motoboy:r.rows[0],balance:b.rows[0]});
  }catch(e){console.error('[MOTOBOY PROFILE]',e);res.status(500).json({success:false,error:'Não foi possível consultar a conta.'});}
 });
