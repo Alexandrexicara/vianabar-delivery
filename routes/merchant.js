@@ -53,10 +53,10 @@ function verifyPassword(password, stored) {
     return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
   } catch (_) { return false; }
 }
-function onlyDigits(value) { return String(value || '').replace(/\\D/g, ''); }
+function onlyDigits(value) { return String(value || '').replace(/\D/g, ''); }
 function validCPF(value) {
   const cpf = onlyDigits(value);
-  if (cpf.length !== 11 || /^(\\d)\\1{10}$/.test(cpf)) return false;
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
   let sum = 0;
   for (let i = 0; i < 9; i++) sum += Number(cpf[i]) * (10 - i);
   let d = (sum * 10) % 11; if (d === 10) d = 0;
@@ -68,7 +68,7 @@ function validCPF(value) {
 }
 function validCNPJ(value) {
   const c = onlyDigits(value);
-  if (c.length !== 14 || /^(\\d)\\1{13}$/.test(c)) return false;
+  if (c.length !== 14 || /^(\d)\1{13}$/.test(c)) return false;
   const digit = (base) => {
     const weights = base.length === 12 ? [5,4,3,2,9,8,7,6,5,4,3,2] : [6,5,4,3,2,9,8,7,6,5,4,3,2];
     const sum = base.split('').reduce((s,n,i) => s + Number(n) * weights[i], 0);
@@ -78,7 +78,7 @@ function validCNPJ(value) {
     digit(c.slice(0,13)) === Number(c[13]);
 }
 function makeStoreSlug(name) {
-  const base = String(name || 'loja').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')
+  const base = String(name || 'loja').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 55) || 'loja';
   return base + '-' + crypto.randomBytes(3).toString('hex');
 }
@@ -112,7 +112,7 @@ router.post('/register', async (req, res) => {
        (establishment_name, store_slug, owner_name, email, phone, document_type, document_number,
         password_hash, pix_key, pix_key_type, pix_collection_consent_at, status,
         split_mode, commission_percent)
-       VALUES ($1,$2,$3,LOWER($4),$5,$6,$7,$8,$9,$10,NOW(),'pending','SPLIT_INTERNAL_TRANSFER',15)
+       VALUES ($1,$2,$3,LOWER($4),$5,$6,$7,$8,$9,$10,NOW(),'pending','SPLIT_SUB_ACCOUNT',15)
        RETURNING id, establishment_name, store_slug, owner_name, email, document_type, status`,
       [establishmentName.trim(), makeStoreSlug(establishmentName), adminName.trim(), email.trim(), phone.trim(), type, doc,
        hashPassword(password), pixKey.trim(), keyType]
