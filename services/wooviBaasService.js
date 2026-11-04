@@ -85,7 +85,6 @@ async function ensureMasterKycWebhooks() {
     'ACCOUNT_REGISTER_REJECTED'
   ];
   for (const event of events) {
-    const secretResult = await query('SELECT secret_encrypted FROM woovi_master_webhook_secrets WHERE event_type=$1', [event]);
     const alreadyRegistered = existing.some(item => item.event === event && item.url === webhookUrl && item.isActive !== false);
     if (alreadyRegistered) continue;
     const created = await masterRequest('/api/v1/webhook', {
