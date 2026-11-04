@@ -11,9 +11,6 @@ CREATE TABLE IF NOT EXISTS merchants (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 -- CPF/CNPJ merchant accounts, secure Woovi credentials and commission collection.
-ALTER TABLE merchants ALTER COLUMN establishment_id DROP NOT NULL;
-ALTER TABLE merchants ALTER COLUMN woovi_app_id DROP NOT NULL;
-ALTER TABLE merchants ALTER COLUMN woovi_api_key DROP NOT NULL;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS establishment_id INTEGER;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS woovi_app_id VARCHAR(255);
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS woovi_api_key BYTEA;
@@ -21,6 +18,9 @@ ALTER TABLE merchants ADD COLUMN IF NOT EXISTS split_mode VARCHAR(30) NOT NULL D
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'pending';
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE merchants ALTER COLUMN establishment_id DROP NOT NULL;
+ALTER TABLE merchants ALTER COLUMN woovi_app_id DROP NOT NULL;
+ALTER TABLE merchants ALTER COLUMN woovi_api_key DROP NOT NULL;
 ALTER TABLE merchants ALTER COLUMN split_mode SET DEFAULT 'SPLIT_SUB_ACCOUNT';
 
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS establishment_name TEXT;
