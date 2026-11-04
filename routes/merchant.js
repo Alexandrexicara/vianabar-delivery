@@ -152,7 +152,7 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
     const appId = String(req.body?.appId || '').trim();
     if (!appId) return res.status(400).json({ success: false, error: 'Informe o AppID da Woovi.' });
     const encrypted = encryptSecret(appId);
-    const verified = await fetch((process.env.WOOVI_BASE_URL || 'https://api.woovi.com') + '/api/v1/charge?skip=0&limit=1', {
+    const verified = await fetch((process.env.WOOVI_BASE_URL || 'https://api.woovi.com') + '/api/v1/charge', {
       headers: { Authorization: appId, Accept: 'application/json' }
     });
     const data = await verified.json().catch(() => ({}));
@@ -165,19 +165,41 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
     }
 
     // A chave Pix da plataforma é registrada como subconta na conta Woovi do comerciante.
-    const subaccountResponse = await fetch((process.env.WOOVI_BASE_URL || 'https://api.woovi.com') + '/api/v1/subaccount', {
-      method: 'POST',
-      headers: { Authorization: appId, 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ name: 'Vianas Bar - Comissão da plataforma', pixKey: platformPixKey })
+    const baseUrl = process.env.WOOVI_BASE_URL || 'https://api.woovi.com';
+    const subaccountListResponse = await fetch(baseUrl + '/api/v1/subaccount', {
+      headers: { Authorization: appId, Accept: 'application/json' }
     });
-    const subaccountData = await subaccountResponse.json().catch(() => ({}));
-    if (!subaccountResponse.ok) {
-      return res.status(400).json({ success: false, error: subaccountData?.errors?.[0]?.message || subaccountData?.message || 'A Woovi não habilitou a subconta Pix. Verifique as funcionalidades Split e Subconta.' });
+    const subaccountList = await subaccountListResponse.json().catch(() => ({}));
+    if (!subaccountListResponse.ok) {
+      return res.status(400).json({ success: false, error: subaccountList?.errors?.[0]?.message || 'A conta não possui acesso à funcionalidade Subconta da Woovi.' });
+    }
+    const subaccounts = subaccountList.subAccounts || subaccountList.subaccounts || subaccountList.accounts || [];
+    const hasPlatformSubaccount = subaccounts.some(item => (item.pixKey || item.pix_key) === platformPixKey);
+    if (!hasPlatformSubaccount) {
+      const subaccountResponse = await fetch(baseUrl + '/api/v1/subaccount', {
+        method: 'POST',
+        headers: { Authorization: appId, 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ name: 'Vianas Bar - Comissão da plataforma', pixKey: platformPixKey })
+      });
+      const subaccountData = await subaccountResponse.json().catch(() => ({}));
+      if (!subaccountResponse.ok) {
+        return res.status(400).json({ success: false, error: subaccountData?.errors?.[0]?.message || subaccountData?.message || 'Não foi possível criar a subconta Pix da plataforma.' });
+      }
     }
 
     const webhookUrl = publicApiUrl + '/woovi/webhook';
+    const existingHooksResponse = await fetch(baseUrl + '/api/v1/webhook?url=' + encodeURIComponent(webhookUrl), {
+      headers: { Authorization: appId, Accept: 'application/json' }
+    });
+    const existingHooksData = await existingHooksResponse.json().catch(() => ({}));
+    if (!existingHooksResponse.ok) {
+      return res.status(400).json({ success: false, error: existingHooksData?.errors?.[0]?.message || 'Não foi possível consultar os webhooks da Woovi.' });
+    }
+    const existingHooks = existingHooksData.webhooks || [];
     for (const event of ['OPENPIX:CHARGE_COMPLETED', 'OPENPIX:MOVEMENT_CONFIRMED', 'OPENPIX:MOVEMENT_FAILED']) {
-      const webhookResponse = await fetch((process.env.WOOVI_BASE_URL || 'https://api.woovi.com') + '/api/v1/webhook', {
+      const exists = existingHooks.some(hook => hook.event === event && hook.url === webhookUrl && hook.isActive !== false);
+      if (exists) continue;
+      const webhookResponse = await fetch(baseUrl + '/api/v1/webhook', {
         method: 'POST',
         headers: { Authorization: appId, 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ webhook: {
