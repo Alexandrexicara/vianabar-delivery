@@ -28,7 +28,8 @@ app.use("/vendedor", require("./routes/vendedor"));
 app.use("/motoboy", require("./routes/motoboy"));
 app.use("/google-pay", require("./routes/google-pay"));
 app.use("/anti-chargeback", require("./routes/antiChargeback"));
-app.use("/merchant", require("./routes/merchant").router);\napp.use("/woovi", require("./routes/woovi"));
+app.use("/merchant", require("./routes/merchant").router);
+app.use("/woovi", require("./routes/woovi"));
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -127,7 +128,8 @@ app.get('*.html', (req, res) => {
     <script src="mygateway-autoloader.js"></script>`;
       
       if (html.includes('</head>')) {
-        html = html.replace('</head>', autoLoaderScript + '\n  </head>');
+        html = html.replace('</head>', autoLoaderScript + '
+  </head>');
         console.log(`[SERVER] ✅ MyGateway injetado em ${req.path}`);
       }
     }
