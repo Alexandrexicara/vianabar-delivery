@@ -86,6 +86,7 @@ async function createMerchantCharge({ merchantId, orderReference, valueCents, de
       [merchantId]
     );
     overdueDebt = Number(debtResult.rows[0]?.debt || 0);
+    await debtClient.query('UPDATE merchants SET payout_suspended=$1 WHERE id=$2', [overdueDebt > 0, merchantId]);
     await debtClient.query('COMMIT');
   } catch (error) {
     await debtClient.query('ROLLBACK');
@@ -133,7 +134,6 @@ async function createMerchantCharge({ merchantId, orderReference, valueCents, de
       [charge.identifier || charge.transactionID || null, response.brCode || charge.brCode || null,
        charge.paymentLinkUrl || null, pending.rows[0].id]
     );
-    if (overdueDebt > 0) await query('UPDATE merchants SET payout_suspended=TRUE WHERE id=$1', [merchantId]);
     return {
       success: true,
       charge: updated.rows[0],
