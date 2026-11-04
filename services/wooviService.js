@@ -29,12 +29,12 @@ async function wooviRequest(appId, path, options = {}) {
 async function createMerchantCharge({ merchantId, orderReference, valueCents, description }) {
   if (!Number.isSafeInteger(valueCents) || valueCents < 100) throw new Error('O valor da cobrança deve ser de pelo menos R$ 1,00.');
   const merchantResult = await query(
-    'SELECT id, pix_key, pix_collection_consent_at, woovi_app_id_encrypted, woovi_credentials_verified_at FROM merchants WHERE id=$1',
+    'SELECT id, pix_key, pix_collection_consent_at, woovi_app_id_encrypted, woovi_credentials_verified_at, woovi_webhook_registered_at FROM merchants WHERE id=$1',
     [merchantId]
   );
   const merchant = merchantResult.rows[0];
   if (!merchant) throw new Error('Comerciante não encontrado.');
-  if (!merchant.woovi_credentials_verified_at || !merchant.woovi_app_id_encrypted) throw new Error('Conecte e valide o AppID da Woovi antes de cobrar.');
+  if (!merchant.woovi_credentials_verified_at || !merchant.woovi_app_id_encrypted || !merchant.woovi_webhook_registered_at) throw new Error('Conecte o AppID e registre o webhook de confirmação da Woovi antes de cobrar.');
   const appId = decryptSecret(merchant.woovi_app_id_encrypted);
   const debtResult = await query(
     `SELECT COALESCE(SUM(commission_amount_cents - paid_cents),0)::bigint AS debt
