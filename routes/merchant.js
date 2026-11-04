@@ -209,7 +209,8 @@ router.get('/me', requireMerchant, async (req, res) => {
 router.get('/me/commissions', requireMerchant, async (req, res) => {
   try {
     const summary = await query(
-      `SELECT m.payout_suspended, m.commission_credit_cents,
+      `SELECT (GREATEST(0, COALESCE(SUM(CASE WHEN c.due_at <= NOW() THEN c.commission_amount_cents-c.paid_cents ELSE 0 END),0)-m.commission_credit_cents)>0) AS payout_suspended,
+        m.commission_credit_cents,
         GREATEST(0, COALESCE(SUM(CASE WHEN c.due_at <= NOW() THEN c.commission_amount_cents-c.paid_cents ELSE 0 END),0)-m.commission_credit_cents)::bigint AS overdue_cents,
         COALESCE(SUM(c.commission_amount_cents-c.paid_cents),0)::bigint AS total_open_cents
        FROM merchants m LEFT JOIN merchant_commissions c ON c.merchant_id=m.id
