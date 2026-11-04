@@ -3,13 +3,28 @@ const path = require('path');
 const { pool } = require('../database');
 
 async function migrate() {
-  const file = path.join(__dirname, '..', 'migrations', '20261104_cpf_pix_commissions.sql');
-  const sql = fs.readFileSync(file, 'utf8');
-  await pool.query(sql);
-  console.log('[MIGRATION] Estrutura CPF/CNPJ, Pix Woovi e comissões aplicada.');
+  const dir = path.join(__dirname, '..', 'migrations');
+  const files = fs.readdirSync(dir).filter(name => name.endsWith('.sql')).sort();
+  await pool.query(\`CREATE TABLE IF NOT EXISTS schema_migrations (
+    filename TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )\`);
+  for (const filename of files) {
+    const done = await pool.query('SELECT 1 FROM schema_migrations WHERE filename=$1', [filename]);
+    if (done.rowCount) continue;
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(fs.readFileSync(path.join(dir, filename), 'utf8'));
+      await client.query('INSERT INTO schema_migrations(filename) VALUES($1)', [filename]);
+      await client.query('COMMIT');
+      console.log('[MIGRATION] Aplicada:', filename);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw new Error('Falha na migration ' + filename + ': ' + error.message);
+    } finally { client.release(); }
+  }
 }
 migrate().then(() => pool.end()).catch(async error => {
   console.error('[MIGRATION] Falha ao aplicar estrutura:', error);
-  await pool.end();
-  process.exitCode = 1;
+  await pool.end(); process.exitCode = 1;
 });
