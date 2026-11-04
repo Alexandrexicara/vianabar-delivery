@@ -1,6 +1,6 @@
 name: Vianas Bar - Pix integration checks
 
-on:
+'on':
   pull_request:
     paths:
       - "routes/**"
