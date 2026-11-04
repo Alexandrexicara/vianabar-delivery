@@ -287,7 +287,7 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
       const merchantSubaccountResponse = await fetch(baseUrl + '/api/v1/subaccount', {
         method: 'POST',
         headers: { Authorization: appId, 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ name: 'Vianas Bar - Recebimento do comerciante', pixKey: merchantPixKey, pixKeyType: merchantPixType })
+        body: JSON.stringify({ name: 'Vianas Bar - Recebimento do comerciante', pixKey: merchantPixKey })
       });
       const merchantSubaccountData = await merchantSubaccountResponse.json().catch(() => ({}));
       if (!merchantSubaccountResponse.ok) return res.status(400).json({ success: false, error: merchantSubaccountData?.errors?.[0]?.message || merchantSubaccountData?.message || 'Não foi possível criar a subconta Pix do comerciante.' });
@@ -298,7 +298,7 @@ router.post('/me/woovi', requireMerchant, async (req, res) => {
       const subaccountResponse = await fetch(baseUrl + '/api/v1/subaccount', {
         method: 'POST',
         headers: { Authorization: appId, 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ name: 'Vianas Bar - Comissão da plataforma', pixKey: platformPixKey, pixKeyType: platformPixType })
+        body: JSON.stringify({ name: 'Vianas Bar - Comissão da plataforma', pixKey: platformPixKey })
       });
       const subaccountData = await subaccountResponse.json().catch(() => ({}));
       if (!subaccountResponse.ok) return res.status(400).json({ success: false, error: subaccountData?.errors?.[0]?.message || subaccountData?.message || 'Não foi possível criar a subconta Pix da plataforma.' });
