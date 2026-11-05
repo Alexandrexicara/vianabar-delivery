@@ -149,12 +149,6 @@
         <div class="logo">👑 Painel do Criador</div>
         <div class="subtitle">Acesso total ao Cardápio Digital Universal</div>
         
-        <div class="credentials-info">
-            <h4><i class="fas fa-info-circle"></i> Credenciais de Acesso</h4>
-            <p><strong>Email:</strong> creator@cardapiodigital.com</p>
-            <p><strong>Senha:</strong> creator123</p>
-        </div>
-        
         <div class="error" id="errorMessage"></div>
         
         <form id="creatorLoginForm" onsubmit="handleCreatorLogin(event)">
@@ -162,14 +156,14 @@
                 <label for="creatorEmail">
                     <i class="fas fa-envelope"></i> Email do Criador
                 </label>
-                <input type="email" id="creatorEmail" required placeholder="creator@cardapiodigital.com">
+                <input type="email" id="creatorEmail" required placeholder="Digite seu e-mail">
             </div>
             
             <div class="form-group">
                 <label for="creatorPassword">
                     <i class="fas fa-lock"></i> Senha do Criador
                 </label>
-                <input type="password" id="creatorPassword" required placeholder="creator123">
+                <input type="password" id="creatorPassword" required placeholder="Digite sua senha">
             </div>
             
             <button type="submit" class="btn">
@@ -183,41 +177,37 @@
     </div>
 
     <script>
-        function handleCreatorLogin(event) {
+        async function handleCreatorLogin(event) {
             event.preventDefault();
-            
-            const email = document.getElementById('creatorEmail').value.trim();
-            const password = document.getElementById('creatorPassword').value.trim();
+            const form = document.getElementById('creatorLoginForm');
+            const button = form.querySelector('button[type="submit"]');
             const errorDiv = document.getElementById('errorMessage');
-            
-            // Credenciais do criador
-            const creatorEmail = "creator@cardapiodigital.com";
-            const creatorPassword = "creator123";
-            
-            // Verificar credenciais
-            if (email === creatorEmail && password === creatorPassword) {
-                // Salvar autenticação
-                sessionStorage.setItem('isCreatorAuthenticated', 'true');
-                sessionStorage.setItem('creatorEmail', email);
-                
-                // Redirecionar para o painel
-                alert('Acesso autorizado! Bem-vindo, Criador do Sistema!');
-                window.location.href = 'creator-dashboard.html';
-            } else {
-                // Mostrar erro
-                errorDiv.textContent = '❌ Credenciais incorretas! Verifique o email e senha.';
+            const email = document.getElementById('creatorEmail').value.trim();
+            const password = document.getElementById('creatorPassword').value;
+            errorDiv.style.display = 'none';
+            button.disabled = true;
+            button.textContent = 'Verificando acesso...';
+            try {
+                const response = await fetch('/api/creator/login', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    cache: 'no-store',
+                    body: JSON.stringify({ email, password })
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Não foi possível autenticar.');
+                }
+                window.location.replace('/creator-dashboard.html');
+            } catch (error) {
+                errorDiv.textContent = error.message || 'Falha ao entrar. Tente novamente.';
                 errorDiv.style.display = 'block';
-                
-                // Limpar campos
                 document.getElementById('creatorPassword').value = '';
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-crown"></i> Acessar Painel do Criador';
             }
         }
-        
-        // Preencher automaticamente para facilitar
-        window.onload = function() {
-            document.getElementById('creatorEmail').value = 'creator@cardapiodigital.com';
-            document.getElementById('creatorPassword').value = 'creator123';
-        };
-    </script>
+    </script>ipt>
 </body>
 </html>
