@@ -77,6 +77,12 @@ app.get('/creator-dashboard.html', creatorAuth.requireCreator, (req, res) => {
   res.sendFile(path.resolve('creator-dashboard.html'));
 });
 
+// Arquivos operacionais nunca devem ser servidos como conteúdo público.
+app.get(['/orders.json', '/merchants.json', '/charges.json'], (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  return res.sendStatus(404);
+});
+
 // Serve static files
 app.use(express.static('.'));
 
