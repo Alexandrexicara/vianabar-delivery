@@ -68,10 +68,10 @@ router.post('/motoboy/register',async(req,res)=>{
   if(!validPix)return res.status(400).json({success:false,error:'A chave Pix não corresponde ao tipo informado.'});
   const hash=crypto.createHash('sha256').update(cpf).digest('hex');
   const r=await query(`INSERT INTO motoboys(name,email,phone,cpf_hash,cpf_encrypted,password_hash,vehicle_data,cnh_data,pix_key_encrypted,pix_key_type,status)
-   VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10,'active')
+   VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10,'pending')
    RETURNING id,name,email,phone,status,created_at`,
    [name,email,phone,hash,encryptSecret(cpf),hashPassword(password),JSON.stringify(b.vehicle||{}),JSON.stringify({number_encrypted:encryptSecret(String(b.cnh?.number||'')),category:String(b.cnh?.category||'')}),encryptSecret(pixKey),pixKeyType]);
-  res.status(201).json({success:true,motoboy:r.rows[0],token:issueToken('motoboy',r.rows[0].id),message:'Cadastro recebido e aguardando aprovação.'});
+  res.status(201).json({success:true,motoboy:r.rows[0],message:'Cadastro recebido e aguardando aprovação. Você poderá entrar depois que a administração aprovar sua conta.'});
  } catch(e){if(e.code==='23505')return res.status(409).json({success:false,error:'Este e-mail ou CPF já está cadastrado.'});
   console.error('[MOTOBOY REGISTER]',e);res.status(500).json({success:false,error:'Não foi possível concluir o cadastro do motoboy.'});}
 });
@@ -80,7 +80,7 @@ router.post('/motoboy/login',async(req,res)=>{
   const email=String(req.body?.email||'').trim().toLowerCase();
   const r=await query('SELECT id,name,email,phone,password_hash,status FROM motoboys WHERE LOWER(email)=$1 LIMIT 1',[email]);
   const m=r.rows[0]; if(!m||!verifyPassword(String(req.body?.password||''),m.password_hash))return res.status(401).json({success:false,error:'E-mail ou senha incorretos.'});
-  if(['blocked','rejected'].includes(m.status))return res.status(403).json({success:false,error:'Cadastro bloqueado. Entre em contato com a administração.'});
+  if(m.status!=='active')return res.status(403).json({success:false,error:m.status==='pending'?'Cadastro aguardando aprovação da administração.':'Cadastro bloqueado. Entre em contato com a administração.'});
   res.json({success:true,token:issueToken('motoboy',m.id),motoboy:{id:m.id,name:m.name,email:m.email,phone:m.phone,status:m.status}});
  }catch(e){console.error('[MOTOBOY LOGIN]',e);res.status(500).json({success:false,error:'Não foi possível entrar na conta.'});}
 });
