@@ -49,3 +49,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS woovi_payouts_charge_allocation_unique
   ON woovi_payouts(charge_id,allocation_key) WHERE allocation_key IS NOT NULL;
 
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS delivery_collection_consent_at TIMESTAMPTZ;
+
+-- Novos cadastros precisam de aprovação explícita antes de acessar o painel.
+ALTER TABLE motoboys ALTER COLUMN status SET DEFAULT 'pending';
