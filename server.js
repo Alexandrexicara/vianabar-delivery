@@ -34,6 +34,7 @@ app.use("/merchant", require("./routes/merchant").router);
 app.use("/api/accounts", require("./routes/accounts"));
 app.use("/merchant/woovi-baas", require("./routes/wooviBaas"));
 app.use("/woovi", require("./routes/woovi"));
+app.use("/sicoob", require("./routes/sicoob"));
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
