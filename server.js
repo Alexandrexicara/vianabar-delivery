@@ -768,6 +768,12 @@ wss.on('connection', (ws) => {
         });
         ws.send(JSON.stringify({ type: 'deliveryConfirmed', orderId: order.id }));
         broadcastToAdmins({ type: 'deliveryConfirmed', orderId: order.id });
+        clients.forEach(client => {
+          if (client.role === 'motoboy' && String(client.motoboyInfo?.id) === String(order.motoboyId) &&
+              client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({ type: 'deliveryConfirmed', orderId: order.id }));
+          }
+        });
       } else if (data.type === 'heartbeat') {
         // Respond to heartbeat to keep connection alive
         ws.send(JSON.stringify({
