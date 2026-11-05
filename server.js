@@ -205,21 +205,25 @@ wss.on('connection', (ws) => {
         ws.role = 'user';
         ws.send(JSON.stringify({ type: 'userLoginSuccess' }));
       } else if (data.type === 'adminLogin') {
-        // Set client role to admin
-        ws.role = 'admin';
-        ws.send(JSON.stringify({ type: 'adminLoginSuccess' }));
+        authenticateMerchantStaffSocket(ws, data, 'admin').catch(error => {
+          console.error('[STAFF AUTH]', error);
+          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'adminLoginError', message: 'Sessão administrativa inválida ou expirada.' }));
+        });
       } else if (data.type === 'kitchenLogin') {
-        // Set client role to kitchen staff
-        ws.role = 'kitchen';
-        ws.send(JSON.stringify({ type: 'kitchenLoginSuccess' }));
+        authenticateMerchantStaffSocket(ws, data, 'kitchen').catch(error => {
+          console.error('[STAFF AUTH]', error);
+          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'kitchenLoginError', message: 'Sessão administrativa inválida ou expirada.' }));
+        });
       } else if (data.type === 'counterLogin') {
-        // Set client role to counter staff
-        ws.role = 'counter';
-        ws.send(JSON.stringify({ type: 'counterLoginSuccess' }));
+        authenticateMerchantStaffSocket(ws, data, 'counter').catch(error => {
+          console.error('[STAFF AUTH]', error);
+          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'counterLoginError', message: 'Sessão administrativa inválida ou expirada.' }));
+        });
       } else if (data.type === 'waiterLogin') {
-        // Set client role to waiter
-        ws.role = 'waiter';
-        ws.send(JSON.stringify({ type: 'waiterLoginSuccess' }));
+        authenticateMerchantStaffSocket(ws, data, 'waiter').catch(error => {
+          console.error('[STAFF AUTH]', error);
+          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'waiterLoginError', message: 'Sessão administrativa inválida ou expirada.' }));
+        });
       } else if (data.type === 'getExistingOrders') {
         console.log('Sending existing orders to client');
         const userOrders = orders.filter(order => order.clientId === ws.clientId);
@@ -796,6 +800,36 @@ wss.on('connection', (ws) => {
 });
 
 
+
+function verifyMerchantSocketToken(token) {
+  const secret = process.env.MERCHANT_AUTH_SECRET || '';
+  if (!secret || !token) return null;
+  const parts = String(token).split('.');
+  if (parts.length !== 3) return null;
+  const expected = crypto.createHmac('sha256', secret).update(parts[0] + '.' + parts[1]).digest();
+  const supplied = Buffer.from(parts[2], 'base64url');
+  if (expected.length !== supplied.length || !crypto.timingSafeEqual(expected, supplied)) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    if (!payload.sub || payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return Number(payload.sub);
+  } catch (_) { return null; }
+}
+async function authenticateMerchantStaffSocket(ws, data, role) {
+  const merchantId = verifyMerchantSocketToken(data.token);
+  if (!merchantId) {
+    ws.send(JSON.stringify({ type: role + 'LoginError', message: 'Entre com a conta do comerciante para acessar esta área.' }));
+    return;
+  }
+  const result = await dbQuery("SELECT id,status FROM merchants WHERE id=$1 LIMIT 1", [merchantId]);
+  if (!result.rows[0] || result.rows[0].status !== 'active') {
+    ws.send(JSON.stringify({ type: role + 'LoginError', message: 'Conta do comerciante ainda não está ativa.' }));
+    return;
+  }
+  ws.role = role;
+  ws.merchantId = merchantId;
+  ws.send(JSON.stringify({ type: role + 'LoginSuccess' }));
+}
 
 function verifyMotoboySocketToken(token) {
   const secret = process.env.ACCOUNT_AUTH_SECRET || process.env.MERCHANT_AUTH_SECRET || '';
