@@ -1,0 +1,25 @@
+name: Node syntax validation
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [cpf-pix-voice-fixes]
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Validate JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+          done < <(find . -type f -name '*.js' \
+            -not -path './node_modules/*' \
+            -not -path './.git/*')
