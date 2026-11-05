@@ -694,22 +694,6 @@
         async function checkMotoboyAuth() {
             const session = sessionStorage.getItem('motoboySession');
             const token = sessionStorage.getItem('motoboyToken');
-            const motoboyAccess = localStorage.getItem('motoboyAccess');
-
-            // Acesso especial já existente do criador, preservado.
-            if (motoboyAccess === 'true') {
-                const creatorMotoboyData = {
-                    name: 'Motoboy Criador', phone: '(11) 99999-5555',
-                    vehicle: 'Moto Criador', plate: 'CREATOR-001',
-                    status: 'active', role: 'creator-motoboy'
-                };
-                sessionStorage.setItem('motoboySession', JSON.stringify(creatorMotoboyData));
-                motoboyData = creatorMotoboyData;
-                initializeMotoboyCommunication();
-                initializeMotoboy();
-                return;
-            }
-
             // Não existe mais acesso automático de demonstração: exige conta autenticada.
             if (!session || !token) {
                 window.location.replace('motoboy-login.html');
