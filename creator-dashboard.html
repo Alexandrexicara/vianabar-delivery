@@ -2360,36 +2360,30 @@
             }
         });
 
-        // Verificação de login - OBRIGATÓRIO passar pelo login
-        function checkCreatorAuth() {
-            const isCreatorAuthenticated = sessionStorage.getItem('isCreatorAuthenticated') === 'true';
-            
-            if (isCreatorAuthenticated) {
-                console.log('[CREATOR] Usuário já autenticado');
-                return true;
+        // A sessão do criador é validada pelo servidor via cookie HttpOnly.
+        async function checkCreatorAuth() {
+            try {
+                const response = await fetch('/api/creator/session', {
+                    credentials: 'same-origin',
+                    cache: 'no-store'
+                });
+                if (response.ok) return true;
+            } catch (error) {
+                console.error('[CREATOR] Falha ao validar sessão:', error);
             }
-            
-            // NÃO autenticado - redirecionar para login
-            console.log('[CREATOR] Usuário não autenticado, redirecionando para login...');
-            window.location.href = 'creator-login.html';
+            window.location.replace('/creator-login.html');
             return false;
         }
 
-        // Inicializar
-        window.onload = function() {
-            // Verificar autenticação antes de carregar
-            if (!checkCreatorAuth()) {
-                return;
-            }
-            
+        // Inicializar somente depois da validação da sessão no servidor.
+        window.onload = async function() {
+            if (!await checkCreatorAuth()) return;
             loadData();
             carregarTaxaPorProduto();
-            loadMotoboys(); // Carregar dados do Motoboy
-            
-            // Atualizar dados a cada 30 segundos
+            loadMotoboys();
             setInterval(() => {
                 loadData();
-                loadMotoboys(); // Atualizar motoboys também
+                loadMotoboys();
             }, 30000);
         };
 
