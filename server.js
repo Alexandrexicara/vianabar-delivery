@@ -63,6 +63,14 @@ app.post('/upload/:type', upload.single('image'), (req, res) => {
   });
 });
 
+// Server-side authentication for creator dashboard.
+const creatorAuth = require('./routes/creatorAuth');
+app.use('/api/creator', creatorAuth.router);
+app.get('/creator-dashboard.html', creatorAuth.requireCreator, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.sendFile(path.resolve('creator-dashboard.html'));
+});
+
 // Serve static files
 app.use(express.static('.'));
 
