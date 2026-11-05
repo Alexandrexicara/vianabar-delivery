@@ -2239,8 +2239,7 @@ function completeDelivery(orderId) {
                         orderId: orderId
                     });
                 } else {
-                    // Fallback para método antigo
-                    notifyDeliverySystem(orderId, 'completed');
+                    showNotification('Sem conexão segura com o servidor. A entrega não foi enviada para confirmação.', 'error');
                 }
                 
                 // O cliente recebe o pedido de confirmação pelo canal WebSocket.
@@ -2272,7 +2271,6 @@ function completeDelivery(orderId) {
                     orderId: order.id,
                     customerName: order.customerName,
                     total: order.total,
-                    deliveryFee: deliveryFee,
                     actualTime: order.actualDeliveryTime
                 });
                 
@@ -2285,7 +2283,6 @@ function completeDelivery(orderId) {
                             motoboyName: motoboyData.name,
                             customerName: order.customerName,
                             total: order.total,
-                            deliveryFee: deliveryFee,
                             deliveryTime: order.actualDeliveryTime
                         }
                     }, '*');
