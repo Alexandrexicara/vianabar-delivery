@@ -2232,6 +2232,22 @@
                 cepInput.placeholder = '00000-000';
             }
         }
-    </script>
+    
+        // Confirmação expressa do cliente: sem ela o repasse do motoboy não é registrado.
+        window.addEventListener('deliveryAwaitingCustomerConfirmation', function(event) {
+            const orderId = event.detail?.orderId;
+            if (!orderId || !window.DeliveryCommunication) return;
+            const received = window.confirm('O motoboy informou que seu pedido foi entregue. Você recebeu o pedido corretamente?\n\nConfirme somente se recebeu.');
+            if (received) {
+                DeliveryCommunication.send({ type: 'confirmDeliveryOrder', orderId });
+                showNotification('Confirmação enviada. Obrigado!', 'success');
+            } else {
+                showNotification('Entrega não confirmada. O pagamento permanecerá retido para verificação.', 'warning');
+            }
+        });
+        window.addEventListener('deliveryConfirmationError', function(event) {
+            showNotification(event.detail?.message || 'Não foi possível confirmar a entrega.', 'error');
+        });
+</script>
 </body>
 </html>
