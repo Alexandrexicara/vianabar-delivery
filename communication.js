@@ -247,6 +247,15 @@ const DeliveryCommunication = {
                 console.log('[COMMUNICATION] Pedido saindo para entrega:', message.orderId);
                 this.handleOrderDelivering(message);
                 break;
+            case 'deliveryAwaitingCustomerConfirmation':
+                window.dispatchEvent(new CustomEvent('deliveryAwaitingCustomerConfirmation', { detail: message }));
+                break;
+            case 'deliveryConfirmationError':
+                window.dispatchEvent(new CustomEvent('deliveryConfirmationError', { detail: message }));
+                break;
+            case 'deliveryConfirmed':
+                window.dispatchEvent(new CustomEvent('deliveryConfirmed', { detail: message }));
+                break;
             case 'orderCompleted':
                 console.log('[COMMUNICATION] Pedido entregue:', message.orderId);
                 this.handleOrderCompleted(message);
