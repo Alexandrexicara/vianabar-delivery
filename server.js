@@ -309,6 +309,11 @@ wss.on('connection', (ws) => {
           }));
         }
       } else if (data.type === 'updateStatus') {
+        if (!['admin', 'kitchen', 'counter', 'waiter'].includes(ws.role) ||
+            !['pending', 'preparing', 'ready', 'delivered', 'cancelled'].includes(data.status)) {
+          ws.send(JSON.stringify({ type: 'authorizationError', message: 'Você não tem autorização para alterar este pedido.' }));
+          return;
+        }
         // Update order status
         console.log('[DEBUG] Servidor: Recebida solicitação de atualização de status', data);
         const order = orders.find(o => o.id === data.orderId);
@@ -410,6 +415,10 @@ wss.on('connection', (ws) => {
           console.log('[DEBUG] Servidor: Pedido não encontrado:', data.orderId);
         }
       } else if (data.type === 'updatePaymentStatus') {
+        if (ws.role !== 'admin' || !['pending', 'paid', 'failed', 'refunded'].includes(data.paymentStatus)) {
+          ws.send(JSON.stringify({ type: 'authorizationError', message: 'Somente o administrador autenticado pode atualizar o status do pagamento.' }));
+          return;
+        }
         // Update payment status
         console.log('Updating payment status for order:', data.orderId, 'to', data.paymentStatus);
         const order = orders.find(o => o.id === data.orderId);
@@ -446,6 +455,10 @@ wss.on('connection', (ws) => {
           console.log('Order not found:', data.orderId);
         }
       } else if (data.type === 'paymentConfirmed') {
+        if (ws.role !== 'admin') {
+          ws.send(JSON.stringify({ type: 'authorizationError', message: 'Confirmação de pagamento não autorizada.' }));
+          return;
+        }
         console.log('Payment confirmed for order:', data.orderId);
         const orderIndex = orders.findIndex(o => o.id === data.orderId);
         if (orderIndex > -1) {
@@ -487,6 +500,10 @@ wss.on('connection', (ws) => {
           console.log('Order not found for payment confirmation:', data.orderId);
         }
       } else if (data.type === 'notifyWaiterForDelivery') {
+        if (!['admin', 'kitchen', 'counter'].includes(ws.role)) {
+          ws.send(JSON.stringify({ type: 'authorizationError', message: 'Apenas a equipe autorizada pode chamar o garçom.' }));
+          return;
+        }
         // Handle notify waiter for delivery request from kitchen/counter
         console.log('[DEBUG] Servidor: Notificação de entrega recebida para pedido:', data.orderId);
         
