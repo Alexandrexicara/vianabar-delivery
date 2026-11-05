@@ -5,7 +5,7 @@ const { query } = require('../database');
 
 const SECRET = process.env.ACCOUNT_AUTH_SECRET || process.env.MERCHANT_AUTH_SECRET || '';
 
-function authenticateMotoboy(req, res, next) {
+async function authenticateMotoboy(req, res, next) {
   try {
     const header = String(req.headers.authorization || '');
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
@@ -25,6 +25,10 @@ function authenticateMotoboy(req, res, next) {
       return res.status(401).json({ success: false, error: 'Sessão inválida ou expirada.' });
     }
     req.motoboyId = Number(payload.sub);
+    const account = await query('SELECT status FROM motoboys WHERE id=$1 LIMIT 1', [req.motoboyId]);
+    if (!account.rows[0] || account.rows[0].status !== 'active') {
+      return res.status(403).json({ success: false, error: 'Conta de motoboy não está ativa.' });
+    }
     next();
   } catch (_) {
     return res.status(401).json({ success: false, error: 'Sessão inválida ou expirada.' });
