@@ -566,9 +566,9 @@
                 });
                 const data = await response.json();
                 if (!response.ok || !data.success) throw new Error(data.error || 'Não foi possível cadastrar.');
-                sessionStorage.setItem('motoboyToken', data.token);
-                sessionStorage.setItem('motoboySession', JSON.stringify(data.motoboy));
-                showAlert(data.message || 'Cadastro enviado com sucesso.', 'success');
+                sessionStorage.removeItem('motoboyToken');
+                sessionStorage.removeItem('motoboySession');
+                showAlert(data.message || 'Cadastro enviado. Aguarde a aprovação da administração antes de entrar.', 'success');
                 document.getElementById('registerForm').querySelector('form').reset();
                 setTimeout(() => { switchTab('login'); }, 1400);
             } catch (error) { showAlert(error.message || 'Falha ao cadastrar.', 'error'); }
