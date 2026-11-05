@@ -14,6 +14,7 @@ Defina estas variáveis como secrets do serviço (não no Git):
 
 ```env
 SICOOB_ENVIRONMENT=production
+SICOOB_ENABLE_CHARGES=false
 SICOOB_CLIENT_ID=
 SICOOB_CLIENT_SECRET=
 SICOOB_MTLS_PFX_BASE64=
