@@ -88,6 +88,7 @@ router.get('/motoboy/me',auth('motoboy'),async(req,res)=>{
  try {
   const r=await query('SELECT id,name,email,phone,status,vehicle_data,created_at FROM motoboys WHERE id=$1',[req.accountId]);
   if(!r.rows[0])return res.status(404).json({success:false,error:'Motoboy não encontrado.'});
+  if(r.rows[0].status!=='active')return res.status(403).json({success:false,error:r.rows[0].status==='pending'?'Cadastro aguardando aprovação.':'Conta não autorizada.'});
   const b=await query(`SELECT COALESCE(SUM(amount_cents-paid_cents),0)::bigint AS pending_cents,
     MIN(due_at) FILTER(WHERE paid_cents<amount_cents) AS next_due_at FROM motoboy_deliveries WHERE motoboy_id=$1`,[req.accountId]);
   res.json({success:true,motoboy:r.rows[0],balance:b.rows[0]});
