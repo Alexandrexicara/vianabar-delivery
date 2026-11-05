@@ -1,83 +1,107 @@
-const express = require("express");
+const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
-const { 
-  verSaldo, 
-  sacar, 
-  sacarTotal,
-  getHistoricoPedidos,
-  getResumoGanho,
-  getAllMotoboys
-} = require("../services/motoboyService");
+const { query } = require('../database');
 
-// Ver saldo do motoboy
-router.get("/:id", (req, res) => {
-  try {
-    const saldo = verSaldo(req.params.id);
-    res.json({ success: true, data: saldo });
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
+const SECRET = process.env.ACCOUNT_AUTH_SECRET || process.env.MERCHANT_AUTH_SECRET || '';
 
-// Sacar valor específico
-router.post("/sacar/:id", (req, res) => {
+function authenticateMotoboy(req, res, next) {
   try {
-    const { valor } = req.body;
-    if (!valor || valor <= 0) {
-      return res.status(400).json({ success: false, error: "Valor inválido" });
+    const header = String(req.headers.authorization || '');
+    const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+    const parts = token.split('.');
+    if (!SECRET || parts.length !== 3) {
+      return res.status(401).json({ success: false, error: 'Sessão inválida ou expirada.' });
     }
-    
-    const resultado = sacar(req.params.id, valor);
-    if (resultado.error) {
-      return res.status(400).json({ success: false, error: resultado.error });
+    const body = parts[0] + '.' + parts[1];
+    const expected = crypto.createHmac('sha256', SECRET).update(body).digest();
+    const supplied = Buffer.from(parts[2], 'base64url');
+    if (expected.length !== supplied.length || !crypto.timingSafeEqual(expected, supplied)) {
+      return res.status(401).json({ success: false, error: 'Sessão inválida ou expirada.' });
     }
-    res.json({ success: true, data: resultado });
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
-
-// Sacar tudo
-router.post("/sacar-total/:id", (req, res) => {
-  try {
-    const resultado = sacarTotal(req.params.id);
-    if (resultado.error) {
-      return res.status(400).json({ success: false, error: resultado.error });
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    if (payload.typ !== 'motoboy' || !payload.sub || !Number.isFinite(Number(payload.exp)) ||
+        payload.exp < Math.floor(Date.now() / 1000)) {
+      return res.status(401).json({ success: false, error: 'Sessão inválida ou expirada.' });
     }
-    res.json({ success: true, data: resultado });
+    req.motoboyId = Number(payload.sub);
+    next();
+  } catch (_) {
+    return res.status(401).json({ success: false, error: 'Sessão inválida ou expirada.' });
+  }
+}
+
+function ownAccount(req, res, next) {
+  if (!Number.isSafeInteger(Number(req.params.id)) || Number(req.params.id) !== req.motoboyId) {
+    return res.status(403).json({ success: false, error: 'Acesso permitido somente à própria conta.' });
+  }
+  next();
+}
+
+router.use(authenticateMotoboy);
+
+router.get('/:id', ownAccount, async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT m.id, m.name, m.status,
+        COALESCE(SUM(d.amount_cents - d.paid_cents), 0)::bigint AS pending_cents,
+        COALESCE(SUM(CASE WHEN d.due_at <= NOW() THEN d.amount_cents - d.paid_cents ELSE 0 END), 0)::bigint AS overdue_cents,
+        MIN(d.due_at) FILTER (WHERE d.paid_cents < d.amount_cents) AS next_due_at
+       FROM motoboys m LEFT JOIN motoboy_deliveries d ON d.motoboy_id = m.id
+       WHERE m.id = $1 GROUP BY m.id`,
+      [req.motoboyId]
+    );
+    if (!result.rows[0]) return res.status(404).json({ success: false, error: 'Motoboy não encontrado.' });
+    if (result.rows[0].status !== 'active') return res.status(403).json({ success: false, error: 'Conta não está ativa.' });
+    return res.json({ success: true, data: result.rows[0] });
   } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
+    console.error('[MOTOBOY BALANCE]', error);
+    return res.status(500).json({ success: false, error: 'Não foi possível consultar o saldo.' });
   }
 });
 
-// Ver histórico de pedidos
-router.get("/:id/historico", (req, res) => {
+router.get('/:id/historico', ownAccount, async (req, res) => {
   try {
-    const historico = getHistoricoPedidos(req.params.id);
-    res.json({ success: true, data: historico });
+    const result = await query(
+      `SELECT id, order_reference, amount_cents, paid_cents, due_at, status, created_at, paid_at
+         FROM motoboy_deliveries WHERE motoboy_id = $1 ORDER BY created_at DESC LIMIT 200`,
+      [req.motoboyId]
+    );
+    return res.json({ success: true, data: result.rows });
   } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
+    console.error('[MOTOBOY HISTORY]', error);
+    return res.status(500).json({ success: false, error: 'Não foi possível consultar o histórico.' });
   }
 });
 
-// Ver resumo de ganhos
-router.get("/:id/resumo", (req, res) => {
+router.get('/:id/resumo', ownAccount, async (req, res) => {
   try {
-    const resumo = getResumoGanho(req.params.id);
-    res.json({ success: true, data: resumo });
+    const result = await query(
+      `SELECT COUNT(*)::int AS total_entregas,
+        COALESCE(SUM(amount_cents),0)::bigint AS total_gerado_cents,
+        COALESCE(SUM(paid_cents),0)::bigint AS total_pago_cents,
+        COALESCE(SUM(amount_cents-paid_cents),0)::bigint AS total_pendente_cents
+       FROM motoboy_deliveries WHERE motoboy_id = $1`,
+      [req.motoboyId]
+    );
+    return res.json({ success: true, data: result.rows[0] });
   } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
+    console.error('[MOTOBOY SUMMARY]', error);
+    return res.status(500).json({ success: false, error: 'Não foi possível consultar o resumo.' });
   }
 });
 
-// Ver todos os motoboys
-router.get("/", (req, res) => {
-  try {
-    const todosMotoboys = getAllMotoboys();
-    res.json({ success: true, data: todosMotoboys });
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
-  }
+// Os saques são feitos pelo fluxo financeiro Woovi, com confirmação via webhook.
+// Não debitar saldo em memória nem aceitar saques informados pelo navegador.
+router.post(['/sacar/:id', '/sacar-total/:id'], ownAccount, (req, res) => {
+  return res.status(409).json({
+    success: false,
+    error: 'Saque manual indisponível. Os valores são pagos pelo fluxo Pix do comerciante e confirmados pelo banco.'
+  });
+});
+
+router.get('/', (req, res) => {
+  return res.status(403).json({ success: false, error: 'Consulta geral de motoboys exige acesso administrativo.' });
 });
 
 module.exports = router;
