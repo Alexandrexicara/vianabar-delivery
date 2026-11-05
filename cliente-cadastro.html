@@ -632,67 +632,45 @@
         }
 
         // Prosseguir para o cardápio (novo cliente)
-        function proceedToMenu() {
+        async function proceedToMenu() {
             const nome = document.getElementById('nome').value.trim();
             const cpf = document.getElementById('cpf').value.trim();
             const telefone = document.getElementById('telefone').value.trim();
-            
-            // Validações
-            if (!nome) {
-                alert('Por favor, informe seu nome.');
-                document.getElementById('nome').focus();
-                return;
+            if (!nome) { alert('Por favor, informe seu nome.'); document.getElementById('nome').focus(); return; }
+            if (!cpf || cpf.length !== 14 || !validateCPF(cpf)) {
+                alert('Informe um CPF válido.'); document.getElementById('cpf').focus(); return;
             }
-            
-            if (!cpf || cpf.length !== 14) {
-                alert('Por favor, informe um CPF válido.');
-                document.getElementById('cpf').focus();
-                return;
-            }
-            
-            if (!validateCPF(cpf)) {
-                alert('CPF inválido. Por favor, verifique.');
-                document.getElementById('cpf').focus();
-                return;
-            }
-            
-            if (!selectedMesa) {
-                alert('Por favor, selecione sua mesa.');
-                return;
-            }
-            
-            // Salvar novo cliente
-            const newCustomer = {
-                nome: nome,
-                cpf: cpf,
-                telefone: telefone,
-                lastMesa: selectedMesa,
-                registrationDate: new Date().toISOString(),
-                visitCount: 1
-            };
-            
+            if (!selectedMesa) { alert('Por favor, selecione sua mesa.'); return; }
+
             try {
-                const customers = JSON.parse(localStorage.getItem('customers') || '[]');
-                customers.push(newCustomer);
-                localStorage.setItem('customers', JSON.stringify(customers));
+                const response = await fetch('/api/accounts/customer/register', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: nome, cpf, phone: telefone, tableNumber: selectedMesa })
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) throw new Error(data.error || 'Não foi possível salvar o cadastro.');
+                sessionStorage.setItem('customerToken', data.token);
+                const customer = {
+                    id: data.customer.id, nome, cpf, telefone, lastMesa: selectedMesa,
+                    registrationDate: new Date().toISOString(), visitCount: data.customer.visit_count
+                };
+                try {
+                    const customers = JSON.parse(localStorage.getItem('customers') || '[]');
+                    const index = customers.findIndex(item => item.cpf === cpf);
+                    if (index >= 0) customers[index] = customer; else customers.push(customer);
+                    localStorage.setItem('customers', JSON.stringify(customers));
+                } catch (storageError) { console.warn('Cache local do cliente indisponível:', storageError); }
+
+                const customerSession = {
+                    customerId: data.customer.id, nome, cpf, telefone, mesa: selectedMesa,
+                    isReturning: false, repeatingOrder: false
+                };
+                localStorage.setItem('currentCustomerSession', JSON.stringify(customerSession));
+                window.location.href = 'usuario.html';
             } catch (error) {
-                console.error('Erro ao salvar cliente:', error);
+                console.error('Erro no cadastro do cliente:', error);
+                alert(error.message || 'Não foi possível concluir o cadastro. Tente novamente.');
             }
-            
-            // Criar sessão do cliente
-            const customerSession = {
-                nome: nome,
-                cpf: cpf,
-                telefone: telefone,
-                mesa: selectedMesa,
-                isReturning: false,
-                repeatingOrder: false
-            };
-            
-            localStorage.setItem('currentCustomerSession', JSON.stringify(customerSession));
-            
-            // Redirecionar para o cardápio
-            window.location.href = 'usuario.html';
         }
 
         // Formatar telefone

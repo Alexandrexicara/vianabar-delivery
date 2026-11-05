@@ -1,354 +1,116 @@
-// MyGateway Integration para Totem
-// Sistema de Pagamentos com Split Automático
-
+// Compatibilidade com as páginas antigas do Vianas Bar.
+// O checkout Pix real é criado no backend usando o AppID Woovi do comerciante.
 class MyGatewayIntegration {
-    constructor() {
-        this.apiKey = 
-        this.baseURL = 'https://api.mygateway.com/v1';
-        this.mygatewayUrls = {
-            registration: 'https://mygateway.com.br/cadastro',
-            merchant: 'https://mygateway.com.br/cadastro',
-            motoboy: 'https://mygateway.com.br/cadastro',
-            platform: 'https://mygateway.com.br/cadastro',
-            login: 'https://app.mygateway.com.br/login',
-            documentation: 'https://app.mygateway.com.br/documentacao/sintetica'
-        };
-        this.merchantId = null; // COMERCIANTE/Admin (quem vende)
-        this.motoboyId = null; // Motoboy (quem entrega)
-        this.creatorId = null; // Criador (dono da plataforma)
-        
-        // DIVISÃO DO PAGAMENTO
-        this.plataformaPercent = 10; // 10% para plataforma/criador
-        this.motoboyPercent = 25;    // 25% para motoboy
-        // COMERCIANTE fica com: 100% - 10% - 25% = 65%
+  constructor() {
+    this.baseURL = '/woovi';
+    this.merchantId = null;
+    this.motoboyId = null;
+    this.creatorId = null;
+    this.plataformaPercent = 15;
+    this.motoboyPercent = 25;
+  }
+
+  getRegistrationLink(profileType = 'merchant') {
+    const profile = String(profileType || 'merchant').toLowerCase();
+    if (profile === 'motoboy') return '/motoboy-login.html';
+    if (profile === 'platform' || profile === 'creator' || profile === 'admin') return '/creator-login.html';
+    return '/landing-page.html';
+  }
+
+  // Mantém a interface antiga para páginas que ainda chamem estes métodos.
+  // O cadastro real de comerciante agora é feito pelo endpoint próprio do Vianas Bar.
+  async criarContaComerciante() {
+    throw new Error('Use o cadastro de comerciante do Vianas Bar. A criação de conta MyGateway foi desativada porque o provedor não está integrado.');
+  }
+
+  async criarContaMotoboy() {
+    throw new Error('O cadastro de motoboy continua no módulo de entregas do Vianas Bar; não existe integração MyGateway ativa.');
+  }
+
+  async criarContaCriador() {
+    throw new Error('O cadastro de administrador/criador continua no painel do Vianas Bar; não existe integração MyGateway ativa.');
+  }
+
+  getStoreSlug() {
+    const host = String(window.location.hostname || '').toLowerCase();
+    if (host.endsWith('.cardapiodigital.com.br')) return host.split('.')[0];
+    try {
+      const saved = JSON.parse(localStorage.getItem('establishmentData') || '{}');
+      if (saved.uniqueId) return saved.uniqueId;
+      const profile = JSON.parse(localStorage.getItem('merchantProfile') || '{}');
+      if (profile.store_slug) return profile.store_slug;
+    } catch (_) {}
+    return '';
+  }
+
+  async gerarQRCode(pedido) {
+    const storeSlug = this.getStoreSlug();
+    if (!storeSlug) throw new Error('Não foi possível identificar a loja. Acesse pelo endereço exclusivo do estabelecimento.');
+    const total = Number(pedido && pedido.total);
+    if (!Number.isFinite(total) || total <= 0) throw new Error('Valor do pedido inválido.');
+    const response = await fetch(this.baseURL + '/public/charge/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        storeSlug,
+        pedidoId: String(pedido.numero || pedido.id || ('pedido-' + Date.now())),
+        valorTotalCents: Math.round(total * 100),
+        descricao: 'Pedido ' + String(pedido.numero || pedido.id || '')
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.success) throw new Error(data.error || 'Não foi possível gerar a cobrança Pix.');
+    const charge = data.charge || {};
+    const code = data.qrCode || charge.br_code;
+    if (!code) throw new Error('A Woovi não retornou o código Pix desta cobrança.');
+    let qrCodeImage = data.qrCodeImage || null;
+    if (!qrCodeImage && window.QRCode && typeof window.QRCode.toDataURL === 'function') {
+      try { qrCodeImage = await window.QRCode.toDataURL(code, { width: 280, margin: 2 }); } catch (_) {}
     }
+    return {
+      success: true,
+      transactionId: charge.correlation_id,
+      qrCode: code,
+      qrCodeImage,
+      paymentLinkUrl: data.paymentLinkUrl || charge.payment_link_url || null,
+      status: 'pending'
+    };
+  }
 
-    getRegistrationLink(profileType = 'merchant') {
-        const profile = profileType.toLowerCase();
+  async verificarPagamento(transactionId) {
+    const storeSlug = this.getStoreSlug();
+    if (!storeSlug) throw new Error('Loja não identificada para consultar o pagamento.');
+    const response = await fetch(this.baseURL + '/public/charge/' + encodeURIComponent(transactionId) + '?storeSlug=' + encodeURIComponent(storeSlug));
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.success) throw new Error(data.error || 'Não foi possível consultar o pagamento.');
+    const charge = data.charge;
+    return {
+      status: charge.status === 'paid' ? 'approved' : 'pending',
+      amount: Number(charge.amount_cents || 0) / 100,
+      processedAt: charge.paid_at || null,
+      transactionId: charge.correlation_id
+    };
+  }
 
-        if (profile === 'motoboy') {
-            return this.mygatewayUrls.motoboy;
-        }
+  async processarPagamento(pedido) {
+    return {
+      success: false,
+      error: 'O pagamento com cartão ainda não está conectado a um processador real neste projeto. Use Pix para confirmação automática.'
+    };
+  }
 
-        if (profile === 'platform' || profile === 'creator' || profile === 'admin') {
-            return this.mygatewayUrls.platform;
-        }
-
-        return this.mygatewayUrls.merchant;
-    }
-
-    // 1️⃣ Criar Conta do Comerciante
-    async criarContaComerciante(dadosComerciante) {
-        try {
-            console.log('[MyGateway] Criando conta do comerciante...');
-            
-            const response = await fetch(`${this.baseURL}/merchants`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.apiKey}`
-                },
-                body: JSON.stringify({
-                    name: dadosComerciante.nome,
-                    document: dadosComerciante.cnpj,
-                    bankAccount: {
-                        bank: dadosComerciante.banco,
-                        agency: dadosComerciante.agencia,
-                        account: dadosComerciante.conta,
-                        accountType: dadosComerciante.tipoConta
-                    },
-                    commission: {
-                        plataformaPercent: this.plataformaPercent,
-                        motoboyPercent: this.motoboyPercent
-                    }
-                })
-            });
-
-            const data = await response.json();
-            
-            if (data.success) {
-                console.log('[MyGateway] Conta do comerciante criada:', data.merchantId);
-                this.merchantId = data.merchantId;
-                return data.merchantId;
-            } else {
-                throw new Error(data.error);
-            }
-            
-        } catch (error) {
-            console.error('[MyGateway] Erro ao criar conta comerciante:', error);
-            throw error;
-        }
-    }
-
-    // 2️⃣ Criar Conta do Motoboy
-    async criarContaMotoboy(dadosMotoboy) {
-        try {
-            console.log('[MyGateway] Criando conta do motoboy...');
-            
-            const response = await fetch(`${this.baseURL}/motoboys`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.apiKey}`
-                },
-                body: JSON.stringify({
-                    name: dadosMotoboy.nome,
-                    document: dadosMotoboy.cpf,
-                    bankAccount: {
-                        bank: dadosMotoboy.banco,
-                        agency: dadosMotoboy.agencia,
-                        account: dadosMotoboy.conta,
-                        accountType: 'CORRENTE'
-                    },
-                    contact: {
-                        phone: dadosMotoboy.telefone,
-                        email: dadosMotoboy.email
-                    }
-                })
-            });
-
-            const data = await response.json();
-            
-            if (data.success) {
-                console.log('[MyGateway] Conta do motoboy criada:', data.motoboyId);
-                this.motoboyId = data.motoboyId;
-                return data.motoboyId;
-            } else {
-                throw new Error(data.error);
-            }
-            
-        } catch (error) {
-            console.error('[MyGateway] Erro ao criar conta motoboy:', error);
-            throw error;
-        }
-    }
-
-    // 3️⃣ Criar Conta do Criador (Dono da Plataforma)
-    async criarContaCriador(dadosCriador) {
-        try {
-            console.log('[MyGateway] Criando conta do criador...');
-            
-            const response = await fetch(`${this.baseURL}/creators`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.apiKey}`
-                },
-                body: JSON.stringify({
-                    name: dadosCriador.nome,
-                    document: dadosCriador.cpf || dadosCriador.cnpj,
-                    bankAccount: {
-                        bank: dadosCriador.banco,
-                        agency: dadosCriador.agencia,
-                        account: dadosCriador.conta,
-                        accountType: dadosCriador.tipoConta
-                    },
-                    contact: {
-                        phone: dadosCriador.telefone,
-                        email: dadosCriador.email
-                    },
-                    role: 'CREATOR'
-                })
-            });
-
-            const data = await response.json();
-            
-            if (data.success) {
-                console.log('[MyGateway] Conta do criador criada:', data.creatorId);
-                this.creatorId = data.creatorId;
-                return data.creatorId;
-            } else {
-                throw new Error(data.error);
-            }
-            
-        } catch (error) {
-            console.error('[MyGateway] Erro ao criar conta criador:', error);
-            throw error;
-        }
-    }
-
-    // 3️⃣ Processar Pagamento com Split
-    async processarPagamento(pedido) {
-        try {
-            console.log('[MyGateway] 🏪 COMERCIANTE vai receber e dividir...');
-            
-            // Calcular divisões
-            const valorTotal = pedido.total;
-            const valorMotoboy = (valorTotal * this.motoboyPercent) / 100;
-            const valorCriador = (valorTotal * this.plataformaPercent) / 100;
-            const valorComerciante = valorTotal - valorMotoboy - valorCriador;
-            
-            console.log(`[MyGateway] 💰 DIVISÃO DO COMERCIANTE:`);
-            console.log(`  💵 Cliente pagou: R$ ${valorTotal.toFixed(2)}`);
-            console.log(`  🏪 COMERCIANTE recebe: R$ ${valorComerciante.toFixed(2)} (${((valorComerciante/valorTotal)*100).toFixed(0)}%)`);
-            console.log(`  🏍️ Motoboy recebe: R$ ${valorMotoboy.toFixed(2)} (${this.motoboyPercent}%)`);
-            console.log(`  👨‍💻 Criador recebe: R$ ${valorCriador.toFixed(2)} (${this.plataformaPercent}%)`);
-            
-            const paymentData = {
-                merchantId: this.merchantId, // COMERCIANTE é quem processa
-                amount: valorTotal,
-                paymentMethod: pedido.metodoPagamento, // 'pix' ou 'cartao'
-                customer: {
-                    name: pedido.cliente.nome,
-                    email: pedido.cliente.email,
-                    phone: pedido.cliente.telefone
-                },
-                splits: [
-                    {
-                        accountId: this.motoboyId || pedido.motoboyId,
-                        type: 'PERCENTAGE',
-                        value: this.motoboyPercent
-                    },
-                    {
-                        accountId: this.creatorId,
-                        type: 'PERCENTAGE', 
-                        value: this.plataformaPercent
-                    }
-                    // COMERCIANTE fica com o restante automaticamente
-                ]
-            };
-
-            // Taxas MyGateway
-            const taxa = pedido.metodoPagamento === 'pix' ? 0.99 : 1.0;
-            paymentData.fee = taxa;
-
-            const response = await fetch(`${this.baseURL}/transactions`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.apiKey}`
-                },
-                body: JSON.stringify(paymentData)
-            });
-
-            const data = await response.json();
-            
-            if (data.success) {
-                console.log('[MyGateway] Pagamento processado:', data.transactionId);
-                return {
-                    success: true,
-                    transactionId: data.transactionId,
-                    pixCode: data.pixCode, // Se for PIX
-                    redirectUrl: data.redirectUrl, // Se for cartão
-                    splits: data.splits // Valores divididos
-                };
-            } else {
-                throw new Error(data.error);
-            }
-            
-        } catch (error) {
-            console.error('[MyGateway] Erro ao processar pagamento:', error);
-            throw error;
-        }
-    }
-
-    // 4️⃣ Gerar QR Code PIX
-    async gerarQRCode(pedido) {
-        try {
-            console.log('[MyGateway] Gerando QR Code PIX...');
-            
-            const response = await fetch(`${this.baseURL}/pix/qrcode`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.apiKey}`
-                },
-                body: JSON.stringify({
-                    merchantId: this.merchantId,
-                    amount: pedido.total,
-                    description: `Pedido #${pedido.numero}`,
-                    splits: [
-                        {
-                            accountId: this.motoboyId || pedido.motoboyId,
-                            percentage: this.motoboyPercent
-                        },
-                        {
-                            accountId: this.creatorId,
-                            percentage: this.creatorPercent
-                        },
-                        {
-                            accountId: 'plataforma_id',
-                            percentage: this.plataformaPercent
-                        }
-                    ]
-                })
-            });
-
-            const data = await response.json();
-            
-            if (data.success) {
-                return {
-                    qrCode: data.qrCode,
-                    qrCodeImage: data.qrCodeImage,
-                    expirationTime: data.expirationTime,
-                    transactionId: data.transactionId
-                };
-            } else {
-                throw new Error(data.error);
-            }
-            
-        } catch (error) {
-            console.error('[MyGateway] Erro ao gerar QR Code:', error);
-            throw error;
-        }
-    }
-
-    // 5️⃣ Verificar Status do Pagamento
-    async verificarPagamento(transactionId) {
-        try {
-            console.log('[MyGateway] Verificando status do pagamento...');
-            
-            const response = await fetch(`${this.baseURL}/transactions/${transactionId}`, {
-                headers: {
-                    'Authorization': `Bearer ${this.apiKey}`
-                }
-            });
-
-            const data = await response.json();
-            
-            return {
-                status: data.status, // 'pending', 'approved', 'rejected'
-                amount: data.amount,
-                splits: data.splits,
-                processedAt: data.processedAt
-            };
-            
-        } catch (error) {
-            console.error('[MyGateway] Erro ao verificar pagamento:', error);
-            throw error;
-        }
-    }
-
-    // 6️⃣ Calcular Valores do Split
-    calcularSplit(valorTotal, metodoPagamento) {
-        const taxa = metodoPagamento === 'pix' ? 0.99 : 1.0;
-        const valorComTaxa = valorTotal * (1 - taxa / 100);
-        
-        const valorPlataforma = valorComTaxa * (this.plataformaPercent / 100);
-        const valorMotoboy = valorComTaxa * (this.motoboyPercent / 100);
-        const valorComerciante = valorComTaxa - valorPlataforma - valorMotoboy;
-        
-        return {
-            valorTotal: valorTotal,
-            taxa: taxa,
-            valorComTaxa: valorComTaxa,
-            splits: {
-                plataforma: {
-                    percent: this.plataformaPercent,
-                    valor: valorPlataforma
-                },
-                motoboy: {
-                    percent: this.motoboyPercent,
-                    valor: valorMotoboy
-                },
-                comerciante: {
-                    percent: (100 - this.plataformaPercent - this.motoboyPercent),
-                    valor: valorComerciante
-                }
-            }
-        };
-    }
+  calcularSplit(valorTotal, metodoPagamento) {
+    const total = Number(valorTotal) || 0;
+    const taxaPlataforma = total * this.plataformaPercent / 100;
+    const valorMotoboy = total * this.motoboyPercent / 100;
+    return {
+      valorTotal: total,
+      splits: {
+        plataforma: { percent: this.plataformaPercent, valor: taxaPlataforma },
+        motoboy: { percent: this.motoboyPercent, valor: valorMotoboy },
+        comerciante: { percent: 100 - this.plataformaPercent - this.motoboyPercent, valor: total - taxaPlataforma - valorMotoboy }
+      }
+    };
+  }
 }
-
-// Exportar para usar no totem
 window.MyGatewayIntegration = MyGatewayIntegration;

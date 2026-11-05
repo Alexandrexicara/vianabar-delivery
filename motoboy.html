@@ -691,53 +691,41 @@
         }
 
         // Verificar autenticação do motoboy
-        function checkMotoboyAuth() {
+        async function checkMotoboyAuth() {
             const session = sessionStorage.getItem('motoboySession');
-            const motoboyAccess = localStorage.getItem('motoboyAccess');
-            
-            // Se for o criador acessando, dar acesso direto
-            if (motoboyAccess === 'true') {
-                const creatorMotoboyData = {
-                    name: 'Motoboy Criador',
-                    phone: '(11) 99999-5555',
-                    vehicle: 'Moto Criador',
-                    plate: 'CREATOR-001',
-                    status: 'active',
-                    role: 'creator-motoboy'
-                };
-                sessionStorage.setItem('motoboySession', JSON.stringify(creatorMotoboyData));
-                motoboyData = creatorMotoboyData;
-                initializeMotoboyCommunication();
-                initializeMotoboy();
-                console.log('[MOTOBOY] Criador acessando painel com permissões totais');
+            const token = sessionStorage.getItem('motoboyToken');
+            // Não existe mais acesso automático de demonstração: exige conta autenticada.
+            if (!session || !token) {
+                window.location.replace('motoboy-login.html');
                 return;
             }
-            
-            // Se já tiver sessão normal, carregar
-            if (session) {
-                motoboyData = JSON.parse(session);
-                // Limpar pedidos antigos ao carregar
+            try {
+                const response = await fetch('/api/accounts/motoboy/me', {
+                    headers: { Authorization: 'Bearer ' + token }
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) throw new Error(data.error || 'Sessão inválida.');
+                motoboyData = {
+                    ...JSON.parse(session),
+                    ...data.motoboy,
+                    vehicle: data.motoboy.vehicle_data || JSON.parse(session).vehicle || {},
+                    cnh: data.motoboy.cnh_data || {},
+                    stats: JSON.parse(session).stats || {
+                        todayDeliveries: 0, totalDeliveries: 0, avgTime: 25, rating: 5.0
+                    },
+                    status: 'active'
+                };
+                sessionStorage.setItem('motoboySession', JSON.stringify(motoboyData));
                 limparPedidosAntigos();
                 initializeMotoboyCommunication();
                 initializeMotoboy();
-                return;
+            } catch (error) {
+                console.error('[MOTOBOY AUTH]', error);
+                sessionStorage.removeItem('motoboyToken');
+                sessionStorage.removeItem('motoboySession');
+                alert('Sua sessão expirou. Entre novamente.');
+                window.location.replace('motoboy-login.html');
             }
-            
-            // Se não tiver nada, criar acesso automático
-            const autoMotoboyData = {
-                name: 'Motoboy Teste',
-                phone: '(11) 99999-5555',
-                vehicle: 'Moto Teste',
-                plate: 'AUTO-001',
-                status: 'active',
-                role: 'auto-access'
-            };
-            sessionStorage.setItem('motoboySession', JSON.stringify(autoMotoboyData));
-            motoboyData = autoMotoboyData;
-            
-            initializeMotoboyCommunication();
-            initializeMotoboy();
-            console.log('[MOTOBOY] Acesso automático concedido');
         }
 
         // ============================================
@@ -2226,21 +2214,12 @@ function getOrderActions(order) {
 function completeDelivery(orderId) {
             const order = orders.find(o => o.id === orderId);
             if (order) {
-                order.status = 'completed';
+                order.status = 'awaiting_customer_confirmation';
                 order.deliveryTime = new Date().toISOString();
-                order.actualDeliveryTime = Math.floor((new Date() - new Date(order.timestamp)) / 60000); // minutos
+                order.actualDeliveryTime = Math.floor((new Date() - new Date(order.timestamp)) / 60000);
                 
                 motoboyData.currentOrder = null;
                 motoboyData.status = 'online';
-                motoboyData.stats.todayDeliveries++;
-                motoboyData.stats.totalDeliveries++;
-                
-                // Calcular média de tempo
-                const completedOrders = orders.filter(o => o.status === 'completed' && o.actualDeliveryTime);
-                if (completedOrders.length > 0) {
-                    const totalTime = completedOrders.reduce((sum, o) => sum + o.actualDeliveryTime, 0);
-                    motoboyData.stats.avgTime = Math.floor(totalTime / completedOrders.length);
-                }
                 
                 saveOrders();
                 saveMotoboyData();
@@ -2249,14 +2228,9 @@ function completeDelivery(orderId) {
                 updateStats();
                 
                 // Mostrar notificação completa
-                showNotification(`✅ PEDIDO #${orderId} FINALIZADO COM SUCESSO!`, 'success');
+                showNotification(`Entrega do pedido #${orderId} informada. Aguardando confirmação do cliente.`, 'info');
                 
-                // 🔊 Tocar som de entrega concluída
-                playCompletedSound();
-                
-                // Calcular valor ganho
-                const deliveryFee = (order.total * 0.10).toFixed(2); // 10% de taxa
-                showNotification(`💰 Ganho nesta entrega: R$ ${deliveryFee}`, 'success');
+                // O ganho só é contabilizado após a confirmação do cliente.
                 
                 // Usar módulo de comunicação para notificar
                 if (window.DeliveryCommunication) {
@@ -2265,12 +2239,10 @@ function completeDelivery(orderId) {
                         orderId: orderId
                     });
                 } else {
-                    // Fallback para método antigo
-                    notifyDeliverySystem(orderId, 'completed');
+                    showNotification('Sem conexão segura com o servidor. A entrega não foi enviada para confirmação.', 'error');
                 }
                 
-                // Notificar cliente
-                notifyCustomer(order, 'completed');
+                // O cliente recebe o pedido de confirmação pelo canal WebSocket.
                 
                 // Limpar mapa
                 if (currentRoute) {
@@ -2299,7 +2271,6 @@ function completeDelivery(orderId) {
                     orderId: order.id,
                     customerName: order.customerName,
                     total: order.total,
-                    deliveryFee: deliveryFee,
                     actualTime: order.actualDeliveryTime
                 });
                 
@@ -2312,7 +2283,6 @@ function completeDelivery(orderId) {
                             motoboyName: motoboyData.name,
                             customerName: order.customerName,
                             total: order.total,
-                            deliveryFee: deliveryFee,
                             deliveryTime: order.actualDeliveryTime
                         }
                     }, '*');
@@ -2928,6 +2898,23 @@ function completeDelivery(orderId) {
                 adicionarBotaoGanhos();
             }, 2000);
         });
-    </script>
+    
+        window.addEventListener('deliveryConfirmed', function(event) {
+            const order = orders.find(item => String(item.id) === String(event.detail?.orderId));
+            if (!order || order.status === 'completed') return;
+            order.status = 'completed';
+            order.customerConfirmedAt = new Date().toISOString();
+            motoboyData.stats.todayDeliveries++;
+            motoboyData.stats.totalDeliveries++;
+            const completed = orders.filter(item => item.status === 'completed' && item.actualDeliveryTime);
+            if (completed.length) motoboyData.stats.avgTime = Math.floor(completed.reduce((sum, item) => sum + item.actualDeliveryTime, 0) / completed.length);
+            saveOrders();
+            saveMotoboyData();
+            renderOrders();
+            updateStats();
+            showNotification('Cliente confirmou a entrega. Repasse registrado para o prazo financeiro.', 'success');
+            playCompletedSound();
+        });
+</script>
 </body>
 </html>

@@ -577,7 +577,8 @@
                 // Send kitchen login message to identify this connection as kitchen staff
                 if (window.ws && window.ws.readyState === WebSocket.OPEN) {
                     window.ws.send(JSON.stringify({
-                        type: 'kitchenLogin'
+                        type: 'kitchenLogin',
+                        token: localStorage.getItem('merchantSessionToken') || ''
                     }));
                 }
                 

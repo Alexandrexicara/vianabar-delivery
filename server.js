@@ -5,11 +5,13 @@ const httpPort = process.env.PORT || 3002;
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const crypto = require('crypto');
 const WebSocket = require('ws');
 const express = require('express');
 const multer = require('multer');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const { query: dbQuery } = require('./database');
 
 const app = express();
 const server = http.createServer(app);
@@ -17,7 +19,7 @@ const server = http.createServer(app);
 // Middleware
 app.use(cors());
 
-app.use(express.json());
+app.use(express.json({ verify: (req, res, buffer) => { req.rawBody = Buffer.from(buffer); } }));
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static('uploads'));
 
@@ -28,7 +30,11 @@ app.use("/vendedor", require("./routes/vendedor"));
 app.use("/motoboy", require("./routes/motoboy"));
 app.use("/google-pay", require("./routes/google-pay"));
 app.use("/anti-chargeback", require("./routes/antiChargeback"));
+app.use("/merchant", require("./routes/merchant").router);
+app.use("/api/accounts", require("./routes/accounts"));
+app.use("/merchant/woovi-baas", require("./routes/wooviBaas"));
 app.use("/woovi", require("./routes/woovi"));
+app.use("/sicoob", require("./routes/sicoob"));
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -61,6 +67,26 @@ app.post('/upload/:type', upload.single('image'), (req, res) => {
     imageUrl: imageUrl,
     message: 'Image uploaded successfully'
   });
+});
+
+// Autenticação real do painel do criador (cookie HttpOnly assinado no servidor).
+const creatorAuth = require('./routes/creatorAuth');
+app.use('/api/creator', creatorAuth.router);
+app.get('/creator-dashboard.html', creatorAuth.requireCreator, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.sendFile(path.resolve('creator-dashboard.html'));
+});
+
+// Bloqueia arquivos internos, dados operacionais e código de servidor na camada estática.
+app.use((req, res, next) => {
+  const pathname = decodeURIComponent(String(req.path || '/'));
+  const blocked = /^\/(?:data|migrations|scripts|routes|services|\.git|\.github)(?:\/|$)/i.test(pathname) ||
+    /^\/(?:\.env(?:\..*)?|server\.js|database\.js|db\.js|package(?:-lock)?\.json|orders\.json|merchants\.json|charges\.json)$/i.test(pathname);
+  if (blocked) {
+    res.set('Cache-Control', 'no-store');
+    return res.sendStatus(404);
+  }
+  next();
 });
 
 // Serve static files
@@ -200,21 +226,25 @@ wss.on('connection', (ws) => {
         ws.role = 'user';
         ws.send(JSON.stringify({ type: 'userLoginSuccess' }));
       } else if (data.type === 'adminLogin') {
-        // Set client role to admin
-        ws.role = 'admin';
-        ws.send(JSON.stringify({ type: 'adminLoginSuccess' }));
+        authenticateMerchantStaffSocket(ws, data, 'admin').catch(error => {
+          console.error('[STAFF AUTH]', error);
+          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'adminLoginError', message: 'Sessão administrativa inválida ou expirada.' }));
+        });
       } else if (data.type === 'kitchenLogin') {
-        // Set client role to kitchen staff
-        ws.role = 'kitchen';
-        ws.send(JSON.stringify({ type: 'kitchenLoginSuccess' }));
+        authenticateMerchantStaffSocket(ws, data, 'kitchen').catch(error => {
+          console.error('[STAFF AUTH]', error);
+          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'kitchenLoginError', message: 'Sessão administrativa inválida ou expirada.' }));
+        });
       } else if (data.type === 'counterLogin') {
-        // Set client role to counter staff
-        ws.role = 'counter';
-        ws.send(JSON.stringify({ type: 'counterLoginSuccess' }));
+        authenticateMerchantStaffSocket(ws, data, 'counter').catch(error => {
+          console.error('[STAFF AUTH]', error);
+          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'counterLoginError', message: 'Sessão administrativa inválida ou expirada.' }));
+        });
       } else if (data.type === 'waiterLogin') {
-        // Set client role to waiter
-        ws.role = 'waiter';
-        ws.send(JSON.stringify({ type: 'waiterLoginSuccess' }));
+        authenticateMerchantStaffSocket(ws, data, 'waiter').catch(error => {
+          console.error('[STAFF AUTH]', error);
+          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'waiterLoginError', message: 'Sessão administrativa inválida ou expirada.' }));
+        });
       } else if (data.type === 'getExistingOrders') {
         console.log('Sending existing orders to client');
         const userOrders = orders.filter(order => order.clientId === ws.clientId);
@@ -300,6 +330,11 @@ wss.on('connection', (ws) => {
           }));
         }
       } else if (data.type === 'updateStatus') {
+        if (!['admin', 'kitchen', 'counter', 'waiter'].includes(ws.role) ||
+            !['pending', 'preparing', 'ready', 'delivered', 'cancelled'].includes(data.status)) {
+          ws.send(JSON.stringify({ type: 'authorizationError', message: 'Você não tem autorização para alterar este pedido.' }));
+          return;
+        }
         // Update order status
         console.log('[DEBUG] Servidor: Recebida solicitação de atualização de status', data);
         const order = orders.find(o => o.id === data.orderId);
@@ -400,84 +435,19 @@ wss.on('connection', (ws) => {
         } else {
           console.log('[DEBUG] Servidor: Pedido não encontrado:', data.orderId);
         }
-      } else if (data.type === 'updatePaymentStatus') {
-        // Update payment status
-        console.log('Updating payment status for order:', data.orderId, 'to', data.paymentStatus);
-        const order = orders.find(o => o.id === data.orderId);
-        if (order) {
-          order.paymentStatus = data.paymentStatus;
-          
-          // Broadcast payment status update to all relevant clients
-          const updateMessage = JSON.stringify({
-            type: 'paymentStatusUpdate',
-            orderId: data.orderId,
-            paymentStatus: data.paymentStatus
-          });
-          
-          // Send to admins
-          clients.forEach((client, id) => {
-            if (client.role === 'admin' && client.readyState === WebSocket.OPEN) {
-              client.send(updateMessage);
-            }
-          });
-          
-          // Send to waiters
-          clients.forEach((client, id) => {
-            if (client.role === 'waiter' && client.readyState === WebSocket.OPEN) {
-              client.send(updateMessage);
-            }
-          });
-          
-          // Send to the user who owns the order
-          const orderOwnerClient = clients.get(order.clientId);
-          if (orderOwnerClient && orderOwnerClient.readyState === WebSocket.OPEN) {
-            orderOwnerClient.send(updateMessage);
-          }
-        } else {
-          console.log('Order not found:', data.orderId);
-        }
-      } else if (data.type === 'paymentConfirmed') {
-        console.log('Payment confirmed for order:', data.orderId);
-        const orderIndex = orders.findIndex(o => o.id === data.orderId);
-        if (orderIndex > -1) {
-          const order = orders[orderIndex];
-          const userClientId = order.clientId; // Store the client ID
-          const userClient = clients.get(userClientId);
-
-          if (userClient && userClient.readyState === WebSocket.OPEN) {
-            console.log(`Sending clearHistory to client ${userClientId} for order ${order.id}`);
-            userClient.send(JSON.stringify({ type: 'clearHistory' }));
-          } else {
-            console.log(`Client ${userClientId} not found or not connected.`);
-          }
-
-          // Remove ALL orders from the same client (not just one)
-          const ordersToRemove = [];
-          for (let i = orders.length - 1; i >= 0; i--) {
-            if (orders[i].clientId === userClientId) {
-              ordersToRemove.push(orders[i].id);
-              orders.splice(i, 1);
-            }
-          }
-          
-          console.log(`Removed ${ordersToRemove.length} orders for client ${userClientId}`);
-          
-          // Notify all admins that the orders are completed and removed
-          ordersToRemove.forEach(orderId => {
-            const removalMessage = JSON.stringify({ type: 'orderRemoved', orderId: orderId });
-            
-            // Send to admins only
-            clients.forEach((client, id) => {
-              if (client.role === 'admin' && client.readyState === WebSocket.OPEN) {
-                client.send(removalMessage);
-              }
-            });
-          });
-
-        } else {
-          console.log('Order not found for payment confirmation:', data.orderId);
-        }
+      } else if (data.type === 'updatePaymentStatus' || data.type === 'paymentConfirmed') {
+        // Status de pagamento nunca é aceito pelo WebSocket do navegador.
+        // Somente webhook autenticado do provedor pode liquidar/estornar uma cobrança.
+        ws.send(JSON.stringify({
+          type: 'authorizationError',
+          message: 'Status financeiro só pode ser atualizado após confirmação do provedor de pagamento.'
+        }));
+        return;
       } else if (data.type === 'notifyWaiterForDelivery') {
+        if (!['admin', 'kitchen', 'counter'].includes(ws.role)) {
+          ws.send(JSON.stringify({ type: 'authorizationError', message: 'Apenas a equipe autorizada pode chamar o garçom.' }));
+          return;
+        }
         // Handle notify waiter for delivery request from kitchen/counter
         console.log('[DEBUG] Servidor: Notificação de entrega recebida para pedido:', data.orderId);
         
@@ -585,23 +555,11 @@ wss.on('connection', (ws) => {
           }));
         }
       } else if (data.type === 'motoboyLogin') {
-        // Handle motoboy login
-        console.log('[DELIVERY] Motoboy logged in:', data.motoboyInfo);
-        ws.role = 'motoboy';
-        ws.motoboyInfo = data.motoboyInfo;
-        
-        // Send existing delivery orders to motoboy
-        ws.send(JSON.stringify({
-          type: 'existingDeliveryOrders',
-          orders: deliveryOrders.filter(o => ['pending', 'accepted', 'preparing', 'delivering'].includes(o.status))
-        }));
-        
-        // Broadcast to admins that a motoboy is available
-        broadcastToAdmins({
-          type: 'motoboyAvailable',
-          motoboyInfo: data.motoboyInfo
+        console.log('[DELIVERY] Validando sessão do motoboy:', data.motoboyInfo?.id);
+        authenticateMotoboySocket(ws, data).catch(error => {
+          console.error('[DELIVERY] Falha na autenticação do motoboy:', error);
+          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type:'motoboyLoginError', message:'Não foi possível validar sua conta.' }));
         });
-        
       } else if (data.type === 'submitDeliveryOrder') {
         // Handle new delivery order
         if (!data.order || !data.order.id || !Array.isArray(data.order.items)) {
@@ -636,9 +594,9 @@ wss.on('connection', (ws) => {
         
         const order = deliveryOrders.find(o => o.id === data.orderId);
         
-        if (order && ['pending', 'accepted'].includes(order.status)) {
+        if (ws.role === 'motoboy' && ws.motoboyInfo?.id && order && order.status === 'pending') {
           order.status = 'accepted';
-          order.motoboyId = ws.motoboyInfo?.id || data.motoboyId || null;
+          order.motoboyId = ws.motoboyInfo.id;
           order.motoboyName = data.motoboyName || ws.motoboyInfo?.name || '';
           order.motoboyPhone = data.motoboyPhone || ws.motoboyInfo?.phone || '';
           order.acceptedAt = new Date().toISOString();
@@ -666,7 +624,8 @@ wss.on('connection', (ws) => {
         
         const order = deliveryOrders.find(o => o.id === data.orderId);
         
-        if (order) {
+        if (ws.role === 'motoboy' && ws.motoboyInfo?.id && order &&
+            String(order.motoboyId) === String(ws.motoboyInfo.id) && order.status === 'accepted') {
           order.status = 'delivering';
           order.deliveringAt = new Date().toISOString();
           persistDeliveryOrders();
@@ -692,7 +651,9 @@ wss.on('connection', (ws) => {
         
         const order = deliveryOrders.find(o => o.id === data.orderId);
         
-        if (order && Number.isFinite(Number(data.latitude)) && Number.isFinite(Number(data.longitude))) {
+        if (ws.role === 'motoboy' && ws.motoboyInfo?.id && order &&
+            String(order.motoboyId) === String(ws.motoboyInfo.id) && order.status === 'delivering' &&
+            Number.isFinite(Number(data.latitude)) && Number.isFinite(Number(data.longitude))) {
           // Salvar localização no localStorage
           order.motoboyLocation = {
             latitude: Number(data.latitude),
@@ -740,23 +701,44 @@ wss.on('connection', (ws) => {
         
         const order = deliveryOrders.find(o => o.id === data.orderId);
         
-        if (order) {
-          order.status = 'completed';
+        if (ws.role === 'motoboy' && ws.motoboyInfo?.id && order &&
+            String(order.motoboyId) === String(ws.motoboyInfo.id) && order.status === 'delivering') {
+          order.status = 'awaiting_customer_confirmation';
           order.completedAt = new Date().toISOString();
           persistDeliveryOrders();
-          
-          // Notify customer
+
+          // O pagamento só é liberado após confirmação do cliente.
           broadcastToCustomer(data.orderId, {
-            type: 'orderCompleted',
-            orderId: data.orderId
+            type: 'deliveryAwaitingCustomerConfirmation',
+            orderId: data.orderId,
+            message: 'O motoboy informou a entrega. Confirme o recebimento para concluir.'
           });
-          
-          // Notify admins
           broadcastToAdmins({
-            type: 'orderCompleted',
+            type: 'deliveryAwaitingCustomerConfirmation',
             orderId: data.orderId
           });
         }
+      } else if (data.type === 'confirmDeliveryOrder') {
+        const order = deliveryOrders.find(o => o.id === data.orderId);
+        if (!order || String(order.clientId) !== String(ws.clientId) ||
+            order.status !== 'awaiting_customer_confirmation') {
+          ws.send(JSON.stringify({ type: 'deliveryConfirmationError', message: 'Pedido não encontrado ou não pertence a esta sessão.' }));
+          return;
+        }
+        order.status = 'completed';
+        order.customerConfirmedAt = new Date().toISOString();
+        persistDeliveryOrders();
+        persistMotoboyDeliveryPayable(order).catch(error => {
+          console.error('[COURIER PAYABLE] Falha ao registrar valor devido ao motoboy:', error);
+        });
+        ws.send(JSON.stringify({ type: 'deliveryConfirmed', orderId: order.id }));
+        broadcastToAdmins({ type: 'deliveryConfirmed', orderId: order.id });
+        clients.forEach(client => {
+          if (client.role === 'motoboy' && String(client.motoboyInfo?.id) === String(order.motoboyId) &&
+              client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({ type: 'deliveryConfirmed', orderId: order.id }));
+          }
+        });
       } else if (data.type === 'heartbeat') {
         // Respond to heartbeat to keep connection alive
         ws.send(JSON.stringify({
@@ -777,6 +759,112 @@ wss.on('connection', (ws) => {
     clients.delete(ws.clientId);
   });
 });
+
+
+
+function verifyMerchantSocketToken(token) {
+  const secret = process.env.MERCHANT_AUTH_SECRET || '';
+  if (!secret || !token) return null;
+  const parts = String(token).split('.');
+  if (parts.length !== 3) return null;
+  const expected = crypto.createHmac('sha256', secret).update(parts[0] + '.' + parts[1]).digest();
+  const supplied = Buffer.from(parts[2], 'base64url');
+  if (expected.length !== supplied.length || !crypto.timingSafeEqual(expected, supplied)) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    if (!payload.sub || payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return Number(payload.sub);
+  } catch (_) { return null; }
+}
+async function authenticateMerchantStaffSocket(ws, data, role) {
+  const merchantId = verifyMerchantSocketToken(data.token);
+  if (!merchantId) {
+    ws.send(JSON.stringify({ type: role + 'LoginError', message: 'Entre com a conta do comerciante para acessar esta área.' }));
+    return;
+  }
+  const result = await dbQuery("SELECT id,status FROM merchants WHERE id=$1 LIMIT 1", [merchantId]);
+  if (!result.rows[0] || result.rows[0].status !== 'active') {
+    ws.send(JSON.stringify({ type: role + 'LoginError', message: 'Conta do comerciante ainda não está ativa.' }));
+    return;
+  }
+  ws.role = role;
+  ws.merchantId = merchantId;
+  ws.send(JSON.stringify({ type: role + 'LoginSuccess' }));
+}
+
+function verifyMotoboySocketToken(token) {
+  const secret = process.env.ACCOUNT_AUTH_SECRET || process.env.MERCHANT_AUTH_SECRET || '';
+  if (!secret || !token) return null;
+  const parts = String(token).split('.');
+  if (parts.length !== 3) return null;
+  const expected = crypto.createHmac('sha256', secret).update(parts[0] + '.' + parts[1]).digest();
+  const supplied = Buffer.from(parts[2], 'base64url');
+  if (expected.length !== supplied.length || !crypto.timingSafeEqual(expected, supplied)) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    if (payload.typ !== 'motoboy' || !payload.sub || payload.exp < Math.floor(Date.now()/1000)) return null;
+    return Number(payload.sub);
+  } catch (_) { return null; }
+}
+async function authenticateMotoboySocket(ws, data) {
+  const id = verifyMotoboySocketToken(data.token || data.motoboyInfo?.token);
+  if (!id) {
+    ws.send(JSON.stringify({ type:'motoboyLoginError', message:'Autenticação inválida. Entre novamente.' }));
+    return;
+  }
+  const result = await dbQuery('SELECT id,name,phone,status FROM motoboys WHERE id=$1 LIMIT 1', [id]);
+  const account = result.rows[0];
+  if (!account || account.status !== 'active') {
+    ws.send(JSON.stringify({ type:'motoboyLoginError', message:'Conta não autorizada para receber entregas.' }));
+    return;
+  }
+  ws.role = 'motoboy';
+  ws.motoboyInfo = { id:account.id, name:account.name, phone:account.phone };
+  ws.send(JSON.stringify({
+    type:'existingDeliveryOrders',
+    orders:deliveryOrders.filter(o => ['pending','accepted','preparing','delivering'].includes(o.status))
+  }));
+  broadcastToAdmins({ type:'motoboyAvailable', motoboyInfo:ws.motoboyInfo });
+}
+
+async function persistMotoboyDeliveryPayable(order) {
+  const motoboyId = Number(order?.motoboyId);
+  const amountCents = Number.isSafeInteger(Number(order?.motoboyAmountCents))
+    ? Number(order.motoboyAmountCents)
+    : Math.round(Number(order?.total || 0) * 10); // regra atual do painel: 10% do pedido
+  if (!Number.isSafeInteger(motoboyId) || motoboyId <= 0 || !Number.isSafeInteger(amountCents) || amountCents <= 0) {
+    console.warn('[COURIER PAYABLE] Pedido sem motoboyId/valor válido; não foi criado título financeiro.', order?.id);
+    return;
+  }
+  let merchantResult;
+  if (order.merchantId) {
+    merchantResult = await dbQuery('SELECT id FROM merchants WHERE id=$1 LIMIT 1', [Number(order.merchantId)]);
+  } else if (order.storeSlug) {
+    merchantResult = await dbQuery('SELECT id FROM merchants WHERE store_slug=$1 LIMIT 1', [String(order.storeSlug)]);
+  } else if (order.establishmentId) {
+    merchantResult = await dbQuery('SELECT id FROM merchants WHERE establishment_id=$1 LIMIT 1', [Number(order.establishmentId)]);
+  } else {
+    console.warn('[COURIER PAYABLE] Pedido sem merchantId/storeSlug/establishmentId; não é possível vincular a dívida.', order?.id);
+    return;
+  }
+  const merchantId = merchantResult?.rows?.[0]?.id;
+  if (!merchantId) {
+    console.warn('[COURIER PAYABLE] Comerciante não encontrado para o pedido.', order?.id);
+    return;
+  }
+  const motoboy = await dbQuery('SELECT id FROM motoboys WHERE id=$1 AND status=\'active\' LIMIT 1', [motoboyId]);
+  if (!motoboy.rows[0]) {
+    console.warn('[COURIER PAYABLE] Motoboy não encontrado/ativo no banco.', motoboyId);
+    return;
+  }
+  await dbQuery(
+    `INSERT INTO motoboy_deliveries (merchant_id,motoboy_id,order_reference,amount_cents,due_at)
+     VALUES ($1,$2,$3,$4,NOW()+INTERVAL '48 hours')
+     ON CONFLICT (merchant_id,order_reference,motoboy_id) DO NOTHING`,
+    [merchantId,motoboyId,String(order.id),amountCents]
+  );
+  console.log('[COURIER PAYABLE] Entrega registrada com vencimento em 48 horas.', { merchantId,motoboyId,orderId:order.id,amountCents });
+}
 
 // Start HTTP server
 server.listen(httpPort, hostname, () => {

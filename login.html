@@ -297,85 +297,49 @@
         });
         
         // Handle form submission
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
-            const email = document.getElementById('email').value;
+
+            const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
-            const errorMessage = document.getElementById('errorMessage');
-            
-            // Simple validation
             if (!email || !password) {
                 showError('Por favor, preencha todos os campos.');
                 return;
             }
-            
-            // Check if establishment data exists
-            const establishmentData = localStorage.getItem('establishmentData');
-            if (!establishmentData) {
-                // Create default admin account if none exists
-                const defaultAdminData = {
-                    establishmentName: "Restaurante Admin",
-                    adminName: "Administrador",
-                    email: "admin@admin.com",
-                    phone: "(11) 99999-9999",
-                    cnpj: "00.000.000/0000-00",
-                    adminPassword: "admin123", // <<< SUA SENHA ADMIN É: admin123
-                    paymentMethod: "pix",
-                    purchaseDate: new Date().toISOString(),
-                    isAuthenticated: true
-                };
-                
-                localStorage.setItem('establishmentData', JSON.stringify(defaultAdminData));
-                
-                // Check credentials against default account
-                if (email === defaultAdminData.email && password === defaultAdminData.adminPassword) {
-                    // Successful login
+
+            // Primeiro tenta autenticação segura no backend para comerciantes CPF/CNPJ.
+            let merchantLoginError = '';
+            try {
+                const response = await fetch('/merchant/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const result = await response.json().catch(() => ({}));
+                if (response.ok && result.success && result.token && result.merchant) {
+                    localStorage.setItem('merchantSessionToken', result.token);
+                    localStorage.setItem('merchantProfile', JSON.stringify(result.merchant));
                     localStorage.setItem('adminAccess', 'true');
-                    
-                    // Redirect to admin panel
-                    window.location.href = 'admin.html';
-                    return;
-                } else {
-                    showError('E-mail ou senha inválidos.');
+                    const previous = JSON.parse(localStorage.getItem('establishmentData') || '{}');
+                    localStorage.setItem('establishmentData', JSON.stringify({
+                        ...previous,
+                        establishmentName: result.merchant.establishment_name,
+                        adminName: result.merchant.owner_name,
+                        email: result.merchant.email,
+                        merchantId: result.merchant.id,
+                        uniqueId: result.merchant.store_slug,
+                        isAuthenticated: true
+                    }));
+                    window.location.href = result.merchant.status === 'active' ? 'admin.html' : 'admin-credentials.html';
                     return;
                 }
+                merchantLoginError = result.error || '';
+            } catch (error) {
+                merchantLoginError = 'Não foi possível validar no servidor. Verifique a conexão e tente novamente.';
             }
-            
-            // Parse establishment data
-            const data = JSON.parse(establishmentData);
-            
-            // Validate credentials
-            // Check if email matches stored email and password matches stored password
-            if (email === data.email && password === data.adminPassword) {
-                // Successful login
-                localStorage.setItem('adminAccess', 'true');
-                
-                // Initialize subscription if not exists
-                if (!data.assinatura) {
-                    const now = new Date();
-                    const expirationDate = new Date(now);
-                    expirationDate.setFullYear(expirationDate.getFullYear() + 1);
-                    
-                    data.assinatura = {
-                        valorDominio: 60.00, // R$ 60,00 anualmente
-                        dataCompra: now.toISOString(),
-                        dataVencimento: expirationDate.toISOString(),
-                        ultimoPagamento: now.toISOString(),
-                        statusPagamento: 'pago',
-                        avisoMostrado: false
-                    };
-                    
-                    localStorage.setItem('establishmentData', JSON.stringify(data));
-                }
-                
-                // Redirect to admin panel
-                window.location.href = 'admin.html';
-            } else {
-                showError('E-mail ou senha inválidos.');
-            }
+
+            showError(merchantLoginError || 'E-mail ou senha inválidos. Cadastre o estabelecimento ou use a conta autorizada no servidor.');
         });
-        
         // Show error message
         function showError(message) {
             const errorMessage = document.getElementById('errorMessage');

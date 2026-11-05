@@ -593,7 +593,8 @@
                 // Send counter login message to identify this connection as counter staff
                 if (window.ws && window.ws.readyState === WebSocket.OPEN) {
                     window.ws.send(JSON.stringify({
-                        type: 'counterLogin'
+                        type: 'counterLogin',
+                        token: localStorage.getItem('merchantSessionToken') || ''
                     }));
                 }
                 

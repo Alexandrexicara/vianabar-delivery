@@ -1214,6 +1214,7 @@
     </div>
 
     <!-- Sistema de Customizações -->
+    <script src="order-voice-announcer.js"></script>
     <script src="customizations.js"></script>
     <script src="fix-ws-json-error.js"></script>
 
@@ -1787,7 +1788,8 @@
                 // Send admin login message to identify this connection as admin
                 if (window.ws && window.ws.readyState === WebSocket.OPEN) {
                     window.ws.send(JSON.stringify({
-                        type: 'adminLogin'
+                        type: 'adminLogin',
+                        token: localStorage.getItem('merchantSessionToken') || ''
                     }));
                 }
                 
@@ -1954,6 +1956,9 @@
                             displayCombinedOrders(window.ordersData);
                         }
                         
+                        // Anunciar o pedido em português sem API externa.
+                        if (window.announceNewOrder) window.announceNewOrder(data.order);
+
                         // Show notification
                         playTripleBeep(); // Som sonoro para novo pedido recebido
                         

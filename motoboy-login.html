@@ -322,25 +322,25 @@
                     </h4>
                     
                     <div class="form-group">
-                        <label for="bankCode">Código do Banco</label>
-                        <input type="text" id="bankCode" required placeholder="001 (Banco do Brasil), 341 (Itaú), etc">
+                        <label for="bankCode">Código do Banco (opcional)</label>
+                        <input type="text" id="bankCode" placeholder="001 (Banco do Brasil), 341 (Itaú), etc">
                     </div>
                     
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="bankAgency">Agência</label>
-                            <input type="text" id="bankAgency" required placeholder="0000-0">
+                            <label for="bankAgency">Agência (opcional)</label>
+                            <input type="text" id="bankAgency" placeholder="0000-0">
                         </div>
                         
                         <div class="form-group">
                             <label for="bankAccount">Conta Corrente</label>
-                            <input type="text" id="bankAccount" required placeholder="00000-0">
+                            <input type="text" id="bankAccount" placeholder="00000-0">
                         </div>
                     </div>
                     
                     <div class="form-group">
-                        <label for="bankAccountType">Tipo de Conta</label>
-                        <select id="bankAccountType" required>
+                        <label for="bankAccountType">Tipo de Conta (opcional)</label>
+                        <select id="bankAccountType">
                             <option value="">Selecione...</option>
                             <option value="CORRENTE">Conta Corrente</option>
                             <option value="POUPANCA">Poupança</option>
@@ -348,14 +348,22 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="pixKey">Chave PIX (opcional)</label>
-                        <input type="text" id="pixKey" placeholder="CPF, email, telefone ou aleatória">
+                        <label for="pixKey">Chave Pix para receber suas entregas *</label>
+                        <input type="text" id="pixKey" required placeholder="Informe sua chave Pix">
+                        <select id="pixKeyType" required style="margin-top:8px;">
+                            <option value="">Tipo da chave Pix...</option>
+                            <option value="CPF">CPF</option>
+                            <option value="CNPJ">CNPJ</option>
+                            <option value="EMAIL">E-mail</option>
+                            <option value="PHONE">Telefone com DDI 55</option>
+                            <option value="RANDOM">Chave aleatória</option>
+                        </select>
                     </div>
 
                     <div style="margin-top: 15px; padding: 12px 14px; background: #f2f9f3; border: 1px solid #cfead8; border-radius: 8px; color: #204c2f; font-size: 0.95rem; line-height: 1.5;">
-                        <strong>Sua chave pix e importate você concluir o cadastro:</strong>
+                        <strong>A chave Pix é obrigatória.</strong>
                         <br>
-                        cadastre seu perfil no MyGateway para receber pagamentos.
+                        Ela será usada para os repasses das entregas, após confirmação dos pagamentos.
                         <br>
                         <a href="" target="_blank" rel="noopener noreferrer" style="color: #0d6efd; text-decoration: underline; font-weight: 600;">
                             
@@ -504,38 +512,32 @@
         }
         
         // Lidar com login
-        function handleLogin(event) {
+        async function handleLogin(event) {
             event.preventDefault();
-            
-            const email = document.getElementById('loginEmail').value;
+            const email = document.getElementById('loginEmail').value.trim();
             const password = document.getElementById('loginPassword').value;
-            
-            // Carregar motoboys cadastrados
-            const motoboys = JSON.parse(localStorage.getItem('motoboys') || '[]');
-            const motoboy = motoboys.find(m => m.email === email && m.password === password);
-            
-            if (motoboy) {
-                // Salvar sessão
-                sessionStorage.setItem('motoboySession', JSON.stringify(motoboy));
-                
-                showAlert('Login realizado com sucesso!', 'success');
-                
-                // Redirecionar para painel
-                setTimeout(() => {
-                    window.location.href = 'motoboy.html';
-                }, 1500);
-            } else {
-                showAlert('Email ou senha incorretos!', 'error');
-            }
+            try {
+                const response = await fetch('/api/accounts/motoboy/login', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) throw new Error(data.error || 'Não foi possível entrar.');
+                sessionStorage.setItem('motoboyToken', data.token);
+                sessionStorage.setItem('motoboySession', JSON.stringify(data.motoboy));
+                showAlert(data.motoboy.status === 'pending' ? 'Login realizado. Seu cadastro aguarda aprovação.' : 'Login realizado com sucesso!', 'success');
+                setTimeout(() => { window.location.href = 'motoboy.html'; }, 900);
+            } catch (error) { showAlert(error.message || 'Falha ao entrar.', 'error'); }
         }
         
         // Lidar com cadastro
-        function handleRegister(event) {
+        async function handleRegister(event) {
             event.preventDefault();
-            
+            const pixKey = document.getElementById('pixKey').value.trim();
+            const pixKeyType = document.getElementById('pixKeyType').value.toUpperCase();
             const formData = {
-                name: document.getElementById('registerName').value,
-                email: document.getElementById('registerEmail').value,
+                name: document.getElementById('registerName').value.trim(),
+                email: document.getElementById('registerEmail').value.trim(),
                 phone: document.getElementById('registerPhone').value,
                 cpf: document.getElementById('registerCPF').value,
                 password: document.getElementById('registerPassword').value,
@@ -549,98 +551,29 @@
                     number: document.getElementById('cnhNumber').value,
                     category: document.getElementById('cnhCategory').value
                 },
-                bankAccount: {
-                    bankCode: document.getElementById('bankCode').value,
-                    agency: document.getElementById('bankAgency').value,
-                    account: document.getElementById('bankAccount').value,
-                    accountType: document.getElementById('bankAccountType').value,
-                    pixKey: document.getElementById('pixKey').value || ''
-                },
-                status: 'offline',
-                stats: {
-                    todayDeliveries: 0,
-                    totalDeliveries: 0,
-                    avgTime: 25,
-                    rating: 5.0
-                },
-                createdAt: new Date().toISOString()
+                pixKey, pixKeyType
             };
-            
-            // Validações
-            if (!validatePlate(formData.vehicle.plate)) {
-                showAlert('Placa inválida! Use o formato ABC-1234', 'error');
-                return;
-            }
-            
-            if (!validateCPF(formData.cpf)) {
-                showAlert('CPF inválido! Verifique os dígitos', 'error');
-                return;
-            }
-            
-            if (!validateCNH(formData.cnh.number)) {
-                showAlert('Número da CNH inválido! Deve conter 11 números', 'error');
-                return;
-            }
-            
-            if (!validatePhone(formData.phone)) {
-                showAlert('Telefone inválido! Use o formato (11) 98765-4321', 'error');
-                return;
-            }
-            
-            if (formData.password.length < 6) {
-                showAlert('Senha deve ter pelo menos 6 caracteres!', 'error');
-                return;
-            }
-            
-            // Carregar motoboys existentes
-            const motoboys = JSON.parse(localStorage.getItem('motoboys') || '[]');
-            
-            // Verificar se email já existe
-            if (motoboys.find(m => m.email === formData.email)) {
-                showAlert('Este email já está cadastrado!', 'error');
-                return;
-            }
-            
-            // Verificar se CPF já existe
-            if (motoboys.find(m => m.cpf === formData.cpf)) {
-                showAlert('Este CPF já está cadastrado!', 'error');
-                return;
-            }
-            
-            // Validar dados bancários
-            if (!BankDataModule.validateBankCode(formData.bankAccount.bankCode)) {
-                showAlert('Código do banco inválido! Use 001, 341, 237, etc.', 'error');
-                return;
-            }
-            
-            if (!BankDataModule.validateAgency(formData.bankAccount.agency)) {
-                showAlert('Agência inválida! Deve ter 4 ou 5 dígitos', 'error');
-                return;
-            }
-            
-            if (!BankDataModule.validateAccount(formData.bankAccount.account)) {
-                showAlert('Conta corrente inválida! Verifique o número', 'error');
-                return;
-            }
-            
-            // Adicionar novo motoboy
-            motoboys.push(formData);
-            localStorage.setItem('motoboys', JSON.stringify(motoboys));
-            
-            // Salvar dados bancários no MyGateway
-            BankDataModule.saveBankData('MOTOBOY', formData.cpf, formData.bankAccount);
-            
-            showAlert('Cadastro realizado com sucesso! Dados bancários salvos para MyGateway.', 'success');
-            
-            // Limpar formulário
-            document.getElementById('registerForm').querySelector('form').reset();
-            
-            // Mudar para aba de login
-            setTimeout(() => {
-                switchTab('login');
-            }, 2000);
+            if (!validatePlate(formData.vehicle.plate)) return showAlert('Placa inválida! Use o formato ABC-1234.', 'error');
+            if (!validateCPF(formData.cpf)) return showAlert('CPF inválido! Verifique os dígitos.', 'error');
+            if (!validateCNH(formData.cnh.number)) return showAlert('Número da CNH inválido! Deve conter 11 números.', 'error');
+            if (!validatePhone(formData.phone)) return showAlert('Telefone inválido! Verifique o número.', 'error');
+            if (formData.password.length < 8) return showAlert('A senha deve ter pelo menos 8 caracteres.', 'error');
+            if (!pixKey || !pixKeyType) return showAlert('Informe uma chave Pix válida para receber suas entregas.', 'error');
+            try {
+                const response = await fetch('/api/accounts/motoboy/register', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) throw new Error(data.error || 'Não foi possível cadastrar.');
+                sessionStorage.removeItem('motoboyToken');
+                sessionStorage.removeItem('motoboySession');
+                showAlert(data.message || 'Cadastro enviado. Aguarde a aprovação da administração antes de entrar.', 'success');
+                document.getElementById('registerForm').querySelector('form').reset();
+                setTimeout(() => { switchTab('login'); }, 1400);
+            } catch (error) { showAlert(error.message || 'Falha ao cadastrar.', 'error'); }
         }
-        
+
         // Adicionar listeners de formatação
         document.getElementById('registerPhone').addEventListener('input', function(e) {
             formatPhone(e.target);
