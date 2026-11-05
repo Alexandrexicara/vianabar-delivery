@@ -77,10 +77,16 @@ app.get('/creator-dashboard.html', creatorAuth.requireCreator, (req, res) => {
   res.sendFile(path.resolve('creator-dashboard.html'));
 });
 
-// Arquivos operacionais nunca devem ser servidos como conteúdo público.
-app.get(['/orders.json', '/merchants.json', '/charges.json'], (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  return res.sendStatus(404);
+// Bloqueia arquivos internos, dados operacionais e código de servidor na camada estática.
+app.use((req, res, next) => {
+  const pathname = decodeURIComponent(String(req.path || '/'));
+  const blocked = /^\/(?:data|migrations|scripts|routes|services|\.git|\.github)(?:\/|$)/i.test(pathname) ||
+    /^\/(?:\.env(?:\..*)?|server\.js|database\.js|db\.js|package(?:-lock)?\.json|orders\.json|merchants\.json|charges\.json)$/i.test(pathname);
+  if (blocked) {
+    res.set('Cache-Control', 'no-store');
+    return res.sendStatus(404);
+  }
+  next();
 });
 
 // Serve static files
