@@ -1788,7 +1788,8 @@
                 // Send admin login message to identify this connection as admin
                 if (window.ws && window.ws.readyState === WebSocket.OPEN) {
                     window.ws.send(JSON.stringify({
-                        type: 'adminLogin'
+                        type: 'adminLogin',
+                        token: localStorage.getItem('merchantSessionToken') || ''
                     }));
                 }
                 
