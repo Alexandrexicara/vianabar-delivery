@@ -1,4 +1,3 @@
-const fetch = require('node-fetch'); // Node.js >=18 has global fetch, otherwise install node-fetch
 const crypto = require('crypto');
 
 const WOOVI_BASE_URL = process.env.WOOVI_BASE_URL || 'https://api.woovi.com';
