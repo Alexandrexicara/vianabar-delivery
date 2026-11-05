@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const router = express.Router();
 const { requireMerchant } = require('./merchant');
 const { query } = require('../database');
-const sicoob = require('../services/sicoobClient');
+const sicoob = require('../services/sicoobOfficialClient');
 
 router.get('/status', requireMerchant, (req, res) => {
   res.json({ success: true, provider: 'sicoob', ...sicoob.status() });
@@ -20,7 +20,7 @@ router.post('/pix/cob', requireMerchant, async (req, res) => {
       return res.status(503).json({ success: false, error: 'Integração Sicoob aguarda Client ID, Client Secret e certificado mTLS.' });
     }
     const txid = crypto.randomBytes(16).toString('hex').toUpperCase();
-    const charge = await sicoob.api('put', '/cob/' + txid, {
+    const charge = await sicoob.request('put', '/cob/' + txid, {
       calendario: { expiracao: Number(process.env.SICOOB_PIX_EXPIRATION_SECONDS || 3600) },
       valor: { original: (cents / 100).toFixed(2) },
       solicitacaoPagador: String(description || 'Pedido ' + orderReference).slice(0, 140)
@@ -42,7 +42,7 @@ router.get('/pix/cob/:txid', requireMerchant, async (req, res) => {
   try {
     const owned = await query('SELECT txid FROM sicoob_pix_charges WHERE txid=$1 AND merchant_id=$2 LIMIT 1', [req.params.txid, req.merchant.id]);
     if (!owned.rows[0]) return res.status(404).json({ success: false, error: 'Cobrança não encontrada.' });
-    const charge = await sicoob.api('get', '/cob/' + encodeURIComponent(req.params.txid));
+    const charge = await sicoob.request('get', '/cob/' + encodeURIComponent(req.params.txid));
     res.json({ success: true, charge });
   } catch (error) {
     res.status(error.response?.status || 400).json({ success: false, error: error.response?.data?.message || error.message });
