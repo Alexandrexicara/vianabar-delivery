@@ -338,55 +338,7 @@
                 merchantLoginError = 'Não foi possível validar no servidor. Verifique a conexão e tente novamente.';
             }
 
-            // Mantém o login legado para contas administrativas antigas já existentes.
-            const establishmentData = localStorage.getItem('establishmentData');
-            if (!establishmentData) {
-                const defaultAdminData = {
-                    establishmentName: "Restaurante Admin",
-                    adminName: "Administrador",
-                    email: "admin@admin.com",
-                    phone: "(11) 99999-9999",
-                    cnpj: "00.000.000/0000-00",
-                    adminPassword: "admin123",
-                    paymentMethod: "pix",
-                    purchaseDate: new Date().toISOString(),
-                    isAuthenticated: true
-                };
-                if (email === defaultAdminData.email && password === defaultAdminData.adminPassword) {
-                    localStorage.setItem('establishmentData', JSON.stringify(defaultAdminData));
-                    localStorage.setItem('adminAccess', 'true');
-                    window.location.href = 'admin.html';
-                    return;
-                }
-                showError(merchantLoginError || 'E-mail ou senha inválidos.');
-                return;
-            }
-
-            try {
-                const data = JSON.parse(establishmentData);
-                if (email === data.email && password === data.adminPassword) {
-                    localStorage.setItem('adminAccess', 'true');
-                    if (!data.assinatura) {
-                        const now = new Date();
-                        const expirationDate = new Date(now);
-                        expirationDate.setFullYear(expirationDate.getFullYear() + 1);
-                        data.assinatura = {
-                            valorDominio: 60.00,
-                            dataCompra: now.toISOString(),
-                            dataVencimento: expirationDate.toISOString(),
-                            ultimoPagamento: now.toISOString(),
-                            statusPagamento: 'pago',
-                            avisoMostrado: false
-                        };
-                        localStorage.setItem('establishmentData', JSON.stringify(data));
-                    }
-                    window.location.href = 'admin.html';
-                } else {
-                    showError(merchantLoginError || 'E-mail ou senha inválidos.');
-                }
-            } catch (_) {
-                showError(merchantLoginError || 'Não foi possível ler os dados de acesso salvos.');
-            }
+            showError(merchantLoginError || 'E-mail ou senha inválidos. Cadastre o estabelecimento ou use a conta autorizada no servidor.');
         });
         // Show error message
         function showError(message) {
