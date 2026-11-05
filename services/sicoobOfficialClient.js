@@ -18,7 +18,7 @@ async function getToken() {
   const clientId = process.env.SICOOB_CLIENT_ID || '';
   const clientSecret = process.env.SICOOB_CLIENT_SECRET || '';
   if (!clientId || !clientSecret) throw new Error('Credenciais Sicoob ainda não configuradas.');
-  const form = new URLSearchParams({ grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret, scope: process.env.SICOOB_SCOPES || 'cob.read' }).toString();
+  const form = new URLSearchParams({ grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret, scope: process.env.SICOOB_SCOPES || 'cob.read cob.write' }).toString();
   const response = await axios.post(AUTH_URL, form, { httpsAgent: agent(), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 20000 });
   tokenValue = response.data?.access_token;
   if (!tokenValue) throw new Error('Sicoob não retornou access_token.');
