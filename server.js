@@ -629,9 +629,9 @@ wss.on('connection', (ws) => {
         
         const order = deliveryOrders.find(o => o.id === data.orderId);
         
-        if (order && ['pending', 'accepted'].includes(order.status)) {
+        if (ws.role === 'motoboy' && ws.motoboyInfo?.id && order && order.status === 'pending') {
           order.status = 'accepted';
-          order.motoboyId = ws.motoboyInfo?.id || data.motoboyId || null;
+          order.motoboyId = ws.motoboyInfo.id;
           order.motoboyName = data.motoboyName || ws.motoboyInfo?.name || '';
           order.motoboyPhone = data.motoboyPhone || ws.motoboyInfo?.phone || '';
           order.acceptedAt = new Date().toISOString();
@@ -659,7 +659,8 @@ wss.on('connection', (ws) => {
         
         const order = deliveryOrders.find(o => o.id === data.orderId);
         
-        if (order) {
+        if (ws.role === 'motoboy' && ws.motoboyInfo?.id && order &&
+            String(order.motoboyId) === String(ws.motoboyInfo.id) && order.status === 'accepted') {
           order.status = 'delivering';
           order.deliveringAt = new Date().toISOString();
           persistDeliveryOrders();
@@ -685,7 +686,9 @@ wss.on('connection', (ws) => {
         
         const order = deliveryOrders.find(o => o.id === data.orderId);
         
-        if (order && Number.isFinite(Number(data.latitude)) && Number.isFinite(Number(data.longitude))) {
+        if (ws.role === 'motoboy' && ws.motoboyInfo?.id && order &&
+            String(order.motoboyId) === String(ws.motoboyInfo.id) && order.status === 'delivering' &&
+            Number.isFinite(Number(data.latitude)) && Number.isFinite(Number(data.longitude))) {
           // Salvar localização no localStorage
           order.motoboyLocation = {
             latitude: Number(data.latitude),
@@ -733,26 +736,38 @@ wss.on('connection', (ws) => {
         
         const order = deliveryOrders.find(o => o.id === data.orderId);
         
-        if (order) {
-          order.status = 'completed';
+        if (ws.role === 'motoboy' && ws.motoboyInfo?.id && order &&
+            String(order.motoboyId) === String(ws.motoboyInfo.id) && order.status === 'delivering') {
+          order.status = 'awaiting_customer_confirmation';
           order.completedAt = new Date().toISOString();
           persistDeliveryOrders();
-          persistMotoboyDeliveryPayable(order).catch(error => {
-            console.error('[COURIER PAYABLE] Falha ao registrar valor devido ao motoboy:', error);
-          });
-          
-          // Notify customer
+
+          // O pagamento só é liberado após confirmação do cliente.
           broadcastToCustomer(data.orderId, {
-            type: 'orderCompleted',
-            orderId: data.orderId
+            type: 'deliveryAwaitingCustomerConfirmation',
+            orderId: data.orderId,
+            message: 'O motoboy informou a entrega. Confirme o recebimento para concluir.'
           });
-          
-          // Notify admins
           broadcastToAdmins({
-            type: 'orderCompleted',
+            type: 'deliveryAwaitingCustomerConfirmation',
             orderId: data.orderId
           });
         }
+      } else if (data.type === 'confirmDeliveryOrder') {
+        const order = deliveryOrders.find(o => o.id === data.orderId);
+        if (!order || String(order.clientId) !== String(ws.clientId) ||
+            order.status !== 'awaiting_customer_confirmation') {
+          ws.send(JSON.stringify({ type: 'deliveryConfirmationError', message: 'Pedido não encontrado ou não pertence a esta sessão.' }));
+          return;
+        }
+        order.status = 'completed';
+        order.customerConfirmedAt = new Date().toISOString();
+        persistDeliveryOrders();
+        persistMotoboyDeliveryPayable(order).catch(error => {
+          console.error('[COURIER PAYABLE] Falha ao registrar valor devido ao motoboy:', error);
+        });
+        ws.send(JSON.stringify({ type: 'deliveryConfirmed', orderId: order.id }));
+        broadcastToAdmins({ type: 'deliveryConfirmed', orderId: order.id });
       } else if (data.type === 'heartbeat') {
         // Respond to heartbeat to keep connection alive
         ws.send(JSON.stringify({
