@@ -8,7 +8,8 @@ const { pool } = require('../database');
 const ORDERED_MIGRATIONS = [
   '20261015_create_merchants_table.sql',
   '20261104_cpf_pix_commissions.sql',
-  '20261104_accounts_and_courier_payments.sql'
+  '20261104_accounts_and_courier_payments.sql',
+  '20261105_sicoob_pix.sql'
 ];
 
 async function migrate() {
