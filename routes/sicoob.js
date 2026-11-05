@@ -11,6 +11,7 @@ router.get('/status', requireMerchant, (req, res) => {
 
 router.post('/pix/cob', requireMerchant, async (req, res) => {
   try {
+    if (process.env.SICOOB_ENABLE_CHARGES !== 'true') return res.status(503).json({ success: false, error: 'Cobranças Sicoob desativadas até a validação do pedido no banco e a homologação.' });
     const { orderReference, valueCents, description } = req.body || {};
     const cents = Number(valueCents);
     if (!orderReference || !Number.isSafeInteger(cents) || cents < 1) {
