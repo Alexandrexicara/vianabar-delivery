@@ -1315,7 +1315,8 @@
                 // Send waiter login message to identify this connection as waiter
                 if (window.ws && window.ws.readyState === WebSocket.OPEN) {
                     window.ws.send(JSON.stringify({
-                        type: 'waiterLogin'
+                        type: 'waiterLogin',
+                        token: localStorage.getItem('merchantSessionToken') || ''
                     }));
                 }
                 
