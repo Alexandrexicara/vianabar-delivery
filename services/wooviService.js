@@ -127,6 +127,7 @@ async function atualizarStatusCobranca({ chargeId, status }) {
 
 /**
  * Exporta as funções para uso nos serviços.
+ */
 module.exports = {
   criarCharge,
   validarWebhook,
