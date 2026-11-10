@@ -1121,15 +1121,23 @@
     // Global WebSocket variable
     window.ws = null;
 
-    function loadMenuItems() {
-        console.log('[DEBUG] Carregando itens do menu');
+    async function loadMenuItems() {
+        console.log('[DEBUG] Carregando itens do menu compartilhado');
         const urlParams = new URLSearchParams(window.location.search);
         const isDeveloper = urlParams.get('developer') === 'true';
-        let menuItems = JSON.parse(localStorage.getItem('menuItems') || '[]');
+        let menuItems = [];
+        try {
+            const response = await fetch('/api/products?storeId=main', { cache: 'no-store' });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Falha ao carregar produtos');
+            menuItems = result.products || [];
+            localStorage.setItem('menuItems', JSON.stringify(menuItems));
+        } catch (error) {
+            console.error('[MENU] Falha ao consultar PostgreSQL; usando cache:', error);
+            menuItems = JSON.parse(localStorage.getItem('menuItems') || '[]');
+        }
         console.log('[DEBUG] Menu items carregados:', menuItems);
-
         if (menuItems.length === 0 && isDeveloper) {
-            console.log('[DEBUG] Nenhum item encontrado, criando itens padrão');
             menuItems = [
                 { id: 1, name: 'Feijoada Completa', category: 'main', price: '32.90', description: 'Acompanha arroz, couve, e torresmo', image: null },
                 { id: 2, name: 'Batata Frita', category: 'appetizer', price: '18.90', description: 'Porção generosa e crocante', image: null },
