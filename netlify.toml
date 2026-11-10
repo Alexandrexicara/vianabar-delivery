@@ -1,0 +1,29 @@
+[[redirects]]
+  from = "/api/*"
+  to = "https://vianabar-delivery.onrender.com/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/uploads/*"
+  to = "https://vianabar-delivery.onrender.com/uploads/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/creator-login.html"
+  to = "https://vianabar-delivery.onrender.com/creator-login.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/creator-dashboard.html"
+  to = "https://vianabar-delivery.onrender.com/creator-dashboard.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/qr-management.html"
+  to = "https://vianabar-delivery.onrender.com/qr-management.html"
+  status = 200
+  force = true
