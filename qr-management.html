@@ -231,6 +231,11 @@
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+      .table-plaque-preview{width:min(100%,650px);aspect-ratio:3/2;margin:18px auto;padding:22px 26px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:20px;background:linear-gradient(135deg,#fff 0%,#f4f8fb 100%);border:1px solid #dbe4ec;border-radius:18px;box-shadow:0 12px 32px rgba(20,45,70,.13);text-align:left}
+      .plaque-copy{min-width:0;flex:1}.plaque-brand{font-size:clamp(19px,3vw,27px);font-weight:800;color:#17324d;line-height:1.15;overflow-wrap:anywhere}.plaque-kicker{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#23865b;font-weight:800;margin-bottom:9px}.plaque-instruction{font-size:14px;color:#526273;line-height:1.45;margin:10px 0}.plaque-url{font-size:10px;color:#64748b;overflow-wrap:anywhere;line-height:1.35}.plaque-qr-wrap{flex:0 0 174px;width:174px;height:174px;background:#fff;border:1px solid #e4eaf0;border-radius:14px;display:flex;align-items:center;justify-content:center;padding:8px;box-sizing:border-box}.plaque-qr-wrap img,.plaque-qr-wrap canvas{max-width:100%;height:auto!important}
+      @media(max-width:480px){.table-plaque-preview{padding:13px;gap:8px}.plaque-qr-wrap{flex-basis:126px;width:126px;height:126px}.plaque-instruction{font-size:12px}}
+    </style>
 </head>
 <body>
     <div class="container">
@@ -317,56 +322,24 @@
             <h2>QR Code do Estabelecimento</h2>
             <p>Este é o QR code único para todo o seu estabelecimento. Imprima e posicione em todas as mesas.</p>
             
-            <!-- Informações sobre domínios -->
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                <h3 style="margin: 0 0 10px 0; font-size: 18px;">🌐 cardapiodigital.com.br</h3>
-                <p style="margin: 0 0 10px 0; font-size: 14px;">Domínio do sistema - Seu portal de acesso</p>
-                <div style="display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; margin: 10px 0;">
-                    <div style="background-color: #4CAF50; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 16px;">R$ 00,00</div>
-                    <div style="font-size: 12px; opacity: 0.9;">Investimento único com acesso vitalício</div>
+            <div style="background:#eef7ff;border-left:4px solid #23865b;padding:14px 16px;border-radius:10px;margin-bottom:18px;">
+                <strong>QR Code exclusivo do seu estabelecimento</strong>
+                <p style="margin:6px 0 0;color:#425466;">Ao apontar a câmera, o cliente será levado diretamente ao seu cardápio digital no Delivery Day. O mesmo QR Code pode ser colocado em todas as mesas.</p>
+            </div>
+            <div class="table-plaque-preview" id="table-plaque">
+                <div class="plaque-copy">
+                    <div class="plaque-kicker">Cardápio digital</div>
+                    <div class="plaque-brand" id="plaque-establishment-name">Seu estabelecimento</div>
+                    <p class="plaque-instruction">Aponte a câmera do celular e confira nosso cardápio.</p>
+                    <div class="plaque-url" id="current-url">https://delivery-day.netlify.app/usuario.html</div>
                 </div>
-                <p style="margin: 10px 0 0 0; font-size: 12px; opacity: 0.8;">Domínio do sistema: https://cardapiodigital.com.br</p>
+                <div class="plaque-qr-wrap"><div id="qrcode"></div></div>
             </div>
-            
-            <!-- Informações sobre domínio do estabelecimento -->
-            <div style="background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                <h3 style="margin: 0 0 10px 0; font-size: 18px;">Domínio Personalizado</h3>
-                <p style="margin: 0 0 10px 0; font-size: 14px;">Domínio do seu estabelecimento - R$ 00,00/ano</p>
-                <div style="display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; margin: 10px 0;">
-                    <div style="background-color: #f39c12; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 16px;">R$ 00,00</div>
-                    <div style="font-size: 12px; opacity: 0.9;">Taxa anual de hospedagem</div>
-                </div>
-                <p style="margin: 10px 0 0 0; font-size: 12px; opacity: 0.8;">Exemplo: https://seu-restaurante.cardapiodigital.com.br</p>
+            <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin:16px 0 24px;">
+                <button class="btn" onclick="copyToClipboard(document.getElementById('current-url').textContent)">Copiar endereço do cardápio</button>
+                <button class="btn btn-warning" onclick="printQRCode()">Imprimir plaquinha 15 × 10 cm</button>
             </div>
-            
-            <!-- Informações sobre o sistema de pagamento e bloqueio -->
-            <div style="background-color: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; border-left: 4px solid #3498db;">
-                <h3 style="color: #2c3e50; margin: 0 0 10px 0;">Funcionamento do Sistema</h3>
-                <p style="margin: 10px 0;">
-                    <strong>Primeiro ano:</strong> Gratuito após a compra do sistema<br>
-                    <strong>Renovação anual:</strong> R$ 00,00 para manter o domínio ativo<br>
-                    <strong>Avisos:</strong> Você receberá alertas 30 dias antes do vencimento<br>
-                    <strong>Bloqueio:</strong> O acesso é bloqueado após o vencimento até a renovação
-                </p>
-            </div>
-            
-            <div style="text-align: center; margin: 30px 0;">
-                <div style="display: inline-block; padding: 20px; background-color: white; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">
-                    <h3>QR Code do Estabelecimento</h3>
-                    <div id="qrcode-container" style="width: 150px; height: 150px; margin: 15px auto; display: flex; align-items: center; justify-content: center; border: 2px solid #3498db;">
-                        <div id="qrcode" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;"></div>
-                    </div>
-                    <p style="font-size: 12px; color: #7f8c8d;">
-                        <span id="current-url">https://cardapiodigital.com.br/restaurante-sabores</span>
-                    </p>
-                    <button class="btn" onclick="copyToClipboard(document.getElementById('current-url').textContent)" style="margin: 8px; padding: 8px 16px; font-size: 14px;">
-                        Copiar URL
-                    </button>
-                    <button class="btn btn-warning" onclick="printQRCode()" style="margin: 8px; padding: 8px 16px; font-size: 14px;">
-                        Imprimir QR
-                    </button>
-                </div>
-            </div>
+            <p style="text-align:center;color:#667085;font-size:13px;">Formato horizontal • QR Code com aproximadamente 4 cm • Fundo branco para facilitar a leitura.</p>
             
             <div style="background-color: #fff5f5; padding: 20px; border-radius: 10px; border-left: 4px solid #e74c3c; margin: 30px 0;">
                 <h3>Importante</h3>
@@ -1258,6 +1231,22 @@
             document.body.offsetHeight; // Trigger reflow
         }
         
+        function getMerchantStoreId() {
+            let establishment = {};
+            try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
+            if (establishment.uniqueId) return String(establishment.uniqueId).slice(0, 120);
+            const name = establishment.establishmentName || 'estabelecimento';
+            return name.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 100) || 'estabelecimento';
+        }
+
+        function getMerchantName() {
+            let establishment = {};
+            let customizations = {};
+            try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
+            try { customizations = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}'); } catch (_) {}
+            return customizations.establishmentName || establishment.establishmentName || 'Seu estabelecimento';
+        }
+
         function productAdminHeaders() {
             let establishment = {};
             try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
@@ -1274,7 +1263,7 @@
                     method: 'POST',
                     credentials: 'include',
                     headers: productAdminHeaders(),
-                    body: JSON.stringify({ ...itemData, storeId: 'main', storeName: 'Cardápio Principal' })
+                    body: JSON.stringify({ ...itemData, storeId: getMerchantStoreId(), storeName: getMerchantName() })
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || (response.status === 401 ? 'Entre novamente no painel para cadastrar produtos.' : 'Falha ao salvar produto.'));
@@ -1297,7 +1286,7 @@
             const menuItemsList = document.getElementById('menuItemsList');
             if (!menuItemsList) return;
             try {
-                const response = await fetch('/api/products?storeId=main', { credentials: 'include', cache: 'no-store' });
+                const response = await fetch('/api/products?storeId=' + encodeURIComponent(getMerchantStoreId()) + '', { credentials: 'include', cache: 'no-store' });
                 let result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Falha ao carregar produtos.');
 
@@ -1311,7 +1300,7 @@
                     const saveResponse = await fetch('/api/products', {
                         method: 'POST', credentials: 'include',
                         headers: productAdminHeaders(),
-                        body: JSON.stringify({ ...cachedProduct, storeId: 'main', storeName: 'Cardápio Principal' })
+                        body: JSON.stringify({ ...cachedProduct, storeId: getMerchantStoreId(), storeName: getMerchantName() })
                     });
                     if (!saveResponse.ok) {
                         const saveError = await saveResponse.json().catch(() => ({}));
@@ -1323,7 +1312,7 @@
                         const showcaseResponse = await fetch(`/api/products/${encodeURIComponent(cachedProduct.id)}/showcase`, {
                             method: 'PATCH', credentials: 'include',
                             headers: productAdminHeaders(),
-                            body: JSON.stringify({ storeId: 'main', showcase: true })
+                            body: JSON.stringify({ storeId: getMerchantStoreId(), showcase: true })
                         });
                         if (!showcaseResponse.ok && showcaseResponse.status !== 409) {
                             throw new Error('Produtos foram migrados, mas não foi possível restaurar toda a vitrine.');
@@ -1331,7 +1320,7 @@
                     }
                 }
                 if (missingCachedProducts.length > 0 || (restoreOldShowcase && cachedShowcase.length > 0)) {
-                    const refreshed = await fetch('/api/products?storeId=main', { credentials: 'include', cache: 'no-store' });
+                    const refreshed = await fetch('/api/products?storeId=' + encodeURIComponent(getMerchantStoreId()) + '', { credentials: 'include', cache: 'no-store' });
                     result = await refreshed.json();
                     if (!refreshed.ok) throw new Error(result.error || 'Falha ao confirmar a migração.');
                     serverProducts = result.products || [];
@@ -1442,7 +1431,7 @@
             const vitrineContainer = document.getElementById('vitrineProducts');
             if (!vitrineContainer) return;
             try {
-                const response = await fetch('/api/products?storeId=main', { credentials: 'include', cache: 'no-store' });
+                const response = await fetch('/api/products?storeId=' + encodeURIComponent(getMerchantStoreId()) + '', { credentials: 'include', cache: 'no-store' });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Falha ao carregar vitrine.');
                 const allProducts = result.products || [];
@@ -1450,7 +1439,7 @@
                 localStorage.setItem('menuItems', JSON.stringify(allProducts));
                 localStorage.setItem('vitrineProducts', JSON.stringify(vitrineProducts));
                 localStorage.setItem('productShowcase', JSON.stringify(vitrineProducts.map(product => ({
-                    ...product, productName: product.name, storeId: product.storeId || 'main',
+                    ...product, productName: product.name, storeId: product.storeId || getMerchantStoreId(),
                     storeName: product.storeName || 'Cardápio Principal'
                 }))));
             } catch (error) {
@@ -1491,7 +1480,7 @@
                 const response = await fetch(`/api/products/${encodeURIComponent(productId)}/showcase`, {
                     method: 'PATCH', credentials: 'include',
                     headers: productAdminHeaders(),
-                    body: JSON.stringify({ storeId: 'main', showcase: true })
+                    body: JSON.stringify({ storeId: getMerchantStoreId(), showcase: true })
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Não foi possível adicionar à vitrine.');
@@ -1507,7 +1496,7 @@
                 const response = await fetch(`/api/products/${encodeURIComponent(productId)}/showcase`, {
                     method: 'PATCH', credentials: 'include',
                     headers: productAdminHeaders(),
-                    body: JSON.stringify({ storeId: 'main', showcase: false })
+                    body: JSON.stringify({ storeId: getMerchantStoreId(), showcase: false })
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Não foi possível remover da vitrine.');
@@ -1523,150 +1512,66 @@
             localStorage.setItem('productShowcase', JSON.stringify(vitrineProducts));
         }
 
-        // Update menu URL in QR code section
+        // Endereço oficial do cardápio: cada comerciante usa seu identificador exclusivo.
         function updateMenuUrl() {
-            const establishmentData = JSON.parse(localStorage.getItem('establishmentData') || '{}');
-            const customizations = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
-            
-            // Check if we have a unique ID from the purchase, otherwise generate from name
-            let menuUrl;
-            if (establishmentData.uniqueId) {
-                // Use the unique ID that was generated during purchase
-                menuUrl = `https://${establishmentData.uniqueId}.cardapiodigital.com.br`;
-            } else {
-                // Fallback to generating from establishment name
-                const establishmentName = customizations.establishmentName || establishmentData.establishmentName || 'meu-restaurante';
-                
-                // Create a URL-friendly version of the name
-                const urlName = establishmentName
-                    .toLowerCase()
-                    .normalize('NFD')
-                    .replace(/[̀-ͯ]/g, '') // Remove accents
-                    .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with hyphens
-                    .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
-                
-                menuUrl = `https://${urlName}.cardapiodigital.com.br`;
-            }
-            
-            // Update the dashboard URL display
-            const dashboardUrlElement = document.querySelector('#dashboard .url-display-box p');
-            if (dashboardUrlElement) {
-                dashboardUrlElement.innerHTML = `<strong>URL do Cardápio:</strong> ${menuUrl}`;
-            }
-            
-            // Update the QR code section URL
+            let establishment = {};
+            try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
+            const storeId = getMerchantStoreId();
+            const menuUrl = new URL('/usuario.html', 'https://delivery-day.netlify.app');
+            menuUrl.searchParams.set('loja', storeId);
+            const url = menuUrl.toString();
             const currentUrlElement = document.getElementById('current-url');
-            if (currentUrlElement) {
-                currentUrlElement.textContent = menuUrl;
-            }
-            
-            // Generate QR code
-            generateQRCode(menuUrl);
+            if (currentUrlElement) currentUrlElement.textContent = url;
+            const nameElement = document.getElementById('plaque-establishment-name');
+            if (nameElement) nameElement.textContent = getMerchantName();
+            const dashboardUrlElement = document.querySelector('#dashboard .url-display-box p');
+            if (dashboardUrlElement) dashboardUrlElement.textContent = 'URL do Cardápio: ' + url;
+            generateQRCode(url);
         }
-        
-        // Generate QR code
+
         function generateQRCode(url) {
-            // Clear existing QR code
             const qrcodeDiv = document.getElementById('qrcode');
+            if (!qrcodeDiv || typeof QRCode === 'undefined') return;
             qrcodeDiv.innerHTML = '';
-            
-            // Create canvas element for QR code
-            const canvas = document.createElement('canvas');
-            canvas.id = 'qr-canvas';
-            canvas.style.width = '100%';
-            canvas.style.height = '100%';
-            qrcodeDiv.appendChild(canvas);
-            
-            // Create a container for the QR code
-            const qrContainer = document.createElement('div');
-            qrContainer.id = 'real-qrcode';
-            qrcodeDiv.appendChild(qrContainer);
-            
-            // Generate QR code using the library
-            new QRCode(qrContainer, {
+            new QRCode(qrcodeDiv, {
                 text: url,
-                width: 140,
-                height: 140,
-                colorDark: "#1e3a8a", // Azul escuro para destaque
-                colorLight: "#ffffff",
+                width: 240,
+                height: 240,
+                colorDark: '#102a43',
+                colorLight: '#ffffff',
                 correctLevel: QRCode.CorrectLevel.H
             });
         }
-        
-        // Simple QR code drawing function
-        function drawQRCode(canvas, text) {
-            const ctx = canvas.getContext('2d');
-            const size = 150; // Canvas size
-            canvas.width = size;
-            canvas.height = size;
-            
-            // Clear canvas
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, size, size);
-            
-            // Simple representation of QR code - in real implementation, would use proper QR library
-            // For demonstration purposes, we'll create a simplified pattern
-            ctx.fillStyle = 'black';
-            
-            // Draw a simple pattern representing a QR code
-            // This is a simplified version - in real application, would use proper QR code library
-            
-            // Draw border squares
-            const squareSize = size / 7;
-            
-            // Top-left corner square
-            ctx.fillRect(0, 0, squareSize * 2, squareSize * 2);
-            ctx.fillStyle = 'white';
-            ctx.fillRect(squareSize * 0.5, squareSize * 0.5, squareSize, squareSize);
-            
-            // Top-right corner square
-            ctx.fillStyle = 'black';
-            ctx.fillRect(size - squareSize * 2, 0, squareSize * 2, squareSize * 2);
-            ctx.fillStyle = 'white';
-            ctx.fillRect(size - squareSize * 1.5, squareSize * 0.5, squareSize, squareSize);
-            
-            // Bottom-left corner square
-            ctx.fillStyle = 'black';
-            ctx.fillRect(0, size - squareSize * 2, squareSize * 2, squareSize * 2);
-            ctx.fillStyle = 'white';
-            ctx.fillRect(squareSize * 0.5, size - squareSize * 1.5, squareSize, squareSize);
-            
-            // Draw some internal pattern
-            ctx.fillStyle = 'black';
-            for (let i = 0; i < 5; i++) {
-                for (let j = 0; j < 5; j++) {
-                    if ((i + j) % 2 === 0) {
-                        ctx.fillRect(
-                            squareSize * 2 + i * (size / 7), 
-                            squareSize * 2 + j * (size / 7), 
-                            size / 14, 
-                            size / 14
-                        );
-                    }
-                }
-            }
+
+        function printQRCode() {
+            const currentUrl = document.getElementById('current-url')?.textContent || '';
+            if (!currentUrl) return alert('O endereço do cardápio ainda não foi gerado.');
+            const merchantName = getMerchantName();
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) return alert('Permita a abertura da janela de impressão para imprimir a plaquinha.');
+            const safeUrl = JSON.stringify(currentUrl);
+            const safeName = merchantName.replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
+            const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Plaquinha - ${safeName}</title>
+            <style>
+              @page{size:150mm 100mm;margin:0}
+              *{box-sizing:border-box}
+              html,body{width:150mm;height:100mm;margin:0;padding:0;font-family:Arial,sans-serif}
+              body{display:flex;align-items:center;justify-content:center;background:#fff}
+              .plaque{width:150mm;height:100mm;padding:10mm 11mm;display:flex;align-items:center;justify-content:space-between;gap:7mm;border:1px solid #dce5ec;border-radius:4mm;background:linear-gradient(135deg,#fff,#f4f8fb)}
+              .copy{flex:1;min-width:0}.kicker{font-size:9pt;letter-spacing:2pt;text-transform:uppercase;color:#23865b;font-weight:bold;margin-bottom:4mm}
+              h1{font-size:20pt;line-height:1.12;color:#17324d;margin:0 0 5mm;overflow-wrap:anywhere}
+              p{font-size:11pt;line-height:1.4;color:#526273;margin:0 0 5mm}.url{font-size:7.5pt;line-height:1.3;color:#64748b;overflow-wrap:anywhere}
+              .qr{width:43mm;height:43mm;flex:0 0 43mm;background:#fff;border:1px solid #e4eaf0;border-radius:3mm;padding:2mm;display:flex;align-items:center;justify-content:center}
+              .qr img,.qr canvas{width:39mm!important;height:39mm!important}
+              @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+            </style></head><body><main class="plaque"><section class="copy"><div class="kicker">Cardápio digital</div><h1>${safeName}</h1><p>Aponte a câmera do celular e confira nosso cardápio.</p><div class="url">${currentUrl.replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]))}</div></section><div class="qr" id="print-qr"></div></main>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+            <script>const target=${safeUrl};new QRCode(document.getElementById('print-qr'),{text:target,width:420,height:420,colorDark:'#102a43',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});setTimeout(()=>window.print(),800);<\/script></body></html>`;
+            printWindow.document.open();
+            printWindow.document.write(html);
+            printWindow.document.close();
         }
-        
-// Fixed printQRCode function using simple string concatenation
-function printQRCode() {
-    const currentUrl = document.getElementById('current-url').textContent;
-    const printWindow = window.open('', '_blank');
-    
-    var html = '<!DOCTYPE html><html><head>';
-    html += '<title>QR Code - ' + currentUrl + '</title>';
-    html += '<style>body{font-family:Arial,sans-serif;margin:20px;text-align:center}.banner{background:#667eea;color:white;padding:15px;border-radius:10px;margin:20px 0}#print-qr{width:300px;height:300px;margin:0 auto;border:2px solid #333}.url{margin:15px 0;word-break:break-all}</style>';
-    html += '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>';
-    html += '</head><body>';
-    html += '<div class="banner"><h3>🌐 cardapiodigital.com.br</h3><p>Seu portal de acesso - R$ 500,00 vitalício</p></div>';
-    html += '<h2>QR Code do Estabelecimento</h2>';
-    html += '<div><div id="print-qr"></div><div class="url">' + currentUrl + '</div></div>';
-    html += '<script>setTimeout(function(){if(typeof QRCode!=="undefined"){new QRCode(document.getElementById("print-qr"),{text:"' + currentUrl + '",width:300,height:300,colorDark:"#1e3a8a",colorLight:"#ffffff"});setTimeout(function(){window.print();window.close();},1000);}},500);<\/script>';
-    html += '</body></html>';
-    
-    printWindow.document.write(html);
-    printWindow.document.close();
-}
-        
+
         // Close modals when clicking outside
         window.onclick = function(event) {
             if (event.target.classList.contains('modal')) {
