@@ -4,11 +4,12 @@ Sistema completo de cardápio digital para restaurantes e estabelecimentos comer
 
 ## Modelo de Negócio
 
-O sistema funciona com um modelo de licenciamento único:
-- O administrador do estabelecimento adquire o sistema por R$ 500,00
-- Recebe acesso vitalício a todas as funcionalidades
-- Recebe **um único QR code** para todo o estabelecimento (não um por mesa)
-- Pode personalizar seu cardápio com logo, cores, imagens e informações
+- Cadastro e uso do sistema gratuitos para os estabelecimentos.
+- Não há cobrança de aquisição do cardápio nem renovação de domínio.
+- É aplicada uma taxa de utilização do sistema por pedido, cujo valor será definido pelo criador.
+- Cada estabelecimento recebe QR Code para divulgar seu cardápio.
+- O estabelecimento pode personalizar o cardápio com logo, cores, imagens e informações.
+
 
 ## Descrição
 
@@ -18,7 +19,7 @@ Este sistema permite que estabelecimentos comerciais ofereçam aos seus clientes
 
 ### 1. Página Principal (index.html)
 - Página de aquisição do sistema para administradores de estabelecimentos
-- Banner comercial com preço de R$ 500,00
+- Apresentação do cadastro gratuito e da taxa por pedido
 - Informações sobre o modelo de negócio e funcionalidades
 - Formulário de compra e acesso à área administrativa
 
@@ -65,7 +66,7 @@ Este sistema permite que estabelecimentos comerciais ofereçam aos seus clientes
 
 ### Para Estabelecimentos (Administração):
 1. Acesse `index.html` e clique em "Adquirir Agora"
-2. Preencha os dados do estabelecimento e finalize a compra (R$ 500,00)
+2. Preencha os dados e cadastre o estabelecimento gratuitamente
 3. Receba acesso imediato à área administrativa
 4. Personalize seu estabelecimento (cores, logo, imagem de fundo, contatos)
 5. **Todas as personalizações aparecem automaticamente para os clientes**
@@ -93,8 +94,8 @@ No modo desenvolvedor:
 
 ## Funcionalidades
 
-- Sistema de aquisição com pagamento único de R$ 500,00
-- Acesso vitalício a todas as funcionalidades
+- Cadastro e utilização gratuitos, com taxa por pedido definida pelo criador
+- Acesso ao sistema sem cobrança de aquisição ou renovação de domínio
 - Cardápio digital acessível via navegador (sem app)
 - **QR code único para todo o estabelecimento** (não por mesa)
 - **Personalização completa visível para clientes**:
