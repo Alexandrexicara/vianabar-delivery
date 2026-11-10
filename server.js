@@ -67,6 +67,7 @@ app.post('/upload/:type', upload.single('image'), (req, res) => {
 const creatorAuth = require('./routes/creatorAuth');
 app.use('/api/creator', creatorAuth.router);
 app.use('/api/products', require('./routes/menuProducts')());
+app.use('/api/merchant-settings', require('./routes/merchantSettings'));
 app.get('/creator-dashboard.html', creatorAuth.requireCreator, (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.sendFile(path.resolve('creator-dashboard.html'));
