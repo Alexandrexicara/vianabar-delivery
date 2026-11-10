@@ -428,6 +428,39 @@
                 grid-template-columns: repeat(2, 1fr);
             }
         }
+        
+        /* Expansão exclusiva do painel do mapa do motoboy */
+        .map-section.map-expanded {
+            position: fixed !important;
+            inset: 0 !important;
+            z-index: 10000 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            height: 100dvh !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            padding: 12px !important;
+            border-radius: 0 !important;
+            overflow-y: auto !important;
+            background: #151b27 !important;
+        }
+        .map-section.map-expanded .map-container {
+            height: calc(100vh - 185px) !important;
+            height: calc(100dvh - 185px) !important;
+            min-height: 260px;
+            margin-top: 8px !important;
+        }
+        .map-section.map-expanded #routeInfo { margin-bottom: 12px; }
+        body.map-fullscreen-active { overflow: hidden !important; }
+        @media (max-width: 600px) {
+            .map-section.map-expanded { padding: 8px !important; }
+            .map-section.map-expanded .map-section-header h3 { font-size: 1.05em !important; }
+            .map-section.map-expanded .map-container {
+                height: calc(100dvh - 145px) !important;
+                min-height: 240px;
+            }
+        }
+
     </style>
 
 <script src="/delivery-day-ui.js" defer></script>
@@ -481,10 +514,15 @@
 
         <!-- Mapa (PRIORIDADE MÁXIMA) -->
         <section class="map-section" style="order: 1; background: linear-gradient(135deg, #1a1a2a, #2d2d2d); padding: 20px; border-radius: 15px; box-shadow: 0 8px 16px rgba(0,0,0,0.3);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <div class="map-section-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 15px;">
                 <h3 style="color: white; font-size: 1.5em; margin: 0;">🗺️ ROTA DE ENTREGA - NAVEGAÇÃO GPS</h3>
-                <div style="background: #e74c3c; color: white; padding: 8px 15px; border-radius: 20px; font-weight: bold;">
-                    📍 <span id="mapStatus">AGUARDANDO ROTA</span>
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <div style="background: #e74c3c; color: white; padding: 8px 15px; border-radius: 20px; font-weight: bold;">
+                        📍 <span id="mapStatus">AGUARDANDO ROTA</span>
+                    </div>
+                    <button id="toggleMapFullscreen" type="button" class="btn" onclick="toggleMapFullscreen()" aria-expanded="false" aria-controls="map" style="background: linear-gradient(135deg,#159957,#155799); color:white; border:1px solid rgba(255,255,255,.35); padding:10px 14px; border-radius:8px; font-weight:700;">
+                        <i class="fas fa-expand"></i> Expandir mapa
+                    </button>
                 </div>
             </div>
             <div class="map-container" style="height: 500px; border: 3px solid #e74c3c; border-radius: 10px; overflow: hidden;">
@@ -601,6 +639,41 @@
         let currentInstructionIndex = 0;
         let speechSynthesis = window.speechSynthesis;
         let isNavigating = false;
+
+        // Expandir/recolher somente a área do mapa, sem alterar os demais painéis.
+        window.toggleMapFullscreen = function() {
+            const mapSection = document.querySelector('.map-section');
+            const toggleButton = document.getElementById('toggleMapFullscreen');
+            if (!mapSection || !toggleButton) return;
+
+            const expanded = mapSection.classList.toggle('map-expanded');
+            document.body.classList.toggle('map-fullscreen-active', expanded);
+            toggleButton.setAttribute('aria-expanded', String(expanded));
+            toggleButton.innerHTML = expanded
+                ? '<i class="fas fa-compress"></i> Voltar'
+                : '<i class="fas fa-expand"></i> Expandir mapa';
+
+            // Leaflet precisa recalcular o tamanho depois da mudança de layout.
+            window.setTimeout(() => {
+                if (map) map.invalidateSize({ pan: false });
+            }, 180);
+        };
+
+        // Permite sair da tela cheia do mapa também pela tecla Esc.
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                const mapSection = document.querySelector('.map-section.map-expanded');
+                if (mapSection && typeof window.toggleMapFullscreen === 'function') {
+                    window.toggleMapFullscreen();
+                }
+            }
+        });
+
+        window.addEventListener('resize', function() {
+            if (map && document.querySelector('.map-section.map-expanded')) {
+                map.invalidateSize({ pan: false });
+            }
+        });
 
         // Inicialização
         window.onload = function() {
@@ -2453,11 +2526,11 @@ function completeDelivery(orderId) {
                         order.currentLocation = { lat, lng, timestamp: new Date().toISOString() };
                         saveOrders();
                         
-                        // Calcular distância restante
-                        const remainingDistance = calculateDistance(lat, lng, order.coordinates.lat, order.coordinates.lng);
-                        
-                        // Atualizar informações em tempo real
-                        updateRealTimeInfo(remainingDistance, order);
+                        // Calcular distância somente quando o pedido tiver coordenadas de destino.
+                        if (order.coordinates && Number.isFinite(Number(order.coordinates.lat)) && Number.isFinite(Number(order.coordinates.lng))) {
+                            const remainingDistance = calculateDistance(lat, lng, Number(order.coordinates.lat), Number(order.coordinates.lng));
+                            updateRealTimeInfo(remainingDistance, order);
+                        }
                         
                         console.log('[MOTOBOY] Localização atualizada:', { lat, lng, distance: remainingDistance });
                     },
@@ -2683,15 +2756,20 @@ function completeDelivery(orderId) {
             console.log(`Notificando cliente ${order.customerName}: Pedido ${getStatusText(status)}`);
         }
 
-        // Iniciar rastreamento de localização
+        // Compatibilidade com os pontos existentes do fluxo de pedidos.
+        // A implementação real de GPS é startRealTimeTracking, definida acima.
         function startLocationTracking(orderId) {
-            // Em implementação real, usar GPS do dispositivo
-            console.log(`Iniciando rastreamento para pedido #${orderId}`);
+            startRealTimeTracking(orderId);
         }
 
-        // Parar rastreamento de localização
         function stopLocationTracking() {
-            console.log('Rastreamento de localização parado');
+            if (locationTrackingInterval) {
+                clearInterval(locationTrackingInterval);
+                locationTrackingInterval = null;
+            }
+            stopRealTimeTracking();
+            if (typeof stopVoiceNavigation === 'function') stopVoiceNavigation();
+            console.log('[MOTOBOY] Rastreamento GPS parado');
         }
 
         // Salvar pedidos
