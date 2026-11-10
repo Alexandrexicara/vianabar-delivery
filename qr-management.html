@@ -232,8 +232,7 @@
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
-      .table-plaque-preview{width:min(100%,650px);aspect-ratio:3/2;margin:18px auto;padding:22px 26px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:20px;background:linear-gradient(135deg,#fff 0%,#f4f8fb 100%);border:1px solid #dbe4ec;border-radius:18px;box-shadow:0 12px 32px rgba(20,45,70,.13);text-align:left}
-      .plaque-copy{min-width:0;flex:1}.plaque-brand{font-size:clamp(19px,3vw,27px);font-weight:800;color:#17324d;line-height:1.15;overflow-wrap:anywhere}.plaque-kicker{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#23865b;font-weight:800;margin-bottom:9px}.plaque-instruction{font-size:14px;color:#526273;line-height:1.45;margin:10px 0}.plaque-url{font-size:10px;color:#64748b;overflow-wrap:anywhere;line-height:1.35}.plaque-qr-wrap{flex:0 0 174px;width:174px;height:174px;background:#fff;border:1px solid #e4eaf0;border-radius:14px;display:flex;align-items:center;justify-content:center;padding:8px;box-sizing:border-box}.plaque-qr-wrap img,.plaque-qr-wrap canvas{max-width:100%;height:auto!important}
+      .table-plaque-preview{width:min(100%,650px);aspect-ratio:3/2;margin:18px auto;padding:22px 26px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:20px;background:linear-gradient(135deg,#fff 0%,#f4fff8 58%,#fff8ed 100%);border:3px solid #19c96b;border-radius:20px;outline:2px solid #ff8a00;outline-offset:3px;box-shadow:0 14px 34px rgba(13,85,58,.18);text-align:left}.plaque-copy{min-width:0;flex:1}.plaque-brand{font-family:'Trebuchet MS',Arial,sans-serif;font-size:clamp(20px,3.2vw,29px);font-weight:900;letter-spacing:-.5px;color:#075c43;line-height:1.12;overflow-wrap:anywhere;text-shadow:0 1px 0 #fff}.plaque-kicker{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#f07800;font-weight:900;margin-bottom:9px}.plaque-instruction{font-size:14px;color:#315b4b;line-height:1.45;margin:10px 0}.plaque-url{font-size:10px;color:#527265;overflow-wrap:anywhere;line-height:1.35}.plaque-qr-wrap{flex:0 0 174px;width:174px;height:174px;background:#fff;border:3px solid #19c96b;outline:2px solid #ff8a00;outline-offset:3px;border-radius:16px;display:flex;align-items:center;justify-content:center;padding:8px;box-sizing:border-box;box-shadow:0 5px 16px rgba(7,92,67,.12)}.plaque-qr-wrap img,.plaque-qr-wrap canvas{max-width:100%;height:auto!important}
       @media(max-width:480px){.table-plaque-preview{padding:13px;gap:8px}.plaque-qr-wrap{flex-basis:126px;width:126px;height:126px}.plaque-instruction{font-size:12px}}
     </style>
 
@@ -573,74 +572,44 @@
 // Função showSection movida para o início do script para garantir disponibilidade
         
         // Customization functions using the centralized system
-        function saveCustomization() {
-            console.log('[DEBUG] Iniciando salvamento de customizações');
-            
-            // First, get existing customizations to preserve image URLs
-            const existingCustomizations = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
-            console.log('[DEBUG] Customizações existentes:', existingCustomizations);
-            
-            // Get form values
-            const establishmentNameElement = document.getElementById('establishmentName');
-            const establishmentTaglineElement = document.getElementById('establishmentTagline');
-            const establishmentAddressElement = document.getElementById('establishmentAddress');
-            const establishmentPhoneElement = document.getElementById('establishmentPhone');
-            const establishmentHoursElement = document.getElementById('establishmentHours');
-            const primaryColorElement = document.getElementById('primaryColor');
-            const secondaryColorElement = document.getElementById('secondaryColor');
-            const facebookElement = document.getElementById('facebook');
-            const instagramElement = document.getElementById('instagram');
-            const whatsappElement = document.getElementById('whatsapp');
-            
-            // Save customizations to localStorage
-            const customizations = {
-                establishmentName: establishmentNameElement ? establishmentNameElement.value : '',
-                establishmentTagline: establishmentTaglineElement ? establishmentTaglineElement.value : '',
-                establishmentAddress: establishmentAddressElement ? establishmentAddressElement.value : '',
-                establishmentPhone: establishmentPhoneElement ? establishmentPhoneElement.value : '',
-                establishmentHours: establishmentHoursElement ? establishmentHoursElement.value : '',
-                primaryColor: primaryColorElement ? primaryColorElement.value : '#e74c3c',
-                secondaryColor: secondaryColorElement ? secondaryColorElement.value : '#3498db',
-                facebook: facebookElement ? facebookElement.value : '',
-                instagram: instagramElement ? instagramElement.value : '',
-                whatsapp: whatsappElement ? whatsappElement.value : '',
-                // Preserve existing image URLs
-                logo: existingCustomizations.logo || '',
-                background: existingCustomizations.background || ''
-            };
-            
-            console.log('[DEBUG] Customizações coletadas:', customizations);
-            
-            // Save to localStorage using the centralized system
-            if (typeof saveCustomizations === 'function') {
-                console.log('[DEBUG] Usando função saveCustomizations');
-                saveCustomizations(customizations);
-            } else {
-                // Fallback to direct localStorage save
-                console.log('[DEBUG] Usando fallback para localStorage');
-                localStorage.setItem('establishmentCustomizations', JSON.stringify(customizations));
-            }
-            console.log('[DEBUG] Customizações salvas no localStorage');
-            
-            // Create success message with image information
-            let successMessage = `Personalizações salvas com sucesso!\nEstabelecimento: ${customizations.establishmentName}\nCor Primária: ${customizations.primaryColor}\nCor Secundária: ${customizations.secondaryColor}`;
-            
-            // Add image information to success message if they exist
-            if (customizations.logo) {
-                successMessage += `\nLogo: ${customizations.logo}`;
-            }
-            if (customizations.background) {
-                successMessage += `\nBackground: ${customizations.background}`;
-            }
-            
-            console.log('[DEBUG] Mensagem de sucesso:', successMessage);
-            
-            // Reset upload boxes after successful save
-            resetUploadBoxes();
-            
-            alert(successMessage);
+        function merchantSettingsApiUrl() { return '/api/merchant-settings/' + encodeURIComponent(getMerchantStoreId()); }
+
+        async function loadMerchantSettings() {
+            try {
+                const response=await fetch(merchantSettingsApiUrl(),{credentials:'include',cache:'no-store'});
+                const result=await response.json();
+                if(!response.ok) throw new Error(result.error||'Falha ao carregar configurações.');
+                const c=result.settings||{};
+                localStorage.setItem('establishmentCustomizations',JSON.stringify(c));
+                ['establishmentName','establishmentTagline','establishmentAddress','establishmentPhone','establishmentHours','primaryColor','secondaryColor','facebook','instagram','whatsapp'].forEach(id=>{
+                    const el=document.getElementById(id); if(el&&c[id]!==undefined) el.value=c[id];
+                });
+                if(c.logo) showImagePreview('logo',c.logo);
+                if(c.background) showImagePreview('background',c.background);
+                updateMenuUrl(); return c;
+            } catch(error) { console.error('[MERCHANT-SETTINGS] Falha ao carregar do Neon:',error); return null; }
         }
-        
+
+        async function saveCustomization() {
+            const old=JSON.parse(localStorage.getItem('establishmentCustomizations')||'{}');
+            const val=id=>document.getElementById(id)?.value||'';
+            const settings={
+                establishmentName:val('establishmentName'),establishmentTagline:val('establishmentTagline'),
+                establishmentAddress:val('establishmentAddress'),establishmentPhone:val('establishmentPhone'),
+                establishmentHours:val('establishmentHours'),primaryColor:val('primaryColor')||'#e74c3c',
+                secondaryColor:val('secondaryColor')||'#3498db',facebook:val('facebook'),instagram:val('instagram'),
+                whatsapp:val('whatsapp'),logo:old.logo||'',background:old.background||''
+            };
+            try {
+                const response=await fetch(merchantSettingsApiUrl(),{method:'PUT',credentials:'include',headers:productAdminHeaders(),body:JSON.stringify({settings})});
+                const result=await response.json();
+                if(!response.ok) throw new Error(result.error||'Não foi possível salvar no Neon.');
+                localStorage.setItem('establishmentCustomizations',JSON.stringify(result.settings||settings));
+                updateMenuUrl();
+                alert('Personalizações salvas no Neon! As configurações ficarão disponíveis em outros aparelhos e navegadores.');
+            } catch(error) { console.error('[MERCHANT-SETTINGS] Erro ao salvar:',error); alert(error.message||'Não foi possível salvar as personalizações.'); }
+        }
+
         function previewCustomization() {
             console.log('[DEBUG] Iniciando preview de customizações');
             // Save current customizations first
@@ -669,157 +638,28 @@
             window.open('usuario.html?admin=true', '_blank');
         }
         
-        function uploadImage(file, type) {
-            console.log(`[DEBUG] Iniciando upload de ${type}`, file);
-            
-            // Use the centralized upload system if available
-            if (typeof uploadImage === 'function' && uploadImage !== window.uploadImage) {
-                console.log('[DEBUG] Usando sistema centralizado de upload');
-                uploadImage(file, type)
-                    .then(imageUrl => {
-                        console.log('[DEBUG] Upload concluído com sucesso:', imageUrl);
-                        // Show preview of uploaded image
-                        showImagePreview(type, imageUrl);
-                        // Forçar atualização visual do DOM para garantir que mudanças sejam visíveis
-                        document.body.offsetHeight; // Trigger reflow
-                        
-                        alert(`${type === 'logo' ? 'Logo' : 'Imagem de fundo'} carregada com sucesso! A personalização será aplicada automaticamente.`);
-                        // Garantir que o botão de confirmação esteja visível
-                        setTimeout(() => {
-                            if (type === 'logo') {
-                                const logoUploadBox = document.getElementById('logoUploadBox');
-                                if (logoUploadBox) {
-                                    logoUploadBox.querySelector('p:first-child').textContent = 'Logo carregado com sucesso! Clique para substituir.';
-                                }
-                            } else if (type === 'background') {
-                                const backgroundUploadBox = document.getElementById('backgroundUploadBox');
-                                if (backgroundUploadBox) {
-                                    backgroundUploadBox.querySelector('p:first-child').textContent = 'Imagem de fundo carregada com sucesso! Clique para substituir.';
-                                }
-                            }
-                        }, 100);
-                    })
-                    .catch(error => {
-                        console.error(`[DEBUG] Erro no upload:`, error);
-                        // Reset upload box text on error
-                        if (type === 'logo') {
-                            const logoUploadBox = document.getElementById('logoUploadBox');
-                            if (logoUploadBox) {
-                                logoUploadBox.querySelector('p:first-child').textContent = 'Erro no upload. Clique para tentar novamente.';
-                            }
-                        } else if (type === 'background') {
-                            const backgroundUploadBox = document.getElementById('backgroundUploadBox');
-                            if (backgroundUploadBox) {
-                                backgroundUploadBox.querySelector('p:first-child').textContent = 'Erro no upload. Clique para tentar novamente.';
-                            }
-                        }
-                        alert('Erro ao fazer upload: ' + (error.message || 'Erro desconhecido'));
-                    });
-            } else {
-                console.log('[DEBUG] Usando fallback para upload direto');
-                // Fallback to direct upload
-                const formData = new FormData();
-                formData.append('image', file);
-                
-                const serverUrl = window.location.origin;
-                console.log(`[DEBUG] Enviando requisição POST para ${serverUrl}/upload/${type}`);
-                
-                // Show uploading message
-                if (type === 'logo') {
-                    const logoUploadBox = document.getElementById('logoUploadBox');
-                    if (logoUploadBox) {
-                        logoUploadBox.querySelector('p:first-child').textContent = 'Enviando logo...';
-                    }
-                } else if (type === 'background') {
-                    const backgroundUploadBox = document.getElementById('backgroundUploadBox');
-                    if (backgroundUploadBox) {
-                        backgroundUploadBox.querySelector('p:first-child').textContent = 'Enviando imagem de fundo...';
-                    }
-                }
-                
-                fetch(`${serverUrl}/upload/${type}`, {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => {
-                    console.log(`[DEBUG] Resposta recebida do servidor`, response);
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log(`[DEBUG] Dados recebidos:`, data);
-                    if (data.success) {
-                        const customizations = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
-                        customizations[type] = data.imageUrl;
-                        if (typeof saveCustomizations === 'function') {
-                            saveCustomizations(customizations);
-                        } else {
-                            localStorage.setItem('establishmentCustomizations', JSON.stringify(customizations));
-                        }
-                        console.log(`[DEBUG] Customizações atualizadas:`, customizations);
-                        
-                        // Show preview of uploaded image
-                        showImagePreview(type, data.imageUrl);
-                        
-                        // Forçar atualização visual do DOM para garantir que mudanças sejam visíveis
-                        document.body.offsetHeight; // Trigger reflow
-                        
-                        alert(`${type === 'logo' ? 'Logo' : 'Imagem de fundo'} carregada com sucesso! A personalização será aplicada automaticamente.`);
-                        // Garantir que o botão de confirmação esteja visível
-                        setTimeout(() => {
-                            if (type === 'logo') {
-                                const logoUploadBox = document.getElementById('logoUploadBox');
-                                if (logoUploadBox) {
-                                    logoUploadBox.querySelector('p:first-child').textContent = 'Logo carregado com sucesso! Clique para substituir.';
-                                }
-                            } else if (type === 'background') {
-                                const backgroundUploadBox = document.getElementById('backgroundUploadBox');
-                                if (backgroundUploadBox) {
-                                    backgroundUploadBox.querySelector('p:first-child').textContent = 'Imagem de fundo carregada com sucesso! Clique para substituir.';
-                                }
-                            }
-                        }, 100);
-                    } else {
-                        console.error(`[DEBUG] Erro no upload:`, data.error);
-                        // Reset upload box text on error
-                        if (type === 'logo') {
-                            const logoUploadBox = document.getElementById('logoUploadBox');
-                            if (logoUploadBox) {
-                                logoUploadBox.querySelector('p:first-child').textContent = 'Erro no upload. Clique para tentar novamente.';
-                            }
-                        } else if (type === 'background') {
-                            const backgroundUploadBox = document.getElementById('backgroundUploadBox');
-                            if (backgroundUploadBox) {
-                                backgroundUploadBox.querySelector('p:first-child').textContent = 'Erro no upload. Clique para tentar novamente.';
-                            }
-                        }
-                        alert('Erro ao fazer upload: ' + (data.error || 'Erro desconhecido'));
-                    }
-                })
-                .catch(error => {
-                    console.error(`[DEBUG] Erro na requisição fetch:`, error);
-                    // Reset upload box text on error
-                    if (type === 'logo') {
-                        const logoUploadBox = document.getElementById('logoUploadBox');
-                        if (logoUploadBox) {
-                            logoUploadBox.querySelector('p:first-child').textContent = 'Erro no upload. Clique para tentar novamente.';
-                        }
-                    } else if (type === 'background') {
-                        const backgroundUploadBox = document.getElementById('backgroundUploadBox');
-                        if (backgroundUploadBox) {
-                            backgroundUploadBox.querySelector('p:first-child').textContent = 'Erro no upload. Clique para tentar novamente.';
-                        }
-                    }
-                    alert('Erro ao fazer upload. Tente novamente. Detalhes: ' + error.message);
-                });
+        async function uploadImage(file,type) {
+            if(!file||!['logo','background'].includes(type)) return false;
+            if(!/^image\/(png|jpeg|webp|gif)$/.test(file.type)){alert('Use imagem PNG, JPG, WEBP ou GIF.');return false;}
+            if(file.size>8*1024*1024){alert('A imagem deve ter no máximo 8 MB.');return false;}
+            const box=document.getElementById(type==='logo'?'logoUploadBox':'backgroundUploadBox');
+            if(box?.querySelector('p:first-child')) box.querySelector('p:first-child').textContent='Enviando e salvando no Neon...';
+            try {
+                const formData=new FormData();formData.append('image',file);
+                const headers=productAdminHeaders();delete headers['Content-Type'];
+                const response=await fetch(merchantSettingsApiUrl()+'/assets/'+type,{method:'POST',credentials:'include',headers,body:formData});
+                const result=await response.json();if(!response.ok)throw new Error(result.error||'Falha ao salvar imagem no banco.');
+                const custom=JSON.parse(localStorage.getItem('establishmentCustomizations')||'{}');custom[type]=result.imageUrl;
+                localStorage.setItem('establishmentCustomizations',JSON.stringify(custom));showImagePreview(type,result.imageUrl);
+                if(box?.querySelector('p:first-child'))box.querySelector('p:first-child').textContent=(type==='logo'?'Logo':'Imagem de fundo')+' salvo no Neon! Clique para substituir.';
+                alert((type==='logo'?'Logo':'Imagem de fundo')+' enviado e salvo permanentemente no Neon.');return result.imageUrl;
+            } catch(error) {
+                console.error('[MERCHANT-ASSETS] Erro no upload:',error);
+                if(box?.querySelector('p:first-child'))box.querySelector('p:first-child').textContent='Erro ao salvar. Clique para tentar novamente.';
+                alert(error.message||'Não foi possível salvar a imagem.');return false;
             }
-            
-            // Prevent default behavior
-            return false;
         }
-        
+
         // Function to show image preview
         function showImagePreview(type, imageUrl) {
             console.log('[DEBUG] showImagePreview chamada com:', type, imageUrl);
@@ -1540,7 +1380,7 @@
                 text: url,
                 width: 240,
                 height: 240,
-                colorDark: '#102a43',
+                colorDark: '#087f5b',
                 colorLight: '#ffffff',
                 correctLevel: QRCode.CorrectLevel.H
             });
@@ -1560,16 +1400,16 @@
               *{box-sizing:border-box}
               html,body{width:150mm;height:100mm;margin:0;padding:0;font-family:Arial,sans-serif}
               body{display:flex;align-items:center;justify-content:center;background:#fff}
-              .plaque{width:150mm;height:100mm;padding:10mm 11mm;display:flex;align-items:center;justify-content:space-between;gap:7mm;border:1px solid #dce5ec;border-radius:4mm;background:linear-gradient(135deg,#fff,#f4f8fb)}
-              .copy{flex:1;min-width:0}.kicker{font-size:9pt;letter-spacing:2pt;text-transform:uppercase;color:#23865b;font-weight:bold;margin-bottom:4mm}
-              h1{font-size:20pt;line-height:1.12;color:#17324d;margin:0 0 5mm;overflow-wrap:anywhere}
+              .plaque{width:150mm;height:100mm;padding:10mm 11mm;display:flex;align-items:center;justify-content:space-between;gap:7mm;border:2mm solid #19c96b;outline:1mm solid #ff8a00;outline-offset:-3mm;border-radius:4mm;background:linear-gradient(135deg,#fff,#f2fff7 60%,#fff7eb)}
+              .copy{flex:1;min-width:0}.kicker{font-size:9pt;letter-spacing:2pt;text-transform:uppercase;color:#f07800;font-weight:900;margin-bottom:4mm}
+              h1{font-family:'Trebuchet MS',Arial,sans-serif;font-size:21pt;line-height:1.12;font-weight:900;color:#075c43;margin:0 0 5mm;overflow-wrap:anywhere}
               p{font-size:11pt;line-height:1.4;color:#526273;margin:0 0 5mm}.url{font-size:7.5pt;line-height:1.3;color:#64748b;overflow-wrap:anywhere}
-              .qr{width:43mm;height:43mm;flex:0 0 43mm;background:#fff;border:1px solid #e4eaf0;border-radius:3mm;padding:2mm;display:flex;align-items:center;justify-content:center}
+              .qr{width:43mm;height:43mm;flex:0 0 43mm;background:#fff;border:1.2mm solid #19c96b;outline:.6mm solid #ff8a00;outline-offset:1mm;border-radius:3mm;padding:2mm;display:flex;align-items:center;justify-content:center}
               .qr img,.qr canvas{width:39mm!important;height:39mm!important}
               @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
             </style></head><body><main class="plaque"><section class="copy"><div class="kicker">Cardápio digital</div><h1>${safeName}</h1><p>Aponte a câmera do celular e confira nosso cardápio.</p><div class="url">${currentUrl.replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]))}</div></section><div class="qr" id="print-qr"></div></main>
             <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
-            <script>const target=${safeUrl};new QRCode(document.getElementById('print-qr'),{text:target,width:420,height:420,colorDark:'#102a43',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});setTimeout(()=>window.print(),800);<\/script></body></html>`;
+            <script>const target=${safeUrl};new QRCode(document.getElementById('print-qr'),{text:target,width:420,height:420,colorDark:'#087f5b',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});setTimeout(()=>window.print(),800);<\/script></body></html>`;
             printWindow.document.open();
             printWindow.document.write(html);
             printWindow.document.close();
@@ -1590,6 +1430,7 @@
         });
         
         // Atualizar o QR code periodicamente para garantir que esteja sempre atualizado
+        loadMerchantSettings();
         setInterval(updateMenuUrl, 30000); // Atualizar a cada 30 segundos
     </script></body></html>
 
