@@ -22,8 +22,3 @@
   status = 200
   force = true
 
-[[redirects]]
-  from = "/qr-management.html"
-  to = "https://vianabar-delivery.onrender.com/qr-management.html"
-  status = 200
-  force = true
