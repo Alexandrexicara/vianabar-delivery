@@ -3,7 +3,8 @@ const express = require('express');
 const { Pool } = require('pg');
 
 const router = express.Router();
-let requireCreator;
+let creatorGuard = null;
+const requireCreator = (req, res, next) => creatorGuard ? creatorGuard(req, res, next) : res.status(503).json({ success: false, error: 'Autenticação indisponível.' });
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
@@ -136,6 +137,6 @@ router.patch('/:id/showcase', requireCreator, async (req, res) => {
 });
 
 module.exports = (guard) => {
-  requireCreator = guard;
+  creatorGuard = guard;
   return router;
 };
