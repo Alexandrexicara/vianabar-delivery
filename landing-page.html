@@ -1042,9 +1042,9 @@ Sistema completo de pedidos para restaurantes
         <div class="hero">
             <h1>Cardápio Digital Universal</h1>
             <p>O sistema completo de pedidos automatizados para restaurantes e estabelecimentos comerciais</p>
-            <div class="price-tag">R$ 00,00</div>
-            <p>Investimento único com acesso vitalício</p>
-            <button class="btn" onclick="showPurchaseForm()">Adquirir Sistema</button>
+            <div class="price-tag">GRÁTIS</div>
+            <p>Cadastro e uso do sistema gratuitos. É cobrada somente uma taxa por pedido, definida pelo criador.</p>
+            <button class="btn" onclick="showPurchaseForm()">Cadastrar estabelecimento grátis</button>
             <button class="btn btn-secondary" onclick="window.location.href='login.html'">Login Administrativo</button>
             <button class="btn btn-motoboy" onclick="window.location.href='motoboy-login.html'">Cadastro Motoboy</button>
         </div>
@@ -1332,15 +1332,7 @@ Sistema completo de pedidos para restaurantes
                 purchaseDate: new Date().toISOString(),
                 isAuthenticated: true,
                 uniqueId: uniqueId,
-                // Inicializar assinatura do domínio
-                assinatura: {
-                    valorDominio: 60.00, // R$ 60,00 anualmente
-                    dataCompra: new Date().toISOString(),
-                    dataVencimento: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString(),
-                    ultimoPagamento: new Date().toISOString(),
-                    statusPagamento: 'pago',
-                    avisoMostrado: false
-                }
+                // Sem assinatura ou cobrança anual de domínio.
             };
             
             localStorage.setItem('establishmentData', JSON.stringify(establishmentData));
