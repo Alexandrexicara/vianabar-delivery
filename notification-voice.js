@@ -110,6 +110,19 @@
     }
   }
 
+  function vibrateForNotification(type) {
+    // Vibração nativa do Android quando o navegador oferece suporte.
+    // O padrão curto diferencia os alertas sem manter o aparelho vibrando.
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      const pattern = (type === 'callWaiter' || type === 'requestPayment')
+        ? [220, 90, 220, 90, 220]
+        : [180, 80, 180];
+      try { navigator.vibrate(pattern); } catch (error) {
+        console.debug('[Delivery Day] Vibração indisponível:', error);
+      }
+    }
+  }
+
   function handleMessage(event) {
     let data;
     try { data = JSON.parse(event.data); } catch (_) { return; }
