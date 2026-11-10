@@ -1495,8 +1495,8 @@
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Não foi possível adicionar à vitrine.');
-                await loadMenuItems();
                 await loadVitrineProducts();
+                await loadMenuItems();
             } catch (error) {
                 alert(error.message || 'Não foi possível adicionar à vitrine.');
             }
@@ -1511,8 +1511,8 @@
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Não foi possível remover da vitrine.');
-                await loadMenuItems();
                 await loadVitrineProducts();
+                await loadMenuItems();
             } catch (error) {
                 alert(error.message || 'Não foi possível remover da vitrine.');
             }
