@@ -1,0 +1,16 @@
+{
+  "name": "Delivery Day",
+  "short_name": "Delivery Day",
+  "description": "Peça em bares, restaurantes e mercados pelo Delivery Day.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#f55a1d",
+  "lang": "pt-BR"
+}
