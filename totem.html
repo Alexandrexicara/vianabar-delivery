@@ -1141,45 +1141,29 @@
         }
 
         // Carregar Itens do Menu
-        function loadMenuItems() {
-            // Carregar do localStorage (sistema real)
-            const savedItems = localStorage.getItem('menuItems');
-            if (savedItems) {
-                try {
-                    menuItems = JSON.parse(savedItems);
-                    console.log('[TOTEM] Carregados', menuItems.length, 'produtos do localStorage');
-                } catch (e) {
-                    console.error('[TOTEM] Erro ao carregar produtos:', e);
-                    menuItems = [];
-                }
-            } else {
-                console.log('[TOTEM] Nenhum produto encontrado no localStorage');
-                menuItems = [];
+        async function loadMenuItems() {
+            try {
+                const response = await fetch('/api/products?storeId=main', { cache: 'no-store' });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Falha ao carregar produtos');
+                menuItems = result.products || [];
+                localStorage.setItem('menuItems', JSON.stringify(menuItems));
+                console.log('[TOTEM] Produtos sincronizados com PostgreSQL:', menuItems.length);
+            } catch (error) {
+                console.error('[TOTEM] Falha na sincronização; usando cache local:', error);
+                try { menuItems = JSON.parse(localStorage.getItem('menuItems') || '[]'); }
+                catch (_) { menuItems = []; }
             }
-            
-            // Se não tiver produtos, mostrar mensagem
             if (menuItems.length === 0) {
                 const menuGrid = document.getElementById('menuGrid');
                 menuGrid.innerHTML = `
-                    <div style="text-align: center; padding: 60px 20px; color: #6c757d;">
-                        <div style="font-size: 4rem; margin-bottom: 20px;">📭</div>
-                        <h3 style="font-size: 1.5rem; margin-bottom: 15px;">Nenhum produto encontrado</h3>
-                        <p style="font-size: 1.1rem; line-height: 1.6;">
-                            Por favor, cadastre produtos no sistema de administração<br>
-                            (qr-management.html) para que eles apareçam aqui.
-                        </p>
-                        <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px; border-left: 4px solid #667eea;">
-                            <strong>Para administrador:</strong><br>
-                            1. Acesse qr-management.html<br>
-                            2. Clique em "+ Adicionar Item"<br>
-                            3. Cadastre seus produtos<br>
-                            4. Recarregue esta página
-                        </div>
-                    </div>
-                `;
+                    <div style="text-align:center;padding:60px 20px;color:#6c757d;">
+                        <div style="font-size:4rem;margin-bottom:20px;">📭</div>
+                        <h3 style="font-size:1.5rem;margin-bottom:15px;">Nenhum produto encontrado</h3>
+                        <p style="font-size:1.1rem;line-height:1.6;">Cadastre produtos no painel administrativo para que apareçam aqui.</p>
+                    </div>`;
                 return;
             }
-            
             renderMenuItems();
         }
 
