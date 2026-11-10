@@ -1258,12 +1258,22 @@
             document.body.offsetHeight; // Trigger reflow
         }
         
+        function productAdminHeaders() {
+            let establishment = {};
+            try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
+            const authenticated = localStorage.getItem('adminAccess') === 'true' || establishment.isAuthenticated === true;
+            return {
+                'Content-Type': 'application/json',
+                'X-Admin-Access': authenticated ? 'true' : 'false'
+            };
+        }
+
         async function saveItem(itemData) {
             try {
                 const response = await fetch('/api/products', {
                     method: 'POST',
                     credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: productAdminHeaders(),
                     body: JSON.stringify({ ...itemData, storeId: 'main', storeName: 'Cardápio Principal' })
                 });
                 const result = await response.json();
@@ -1300,7 +1310,7 @@
                 for (const cachedProduct of missingCachedProducts) {
                     const saveResponse = await fetch('/api/products', {
                         method: 'POST', credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: productAdminHeaders(),
                         body: JSON.stringify({ ...cachedProduct, storeId: 'main', storeName: 'Cardápio Principal' })
                     });
                     if (!saveResponse.ok) {
@@ -1312,7 +1322,7 @@
                     for (const cachedProduct of cachedShowcase.slice(0, 8)) {
                         const showcaseResponse = await fetch(`/api/products/${encodeURIComponent(cachedProduct.id)}/showcase`, {
                             method: 'PATCH', credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: productAdminHeaders(),
                             body: JSON.stringify({ storeId: 'main', showcase: true })
                         });
                         if (!showcaseResponse.ok && showcaseResponse.status !== 409) {
@@ -1396,7 +1406,7 @@
             try {
                 const response = await fetch(`/api/products/${encodeURIComponent(itemId)}`, {
                     method: 'PUT', credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated)
+                    headers: productAdminHeaders(), body: JSON.stringify(updated)
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Falha ao atualizar produto.');
@@ -1416,7 +1426,7 @@
         async function deleteMenuItem(itemId) {
             if (!confirm('Tem certeza que deseja apagar este produto? Esta ação não pode ser desfeita.')) return;
             try {
-                const response = await fetch(`/api/products/${encodeURIComponent(itemId)}`, { method: 'DELETE', credentials: 'include' });
+                const response = await fetch(`/api/products/${encodeURIComponent(itemId)}`, { method: 'DELETE', credentials: 'include', headers: productAdminHeaders() });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Falha ao apagar produto.');
                 await loadMenuItems();
@@ -1480,7 +1490,7 @@
             try {
                 const response = await fetch(`/api/products/${encodeURIComponent(productId)}/showcase`, {
                     method: 'PATCH', credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: productAdminHeaders(),
                     body: JSON.stringify({ storeId: 'main', showcase: true })
                 });
                 const result = await response.json();
@@ -1496,7 +1506,7 @@
             try {
                 const response = await fetch(`/api/products/${encodeURIComponent(productId)}/showcase`, {
                     method: 'PATCH', credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: productAdminHeaders(),
                     body: JSON.stringify({ storeId: 'main', showcase: false })
                 });
                 const result = await response.json();
