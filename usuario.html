@@ -1123,6 +1123,25 @@
     // Global WebSocket variable
     window.ws = null;
 
+    async function loadMerchantMenuSettings() {
+        const params = new URLSearchParams(window.location.search);
+        const hostParts = window.location.hostname.split('.');
+        const subdomain = hostParts.length >= 3 && hostParts.slice(-2).join('.') === 'cardapiodigital.com.br' ? hostParts[0] : '';
+        const storeId = (params.get('loja') || subdomain || 'main').slice(0,120);
+        try {
+            const response = await fetch('/api/merchant-settings/' + encodeURIComponent(storeId), { cache: 'no-store' });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Falha ao carregar personalização da loja.');
+            const settings = result.settings || {};
+            localStorage.setItem('establishmentCustomizations', JSON.stringify(settings));
+            console.log('[MERCHANT-SETTINGS] Personalização carregada do Neon para:', storeId);
+            return settings;
+        } catch (error) {
+            console.error('[MERCHANT-SETTINGS] Não foi possível carregar a personalização:', error);
+            return null;
+        }
+    }
+
     async function loadMenuItems() {
         console.log('[DEBUG] Carregando cardápio do estabelecimento identificado pelo QR Code');
         const urlParams = new URLSearchParams(window.location.search);
@@ -1991,7 +2010,7 @@
         }
     }
     
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', async function() {
         // Sistema de assinatura do domínio - verificar antes de continuar
         const establishmentData = JSON.parse(localStorage.getItem('establishmentData') || '{}');
         
@@ -2073,7 +2092,8 @@
             // The actual data would be stored with the establishment ID as context
         }
         
-        // Aplicar customizações imediatamente
+        // Buscar primeiro as personalizações da loja no Neon; depois aplicar no cardápio.
+        await loadMerchantMenuSettings();
         applyCustomizationsToMenu();
         
         // Carregar itens do menu
