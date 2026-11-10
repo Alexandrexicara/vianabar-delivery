@@ -1291,22 +1291,24 @@
                 let result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Falha ao carregar produtos.');
 
-                // Migra os produtos antigos deste navegador somente se o banco ainda estiver vazio.
-                let serverProducts = result.products || [];
+                // Importa somente produtos locais ausentes, sem sobrescrever dados mais recentes do servidor.
                 const cachedProducts = JSON.parse(localStorage.getItem('menuItems') || '[]');
                 const cachedShowcase = JSON.parse(localStorage.getItem('vitrineProducts') || '[]');
-                if (serverProducts.length === 0 && cachedProducts.length > 0) {
-                    for (const cachedProduct of cachedProducts) {
-                        const saveResponse = await fetch('/api/products', {
-                            method: 'POST', credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ ...cachedProduct, storeId: 'main', storeName: 'Cardápio Principal' })
-                        });
-                        if (!saveResponse.ok) {
-                            const saveError = await saveResponse.json().catch(() => ({}));
-                            throw new Error(saveError.error || 'Não foi possível migrar os produtos antigos.');
-                        }
+                const restoreOldShowcase = serverProducts.length === 0;
+                const existingIds = new Set(serverProducts.map(product => String(product.id)));
+                const missingCachedProducts = cachedProducts.filter(product => !existingIds.has(String(product.id)));
+                for (const cachedProduct of missingCachedProducts) {
+                    const saveResponse = await fetch('/api/products', {
+                        method: 'POST', credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ...cachedProduct, storeId: 'main', storeName: 'Cardápio Principal' })
+                    });
+                    if (!saveResponse.ok) {
+                        const saveError = await saveResponse.json().catch(() => ({}));
+                        throw new Error(saveError.error || 'Não foi possível migrar os produtos antigos.');
                     }
+                }
+                if (restoreOldShowcase) {
                     for (const cachedProduct of cachedShowcase.slice(0, 8)) {
                         const showcaseResponse = await fetch(`/api/products/${encodeURIComponent(cachedProduct.id)}/showcase`, {
                             method: 'PATCH', credentials: 'include',
@@ -1317,11 +1319,13 @@
                             throw new Error('Produtos foram migrados, mas não foi possível restaurar toda a vitrine.');
                         }
                     }
+                }
+                if (missingCachedProducts.length > 0 || (restoreOldShowcase && cachedShowcase.length > 0)) {
                     const refreshed = await fetch('/api/products?storeId=main', { credentials: 'include', cache: 'no-store' });
                     result = await refreshed.json();
                     if (!refreshed.ok) throw new Error(result.error || 'Falha ao confirmar a migração.');
                     serverProducts = result.products || [];
-                    console.log('[MIGRACAO] Produtos locais enviados ao PostgreSQL:', serverProducts.length);
+                    console.log('[MIGRACAO] Produtos locais enviados ao PostgreSQL:', missingCachedProducts.length);
                 }
                 localStorage.setItem('menuItems', JSON.stringify(serverProducts));
             } catch (error) {
