@@ -579,8 +579,19 @@
                 const response=await fetch(merchantSettingsApiUrl(),{credentials:'include',cache:'no-store'});
                 const result=await response.json();
                 if(!response.ok) throw new Error(result.error||'Falha ao carregar configurações.');
-                const c=result.settings||{};
-                localStorage.setItem('establishmentCustomizations',JSON.stringify(c));
+                let c=result.settings||{};
+                const cached=JSON.parse(localStorage.getItem('establishmentCustomizations')||'{}');
+                // Migra para o Neon as personalizações antigas que existiam somente neste navegador.
+                if(Object.keys(c).length===0 && Object.keys(cached).length>0) {
+                    const migration=await fetch(merchantSettingsApiUrl(),{
+                        method:'PUT',credentials:'include',headers:productAdminHeaders(),
+                        body:JSON.stringify({settings:cached})
+                    });
+                    const migrated=await migration.json();
+                    if(migration.ok) c=migrated.settings||cached;
+                    else console.warn('[MERCHANT-SETTINGS] Migração local pendente:',migrated.error);
+                }
+                if(Object.keys(c).length>0) localStorage.setItem('establishmentCustomizations',JSON.stringify(c));
                 ['establishmentName','establishmentTagline','establishmentAddress','establishmentPhone','establishmentHours','primaryColor','secondaryColor','facebook','instagram','whatsapp'].forEach(id=>{
                     const el=document.getElementById(id); if(el&&c[id]!==undefined) el.value=c[id];
                 });
