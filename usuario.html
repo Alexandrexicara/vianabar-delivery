@@ -1122,19 +1122,22 @@
     window.ws = null;
 
     async function loadMenuItems() {
-        console.log('[DEBUG] Carregando itens do menu compartilhado');
+        console.log('[DEBUG] Carregando cardápio do estabelecimento identificado pelo QR Code');
         const urlParams = new URLSearchParams(window.location.search);
         const isDeveloper = urlParams.get('developer') === 'true';
+        const storeId = (urlParams.get('loja') || 'main').slice(0, 120);
+        const cacheKey = 'menuItems_' + storeId.replace(/[^a-zA-Z0-9_-]/g, '_');
         let menuItems = [];
         try {
-            const response = await fetch('/api/products?storeId=main', { cache: 'no-store' });
+            const response = await fetch('/api/products?storeId=' + encodeURIComponent(storeId), { cache: 'no-store' });
             const result = await response.json();
             if (!response.ok) throw new Error(result.error || 'Falha ao carregar produtos');
             menuItems = result.products || [];
-            localStorage.setItem('menuItems', JSON.stringify(menuItems));
+            localStorage.setItem(cacheKey, JSON.stringify(menuItems));
+            if (storeId === 'main') localStorage.setItem('menuItems', JSON.stringify(menuItems));
         } catch (error) {
             console.error('[MENU] Falha ao consultar PostgreSQL; usando cache:', error);
-            menuItems = JSON.parse(localStorage.getItem('menuItems') || '[]');
+            menuItems = JSON.parse(localStorage.getItem(cacheKey) || (storeId === 'main' ? localStorage.getItem('menuItems') : '[]') || '[]');
         }
         console.log('[DEBUG] Menu items carregados:', menuItems);
         if (menuItems.length === 0 && isDeveloper) {
