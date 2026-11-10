@@ -1442,9 +1442,18 @@
         // ✅ NOVO: Carregar motoboys reais do localStorage
         function loadMotoboys() {
             try {
-                const motoboys = JSON.parse(localStorage.getItem('motoboys') || '[]');
+                const stored = JSON.parse(localStorage.getItem('motoboys') || '[]');
+                // Compatibilidade com versões antigas que salvaram a lista dentro de um objeto.
+                const motoboys = Array.isArray(stored)
+                    ? stored
+                    : (Array.isArray(stored?.motoboys) ? stored.motoboys
+                    : (Array.isArray(stored?.data) ? stored.data
+                    : (Array.isArray(stored?.items) ? stored.items : [])));
+                if (!Array.isArray(stored)) {
+                    console.warn('[CREATOR] Formato antigo/inválido em localStorage.motoboys; lista normalizada.');
+                }
                 console.log('[CREATOR] 🏍️ Motoboys carregados:', motoboys.length);
-                return motoboys;
+                return motoboys.filter(m => m && typeof m === 'object');
             } catch (error) {
                 console.error('[CREATOR] Erro ao carregar motoboys:', error);
                 return [];
@@ -1634,11 +1643,12 @@
             const motoboys = loadMotoboys();
             const container = document.getElementById('motoboyList');
             
-            const filtered = motoboys.filter(m => 
-                m.name.toLowerCase().includes(searchTerm) ||
-                m.cpf.includes(searchTerm) ||
-                m.vehicle?.plate.toLowerCase().includes(searchTerm)
-            );
+            const filtered = motoboys.filter(m => {
+                const name = String(m.name || '').toLowerCase();
+                const cpf = String(m.cpf || '').toLowerCase();
+                const plate = String(m.vehicle?.plate || '').toLowerCase();
+                return name.includes(searchTerm) || cpf.includes(searchTerm) || plate.includes(searchTerm);
+            });
             
             container.innerHTML = filtered.map((motoboy, index) => `
                 <div class="merchant-item" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee;">
