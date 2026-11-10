@@ -15,7 +15,7 @@ const app = express();
 const server = http.createServer(app);
 
 // Middleware
-app.use(cors());
+app.use(cors({ origin: ['https://delivery-day.netlify.app'], credentials: true, methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'], allowedHeaders: ['Content-Type','Authorization'] }));
 
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true }));
