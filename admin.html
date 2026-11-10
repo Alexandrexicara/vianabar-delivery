@@ -830,16 +830,7 @@
                 <h3>Personalização & QR Code</h3>
                 <p>Gerencie a aparência do seu estabelecimento e o QR code do cardápio.</p>
                 
-                <!-- Banner promocional do sistema CARDÁPIO DIGITAL UNIVERSAL -->
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                    <h3 style="margin: 0 0 10px 0; font-size: 18px;">📱 CARDÁPIO DIGITAL UNIVERSAL</h3>
-                    <p style="margin: 0 0 10px 0; font-size: 14px;">O sistema completo de pedidos automatizados para restaurantes e estabelecimentos comerciais</p>
-                    <div style="display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; margin: 10px 0;">
-                        <div style="background-color: #4CAF50; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 16px;">R$ 500,00</div>
-                        <div style="font-size: 12px; opacity: 0.9;">Investimento único com acesso vitalício</div>
-                    </div>
-                    <p style="margin: 10px 0 0 0; font-size: 12px; opacity: 0.8;">Acesse em: http://172.24.154.187:3002/qr-management.html</p>
-                </div>
+                <p class="system-free-note">Sistema gratuito para o estabelecimento. É aplicada somente a taxa do sistema por pedido, com valor definido pelo criador.</p>
                 
                 <button class="btn btn-primary" onclick="openQrManagementWithAuth()" style="background: #3498db; color: white; border: none; padding: 15px 25px; border-radius: 8px; font-size: 1.2em; font-weight: bold; min-width: 200px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">⚙️ ACESSAR PERSONALIZAÇÃO</button>
                 <div class="url-display-box">
@@ -1414,8 +1405,7 @@
             applyCustomizationsToAdmin();
             console.log('[DEBUG] Customizações aplicadas no admin');
             
-            // Iniciar sistema de assinatura do domínio
-            iniciarSistemaAssinatura();
+            // O sistema não possui cobrança nem bloqueio por renovação de domínio.
             
             // Forçar aplicação das customizações após um pequeno delay
             setTimeout(() => {
