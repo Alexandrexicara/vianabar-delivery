@@ -301,39 +301,10 @@
             <h2>QR Code do Estabelecimento</h2>
             <p>Este é o QR code único para todo o seu estabelecimento. Imprima e posicione em todas as mesas.</p>
             
-            <!-- Informações sobre domínios -->
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                <h3 style="margin: 0 0 10px 0; font-size: 18px;">🌐 cardapiodigital.com.br</h3>
-                <p style="margin: 0 0 10px 0; font-size: 14px;">Domínio do sistema - Seu portal de acesso</p>
-                <div style="display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; margin: 10px 0;">
-                    <div style="background-color: #4CAF50; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 16px;">R$ 500,00</div>
-                    <div style="font-size: 12px; opacity: 0.9;">Investimento único com acesso vitalício</div>
-                </div>
-                <p style="margin: 10px 0 0 0; font-size: 12px; opacity: 0.8;">Domínio do sistema: https://cardapiodigital.com.br</p>
+            <div style="background:#f4fff6;border-left:4px solid #20a45a;padding:12px 15px;border-radius:8px;margin-bottom:20px;color:#28543a;">
+                <strong>Uso gratuito:</strong> não há cobrança pelo cardápio nem pelo domínio. O sistema aplica somente uma taxa por pedido, cujo valor será definido pelo criador.
             </div>
-            
-            <!-- Informações sobre domínio do estabelecimento -->
-            <div style="background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                <h3 style="margin: 0 0 10px 0; font-size: 18px;">Domínio Personalizado</h3>
-                <p style="margin: 0 0 10px 0; font-size: 14px;">Domínio do seu estabelecimento - R$ 60,00/ano</p>
-                <div style="display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; margin: 10px 0;">
-                    <div style="background-color: #f39c12; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 16px;">R$ 60,00</div>
-                    <div style="font-size: 12px; opacity: 0.9;">Taxa anual de hospedagem</div>
-                </div>
-                <p style="margin: 10px 0 0 0; font-size: 12px; opacity: 0.8;">Exemplo: https://seu-restaurante.cardapiodigital.com.br</p>
-            </div>
-            
-            <!-- Informações sobre o sistema de pagamento e bloqueio -->
-            <div style="background-color: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; border-left: 4px solid #3498db;">
-                <h3 style="color: #2c3e50; margin: 0 0 10px 0;">Funcionamento do Sistema</h3>
-                <p style="margin: 10px 0;">
-                    <strong>Primeiro ano:</strong> Gratuito após a compra do sistema<br>
-                    <strong>Renovação anual:</strong> R$ 60,00 para manter o domínio ativo<br>
-                    <strong>Avisos:</strong> Você receberá alertas 30 dias antes do vencimento<br>
-                    <strong>Bloqueio:</strong> O acesso é bloqueado após o vencimento até a renovação
-                </p>
-            </div>
-            
+
             <div style="text-align: center; margin: 30px 0;">
                 <div style="display: inline-block; padding: 20px; background-color: white; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">
                     <h3>QR Code do Estabelecimento</h3>
@@ -1396,7 +1367,7 @@ function printQRCode() {
     html += '<style>body{font-family:Arial,sans-serif;margin:20px;text-align:center}.banner{background:#667eea;color:white;padding:15px;border-radius:10px;margin:20px 0}#print-qr{width:300px;height:300px;margin:0 auto;border:2px solid #333}.url{margin:15px 0;word-break:break-all}</style>';
     html += '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>';
     html += '</head><body>';
-    html += '<div class="banner"><h3>🌐 cardapiodigital.com.br</h3><p>Seu portal de acesso - R$ 500,00 vitalício</p></div>';
+    html += '<div class="banner"><h3>Cardápio Digital</h3><p>Sistema gratuito para o estabelecimento</p></div>';
     html += '<h2>QR Code do Estabelecimento</h2>';
     html += '<div><div id="print-qr"></div><div class="url">' + currentUrl + '</div></div>';
     html += '<script>setTimeout(function(){if(typeof QRCode!=="undefined"){new QRCode(document.getElementById("print-qr"),{text:"' + currentUrl + '",width:300,height:300,colorDark:"#1e3a8a",colorLight:"#ffffff"});setTimeout(function(){window.print();window.close();},1000);}},500);<\/script>';
