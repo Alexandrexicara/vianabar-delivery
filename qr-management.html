@@ -1318,7 +1318,7 @@
                                 <div style="display: flex; gap: 8px;">
                                     <button onclick="editMenuItem(${item.id})" style="background: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">✏️ Editar</button>
                                     <button onclick="deleteMenuItem(${item.id})" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">🗑️ Apagar</button>
-                                    <button onclick="addToVitrine(${item.id})" style="background: #27ae60; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">🏪 Adicionar à Vitrine</button>
+                                    ${JSON.parse(localStorage.getItem('vitrineProducts') || '[]').some(p => String(p.id) === String(item.id)) ? '<span style="background:#e8f5e9;color:#2e7d32;padding:6px 10px;border-radius:4px;font-size:12px;">✓ Na vitrine</span>' : '<button onclick="addToVitrine(' + "'" + item.id + "'" + ')" style="background:#27ae60;color:white;border:0;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;">🏪 Adicionar à Vitrine</button>'}
                                 </div>
                             </div>
                         </div>
