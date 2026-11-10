@@ -20,6 +20,7 @@ app.use(cors());
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static('uploads'));
+app.use('/api/notification-voice', require('./routes/notificationVoice'));
 
 // 🔥 NOVAS ROTAS DE PAGAMENTO E DELIVERY
 app.use("/pagamento", require("./routes/pagamento"));
