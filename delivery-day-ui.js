@@ -82,8 +82,8 @@
     document.body.appendChild(banner);
   }
   const style = document.createElement('style'); style.textContent = STYLE; document.head.appendChild(style);
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { addBrand(); addNavigation(); showBanner(); });
-  else { addBrand(); addNavigation(); showBanner(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { addNavigation(); showBanner(); });
+  else { addNavigation(); showBanner(); }
   window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); installEvent = event; showBanner(); });
   window.addEventListener('appinstalled', hideBanner);
 })();
