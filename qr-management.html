@@ -1289,6 +1289,7 @@
                 const response = await fetch('/api/products?storeId=' + encodeURIComponent(getMerchantStoreId()) + '', { credentials: 'include', cache: 'no-store' });
                 let result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Falha ao carregar produtos.');
+                let serverProducts = result.products || [];
 
                 // Importa somente produtos locais ausentes, sem sobrescrever dados mais recentes do servidor.
                 const cachedProducts = JSON.parse(localStorage.getItem('menuItems') || '[]');
