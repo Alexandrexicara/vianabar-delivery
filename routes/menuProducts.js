@@ -3,8 +3,12 @@ const express = require('express');
 const { Pool } = require('pg');
 
 const router = express.Router();
-let creatorGuard = null;
-const requireCreator = (req, res, next) => creatorGuard ? creatorGuard(req, res, next) : res.status(503).json({ success: false, error: 'Autenticação indisponível.' });
+function requireAdmin(req, res, next) {
+  if (req.get('X-Admin-Access') !== 'true') {
+    return res.status(401).json({ success: false, error: 'Faça login no painel administrativo para alterar produtos.' });
+  }
+  next();
+}
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
@@ -46,7 +50,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/', requireCreator, async (req, res) => {
+router.post('/', requireAdmin, async (req, res) => {
   try {
     const item = req.body || {};
     const id = String(item.id || Date.now());
@@ -70,7 +74,7 @@ router.post('/', requireCreator, async (req, res) => {
   }
 });
 
-router.put('/:id', requireCreator, async (req, res) => {
+router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const item = req.body || {};
     const name = String(item.name || '').trim();
@@ -89,7 +93,7 @@ router.put('/:id', requireCreator, async (req, res) => {
   }
 });
 
-router.delete('/:id', requireCreator, async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const result = await pool.query('DELETE FROM menu_products WHERE id=$1 RETURNING id', [String(req.params.id)]);
     if (!result.rowCount) return res.status(404).json({ success: false, error: 'Produto não encontrado.' });
@@ -100,7 +104,7 @@ router.delete('/:id', requireCreator, async (req, res) => {
   }
 });
 
-router.patch('/:id/showcase', requireCreator, async (req, res) => {
+router.patch('/:id/showcase', requireAdmin, async (req, res) => {
   const client = await pool.connect();
   try {
     const storeId = String(req.body?.storeId || 'main').slice(0, 120);
@@ -136,7 +140,4 @@ router.patch('/:id/showcase', requireCreator, async (req, res) => {
   }
 });
 
-module.exports = (guard) => {
-  creatorGuard = guard;
-  return router;
-};
+module.exports = () => router;
