@@ -3,6 +3,7 @@ const express = require('express');
 const { Pool } = require('pg');
 
 const router = express.Router();
+let requireCreator;
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
@@ -134,10 +135,7 @@ router.patch('/:id/showcase', requireCreator, async (req, res) => {
   }
 });
 
-module.exports = (requireCreator) => {
-  router.use((req, res, next) => {
-    req.requireCreator = requireCreator;
-    next();
-  });
+module.exports = (guard) => {
+  requireCreator = guard;
   return router;
 };
