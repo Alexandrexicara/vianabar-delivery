@@ -168,14 +168,36 @@
         }
 
 
-        /* Cabeçalho compacto no celular para dar mais espaço aos produtos */
+        /* Redução de aproximadamente 40% do painel verde de busca no celular */
         @media (max-width: 768px) {
             .marketplace-header {
-                padding: 18px 16px;
-                margin-bottom: 12px;
+                padding: 12px 14px;
+                margin-bottom: 10px;
             }
 
             .marketplace-header h2 {
+                font-size: 20px;
+                line-height: 1.08;
+                margin-bottom: 5px;
+            }
+
+            .marketplace-header p {
+                font-size: 12px;
+                line-height: 1.2;
+            }
+
+            .marketplace-header .search-section {
+                margin-top: 8px;
+            }
+
+            .marketplace-header .search-input {
+                height: 42px;
+                padding: 5px 10px;
+                font-size: 13px;
+            }
+        }
+
+        .marketplace-header h2 {
                 font-size: 25px;
                 line-height: 1.15;
                 margin-bottom: 6px;
