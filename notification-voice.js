@@ -20,7 +20,7 @@
     label.textContent = 'Avisos por voz';
     unlockButton = document.createElement('button');
     unlockButton.type = 'button';
-    unlockButton.id = 'delivery-voice-enable';
+    unlockButton.id = 'delivery-voice-enable-button';
     unlockButton.textContent = 'Ativar áudio';
     unlockButton.style.cssText = 'border:0;border-radius:8px;padding:8px 11px;background:#b7f34a;color:#14210b;font-weight:700';
     unlockButton.addEventListener('click', async () => {
