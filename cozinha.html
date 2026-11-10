@@ -953,60 +953,7 @@
     <script>
         // Apply customizations when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            // Sistema de assinatura do domínio - verificar antes de continuar
-            const establishmentData = JSON.parse(localStorage.getItem('establishmentData') || '{}');
-            
-            if (establishmentData.assinatura) {
-                const agora = new Date();
-                const dataVencimento = new Date(establishmentData.assinatura.dataVencimento);
-                const diasParaVencer = Math.ceil((dataVencimento - agora) / (1000 * 60 * 60 * 24));
-                
-                if (diasParaVencer <= 0) {
-                    // Mostrar aviso de domínio expirado
-                    const overlay = document.createElement('div');
-                    overlay.id = 'dominioExpirado';
-                    overlay.style.cssText = `
-                        position: fixed;
-                        top: 0;
-                        left: 0;
-                        width: 100%;
-                        height: 100%;
-                        background: rgba(0,0,0,0.9);
-                        z-index: 10001;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        backdrop-filter: blur(5px);
-                    `;
-                    
-                    overlay.innerHTML = `
-                        <div style="
-                            background: white;
-                            padding: 40px;
-                            border-radius: 15px;
-                            text-align: center;
-                            max-width: 500px;
-                            margin: 20px;
-                            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-                        ">
-                            <div style="font-size: 60px; margin-bottom: 20px;">🔒</div>
-                            <h2 style="color: #e74c3c; margin-bottom: 20px;">Acesso Bloqueado</h2>
-                            <p style="font-size: 18px; margin-bottom: 30px; line-height: 1.6;">
-                                O domínio deste estabelecimento expirou.
-                                <br><br>
-                                Entre em contato com o administrador para renovar a assinatura.
-                            </p>
-                            <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0;">
-                                <p style="margin: 0; font-size: 20px; font-weight: bold; color: #e74c3c;">Valor da Renovação: R$ 60,00</p>
-                            </div>
-                        </div>
-                    `;
-                    
-                    document.body.appendChild(overlay);
-                    return; // Interromper carregamento da página
-                }
-            }
-            
+            // O acesso não depende de assinatura ou renovação de domínio.
             applyCustomizationsToMenu();
         });
     </script>
