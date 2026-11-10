@@ -934,56 +934,29 @@
         }
 
         // Carregar produtos do cardápio principal
-        window.loadMenuItems = function() {
+        window.loadMenuItems = async function() {
             try {
-                // Verificar se veio de uma loja específica
                 const urlParams = new URLSearchParams(window.location.search);
-                const storeId = urlParams.get('storeId');
+                const storeId = urlParams.get('storeId') || 'main';
                 const storeName = urlParams.get('storeName');
-                
-                if (storeId) {
-                    console.log('[DELIVERY] Carregando produtos da loja:', storeId, storeName);
-                    
-                    // Mostrar nome da loja no header
+                if (storeName) {
                     const headerTitle = document.querySelector('.delivery-header h1');
-                    if (headerTitle && storeName) {
-                        headerTitle.textContent = '🏪 ' + storeName;
-                    }
-                    
-                    // Carregar vitrine da loja específica
-                    const showcase = JSON.parse(localStorage.getItem('productShowcase') || '[]');
-                    const storeProducts = showcase.filter(p => p.storeId == storeId);
-                    
-                    if (storeProducts.length > 0) {
-                        window.menuItems = storeProducts;
-                        console.log('[DELIVERY] Produtos da loja carregados:', window.menuItems.length);
-                        renderMenuItems();
-                    } else {
-                        // Se não tiver vitrine, carrega todos os produtos
-                        const savedMenuItems = localStorage.getItem('menuItems');
-                        if (savedMenuItems) {
-                            window.menuItems = JSON.parse(savedMenuItems);
-                            console.log('[DELIVERY] Menu items carregados do localStorage:', window.menuItems.length);
-                            renderMenuItems();
-                        } else {
-                            window.menuItems = [];
-                        }
-                    }
-                } else {
-                    // Sem loja específica, carrega tudo
-                    const savedMenuItems = localStorage.getItem('menuItems');
-                    if (savedMenuItems) {
-                        window.menuItems = JSON.parse(savedMenuItems);
-                        console.log('[DELIVERY] Menu items carregados do localStorage:', window.menuItems.length);
-                        renderMenuItems();
-                    } else {
-                        console.log('[DELIVERY] Nenhum item encontrado no localStorage');
-                        window.menuItems = [];
-                    }
+                    if (headerTitle) headerTitle.textContent = '🏪 ' + storeName;
                 }
+                const response = await fetch(`/api/products?storeId=${encodeURIComponent(storeId)}`, { cache: 'no-store' });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Falha ao carregar produtos');
+                const products = result.products || [];
+                const showcase = result.showcase || [];
+                localStorage.setItem('menuItems', JSON.stringify(products));
+                localStorage.setItem('vitrineProducts', JSON.stringify(showcase));
+                window.menuItems = storeId !== 'main' && showcase.length ? showcase : products;
+                console.log('[DELIVERY] Produtos sincronizados com PostgreSQL:', window.menuItems.length);
+                renderMenuItems();
             } catch (error) {
-                console.error('[DELIVERY] Erro ao carregar menu items:', error);
-                window.menuItems = [];
+                console.error('[DELIVERY] Erro ao carregar produtos do servidor:', error);
+                window.menuItems = JSON.parse(localStorage.getItem('menuItems') || '[]');
+                renderMenuItems();
             }
         }
 
