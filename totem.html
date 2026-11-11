@@ -1458,7 +1458,7 @@
                     return;
                 }
                 const paymentLabel = paymentMethod === 'card' ? 'cartão' : 'dinheiro';
-                showSuccessScreen('Pedido registrado!', 'Dirija-se ao caixa para pagar com ' + paymentLabel + '. O preparo já foi avisado.');
+                showSuccessScreen('Pedido registrado!', 'Dirija-se ao caixa para pagar com ' + paymentLabel + '. O pedido só será enviado para preparo depois que o caixa confirmar o recebimento.');
             } catch (error) {
                 console.error('[TOTEM] Erro ao registrar pedido:', error);
                 if (error.orderId) {
