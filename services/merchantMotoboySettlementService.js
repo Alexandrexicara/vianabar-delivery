@@ -116,8 +116,37 @@ async function autorizarLoteComerciante({ merchantId, batchId, authorizedBy }) {
 }
 
 // Chamadas internas: só a integração autenticada do provedor pode marcar processamento/liquidação.
+
+async function marcarLoteEmProcessamento({ batchId, provider }) {
+  const batch = Number(batchId);
+  if (!Number.isSafeInteger(batch) || batch <= 0) throw new Error('Lote inválido.');
+  const providerName = id(provider, 'Provedor');
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const updated = await client.query(
+      "UPDATE merchant_delivery_payout_batches SET status='processing',provider=$2,updated_at=NOW() WHERE id=$1 AND status='authorized' RETURNING *",
+      [batch, providerName]
+    );
+    if (!updated.rowCount) throw new Error('Lote não está autorizado ou não existe.');
+    await client.query(
+      "INSERT INTO merchant_delivery_payout_events (batch_id,event_type,details) VALUES ($1,'provider_processing',$2::jsonb)",
+      [batch, JSON.stringify({ provider: providerName })]
+    );
+    await client.query('COMMIT');
+    return updated.rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function confirmarLotePago({ batchId, provider, providerReference }) {
-  const batch = Number(batchId), providerName = id(provider,'Provedor'), reference = id(providerReference,'Referência');
+  const batch = Number(batchId);
+  if (!Number.isSafeInteger(batch) || batch <= 0) throw new Error('Lote inválido.');
+  const providerName = id(provider,'Provedor'), reference = id(providerReference,'Referência');
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -138,7 +167,9 @@ async function confirmarLotePago({ batchId, provider, providerReference }) {
 }
 
 async function registrarFalhaLote({ batchId, provider, reason }) {
-  const batch = Number(batchId), providerName = id(provider,'Provedor'), detail = String(reason || 'Falha informada pelo provedor').slice(0,1000);
+  const batch = Number(batchId);
+  if (!Number.isSafeInteger(batch) || batch <= 0) throw new Error('Lote inválido.');
+  const providerName = id(provider,'Provedor'), detail = String(reason || 'Falha informada pelo provedor').slice(0,1000);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -154,4 +185,4 @@ async function registrarFalhaLote({ batchId, provider, reason }) {
   } finally { client.release(); }
 }
 
-module.exports = { registrarObrigacaoEntrega, listarPendenciasComerciante, criarLotePagamento, autorizarLoteComerciante, confirmarLotePago, registrarFalhaLote };
+module.exports = { registrarObrigacaoEntrega, listarPendenciasComerciante, criarLotePagamento, autorizarLoteComerciante, marcarLoteEmProcessamento, confirmarLotePago, registrarFalhaLote };
