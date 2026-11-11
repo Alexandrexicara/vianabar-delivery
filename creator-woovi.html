@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Conectar Ovi — VianaBar</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:24px;background:#f3f6fa;font-family:Arial,sans-serif;color:#17212b}
+main{max-width:640px;margin:5vh auto;background:#fff;padding:28px;border-radius:14px;box-shadow:0 8px 28px #17212b12}
+h1{margin:0 0 8px;font-size:24px}.muted{color:#5d6b78;line-height:1.5}
+label{display:block;font-weight:700;margin:18px 0 7px}input{width:100%;padding:13px;border:1px solid #ccd5df;border-radius:8px;font-size:16px}
+button{margin-top:18px;width:100%;padding:14px;border:0;border-radius:8px;background:#167a49;color:#fff;font-weight:700;font-size:16px;cursor:pointer}
+button:disabled{opacity:.6;cursor:wait}.status{margin-top:18px;padding:14px;border-radius:8px;background:#eef3f7;white-space:pre-wrap;line-height:1.5}
+.warning{border-left:4px solid #d97706;background:#fff7ed;padding:12px;margin-top:18px;line-height:1.5}
+a{color:#1769aa}
+</style>
+</head>
+<body>
+<main>
+<h1>Conectar recebimentos Ovi (Woovi)</h1>
+<p class="muted">Área restrita ao administrador da plataforma. A conexão é feita por estabelecimento. O AppID é enviado diretamente ao backend por HTTPS e armazenado criptografado; nunca é devolvido à página.</p>
+<label for="storeId">Identificador do estabelecimento (storeId)</label>
+<input id="storeId" autocomplete="off" placeholder="Ex.: restaurante-centro">
+<label for="appId">AppID da conta Ovi/Woovi do comerciante</label>
+<input id="appId" type="password" autocomplete="new-password" placeholder="Cole o AppID da conta do próprio comerciante">
+<button id="save" type="button">Conectar conta e registrar webhooks</button>
+<div id="status" class="status">Verificando sessão administrativa...</div>
+<div class="warning"><strong>Importante:</strong> a conta Ovi do comerciante precisa ter Pix Out habilitado para o repasse automático da comissão de 15%. A conexão só será marcada como ativa quando os webhooks obrigatórios forem registrados.</div>
+<p class="muted"><a href="/creator-dashboard.html">Voltar ao painel do criador</a></p>
+</main>
+<script>
+const statusBox=document.getElementById('status');
+const saveButton=document.getElementById('save');
+async function checkSession(){
+  const response=await fetch('/api/creator/session',{credentials:'same-origin',cache:'no-store'});
+  if(!response.ok){location.replace('/creator-login.html');return false;}
+  statusBox.textContent='Sessão administrativa validada. Informe o estabelecimento e o AppID.';
+  return true;
+}
+saveButton.addEventListener('click',async()=>{
+  const storeId=document.getElementById('storeId').value.trim();
+  const appId=document.getElementById('appId').value.trim();
+  if(!storeId||!appId){statusBox.textContent='Informe o identificador e o AppID.';return;}
+  saveButton.disabled=true;statusBox.textContent='Conectando a conta e registrando webhooks na Ovi...';
+  try{
+    const response=await fetch('/woovi/merchant/'+encodeURIComponent(storeId),{
+      method:'PUT',credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({appId})
+    });
+    const result=await response.json();
+    if(!response.ok||!result.success)throw new Error(result.error||'Não foi possível conectar.');
+    document.getElementById('appId').value='';
+    statusBox.textContent='Conta conectada. Webhooks registrados.\nEstabelecimento: '+result.storeId+'\nStatus: '+result.status+'\nO AppID não foi exibido nem salvo no navegador.';
+  }catch(error){statusBox.textContent='Falha na conexão: '+error.message;}
+  finally{saveButton.disabled=false;}
+});
+checkSession().catch(error=>{statusBox.textContent='Não foi possível validar a sessão: '+error.message;});
+</script>
+</body>
+</html>
