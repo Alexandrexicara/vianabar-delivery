@@ -996,6 +996,8 @@
         let videoLoaded = false;
         let orderSubmitting = false;
         let pixStatusTimer = null;
+        let activeTotemOrderId = null;
+        let totemTrackingTimer = null;
         let activePixOrderId = null;
         const totemParams = new URLSearchParams(window.location.search);
         const totemStoreId = String(totemParams.get('loja') || totemParams.get('storeId') || '').trim().slice(0,120);
@@ -1448,6 +1450,7 @@
                     throw error;
                 }
                 const order = result.order;
+                activeTotemOrderId = String(order.id);
                 currentOrderDisplay = String(order.id).slice(0, 8).toUpperCase();
                 if (paymentMethod === 'pix') {
                     if (!result.payment || !result.payment.brCode) {
@@ -1540,7 +1543,7 @@
                         clearInterval(pixStatusTimer); pixStatusTimer = null;
                         const overlay = document.getElementById('pixPaymentScreen');
                         if (overlay) overlay.remove();
-                        showSuccessScreen('Pagamento confirmado!', 'Seu pedido foi enviado para preparo. Aguarde ser chamado.');
+                        showSuccessScreen('Pagamento confirmado!', 'Seu pedido foi enviado para preparo.');
                     } else if (paymentStatus === 'expired' || providerStatus === 'expired' || paymentStatus === 'needs_review' || providerStatus === 'needs_review') {
                         clearInterval(pixStatusTimer); pixStatusTimer = null;
                         const status = document.getElementById('totemPixStatus');
@@ -2671,72 +2674,67 @@ ${paymentInfo}
         let countdownTime = 5;
         
         function showSuccessScreen(title = 'Pedido registrado!', message = 'Seu pedido foi registrado com sucesso.') {
-            console.log('[TOTEM] Mostrando tela de sucesso...');
-            
-            // Resetar contador
-            countdownTime = 5;
-            if (countdownInterval) {
-                clearInterval(countdownInterval);
-            }
-            
-            // Mostrar tela de sucesso
+            console.log('[TOTEM] Mostrando protocolo do pedido...');
+            if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+            if (window.restartTimeout) { clearTimeout(window.restartTimeout); window.restartTimeout = null; }
+            const oldTimer = document.getElementById('countdownTimer');
+            if (oldTimer) oldTimer.remove();
+
             document.getElementById('orderNumberValue').textContent = currentOrderDisplay || currentOrderNumber;
             const successTitle = document.querySelector('#successScreen .success-title');
             const successMessages = document.querySelectorAll('#successScreen .success-message');
             if (successTitle) successTitle.textContent = title;
             if (successMessages[0]) successMessages[0].textContent = message;
-            if (successMessages[1]) successMessages[1].textContent = 'Obrigado! Aguarde a chamada do seu pedido.';
+            if (successMessages[1]) successMessages[1].textContent = 'Guarde sua senha e apresente-a no balcão quando o pedido estiver pronto.';
             document.getElementById('successScreen').style.display = 'flex';
-            
-            // Adicionar contador visual
-            const countdownElement = document.createElement('div');
-            countdownElement.id = 'countdownTimer';
-            countdownElement.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: rgba(0,0,0,0.8);
-                color: white;
-                padding: 15px 20px;
-                border-radius: 10px;
-                font-size: 1.2rem;
-                font-weight: bold;
-                z-index: 1000;
-            `;
-            countdownElement.innerHTML = `🔄 Reiniciando em <span id="countdownNumber">5</span> segundos...`;
-            document.body.appendChild(countdownElement);
-            
-            console.log('[TOTEM] Tela de sucesso exibida, reiniciando em 5 segundos...');
-            
-            // Limpar qualquer timeout anterior
-            if (window.restartTimeout) {
-                clearTimeout(window.restartTimeout);
+
+            let releaseButton = document.getElementById('totemReleaseButton');
+            if (!releaseButton) {
+                releaseButton = document.createElement('button');
+                releaseButton.id = 'totemReleaseButton';
+                releaseButton.type = 'button';
+                releaseButton.textContent = 'Concluir e liberar o Totem';
+                releaseButton.style.cssText = 'margin-top:22px;padding:14px 24px;border:0;border-radius:12px;background:#fff;color:#176b3a;font-size:1rem;font-weight:800;cursor:pointer;';
+                releaseButton.onclick = () => restartSystem();
+                document.querySelector('#successScreen .success-content').appendChild(releaseButton);
             }
-            
-            // Iniciar contador regressivo
-            countdownInterval = setInterval(() => {
-                countdownTime--;
-                const countdownNumber = document.getElementById('countdownNumber');
-                if (countdownNumber) {
-                    countdownNumber.textContent = countdownTime;
-                }
-                
-                if (countdownTime <= 0) {
-                    clearInterval(countdownInterval);
-                    const countdownElement = document.getElementById('countdownTimer');
-                    if (countdownElement) {
-                        countdownElement.remove();
+            releaseButton.style.display = 'inline-block';
+
+            if (activeTotemOrderId) monitorTotemOrderStatus(activeTotemOrderId);
+        }
+
+        async function monitorTotemOrderStatus(orderId) {
+            if (totemTrackingTimer) clearInterval(totemTrackingTimer);
+            const refresh = async () => {
+                try {
+                    const response = await fetch('/api/cardapio/orders/' + encodeURIComponent(orderId), { cache: 'no-store' });
+                    const result = await response.json();
+                    if (!response.ok || !result.success) return;
+                    const order = result.order || {};
+                    const payment = String(order.paymentStatus || '').toLowerCase();
+                    const status = String(order.status || '').toLowerCase();
+                    const messages = document.querySelectorAll('#successScreen .success-message');
+                    if (!messages[1]) return;
+                    if (payment === 'awaiting_in_person') {
+                        messages[1].textContent = 'Aguardando confirmação do pagamento no caixa. Sua senha é ' + (currentOrderDisplay || '') + '.';
+                    } else if (payment === 'paid' || payment === 'completed') {
+                        if (status === 'ready' || status === 'ready_for_pickup') messages[1].textContent = 'Pedido pronto! Apresente sua senha no balcão para retirar.';
+                        else if (status === 'preparing' || status === 'in_preparation') messages[1].textContent = 'Pagamento confirmado. Seu pedido está em preparo.';
+                        else if (status === 'completed') messages[1].textContent = 'Pedido concluído. Obrigado pela preferência!';
+                        else messages[1].textContent = 'Pagamento confirmado. Seu pedido entrou na fila de preparo.';
+                    } else if (payment === 'expired' || payment === 'failed' || payment === 'needs_review') {
+                        messages[1].textContent = 'Pagamento não confirmado automaticamente. Procure o atendente e informe sua senha.';
+                    } else if (status === 'preparing' || status === 'in_preparation') {
+                        messages[1].textContent = 'Seu pedido está em preparo.';
+                    } else if (status === 'ready' || status === 'ready_for_pickup') {
+                        messages[1].textContent = 'Pedido pronto! Apresente sua senha no balcão para retirar.';
                     }
+                } catch (error) {
+                    console.warn('[TOTEM] Não foi possível atualizar o andamento:', error.message);
                 }
-            }, 1000);
-            
-            // Reiniciar após 5 segundos
-            window.restartTimeout = setTimeout(() => {
-                console.log('[TOTEM] Iniciando reinício automático...');
-                restartSystem();
-            }, 5000);
-            
-            console.log('[TOTEM] Timeout agendado:', window.restartTimeout);
+            };
+            await refresh();
+            totemTrackingTimer = setInterval(refresh, 4000);
         }
 
         // Reiniciar Sistema
@@ -2767,6 +2765,9 @@ ${paymentInfo}
                 cart = [];
                 currentOrderDisplay = null;
                 activePixOrderId = null;
+                activeTotemOrderId = null;
+                if (totemTrackingTimer) { clearInterval(totemTrackingTimer); totemTrackingTimer = null; }
+                const releaseButton = document.getElementById('totemReleaseButton'); if (releaseButton) releaseButton.remove();
                 if (pixStatusTimer) { clearInterval(pixStatusTimer); pixStatusTimer = null; }
                 orderSubmitting = false;
                 currentOrderNumber++;
