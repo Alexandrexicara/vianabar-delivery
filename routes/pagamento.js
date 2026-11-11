@@ -30,7 +30,7 @@ router.post("/pix/:id", (req, res) => {
   try {
     const resultado = pagarPix(req.params.id);
     if (resultado.error) {
-      return res.status(404).json({ success: false, error: resultado.error });
+      return res.status(409).json({ success: false, error: resultado.error });
     }
     res.json({ success: true, data: resultado });
   } catch (error) {
