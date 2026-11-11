@@ -1731,6 +1731,9 @@
                 case 'awaiting_in_person': return 'Aguardando garçom';
                 case 'completed': return 'Pago';
                 case 'paid': return 'Pago';
+                case 'expired': return 'Cobrança expirada';
+                case 'needs_review': return 'Em análise';
+                case 'failed': return 'Falha no pagamento';
                 default: return paymentStatus;
             }
         }
@@ -2974,11 +2977,7 @@
                         orderIdsElement.innerHTML += ` | ${order.id}`;
                     }
                     
-                    // Update the confirm payment button to handle multiple order IDs
-                    const confirmButton = existingTableOrder.querySelector('button');
-                    if (confirmButton) {
-                        confirmButton.setAttribute('onclick', `confirmMultiplePayments('${orderIdsElement.textContent.trim()}')`);
-                    }
+                    // A confirmação financeira não é feita pelo navegador; aguardar provedor ou recebimento presencial.
                 }
             } else {
                 // Create new table order element
@@ -2994,7 +2993,7 @@
                     <div class="order-total">Total: R$ ${order.total.toFixed(2).replace('.', ',')}</div>
                     <div class="payment-status payment-${order.paymentStatus}">Pagamento: ${getPaymentStatusText(order.paymentStatus)}</div>
                     <div class="order-actions">
-                         <button class="btn btn-success" onclick="confirmPayment('${order.id}')">Confirmar Pagamento</button>
+                         <span class="payment-note">${order.paymentMethod === 'pix' ? 'Aguardando confirmação automática da Ovi' : 'Aguardando recebimento presencial pelo garçom'}</span>
                     </div>
                 `;
                 paymentsList.appendChild(paymentCard);
