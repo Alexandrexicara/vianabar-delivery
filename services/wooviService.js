@@ -279,12 +279,22 @@ async function handleWebhook({ payload, rawBody, headers }) {
   }
 
   if (event === 'OPENPIX:MOVEMENT_CONFIRMED' || event === 'OPENPIX:MOVEMENT_FAILED') {
-    const transfer = await pool.query('SELECT order_id FROM woovi_commission_transfers WHERE correlation_id=$1', [correlationId]);
+    const transfer = await pool.query('SELECT order_id,amount_cents FROM woovi_commission_transfers WHERE correlation_id=$1', [correlationId]);
     if (!transfer.rowCount) return { accepted: true, ignored: true };
-    const status = event === 'OPENPIX:MOVEMENT_CONFIRMED' ? 'paid' : 'needs_review';
+    let status = event === 'OPENPIX:MOVEMENT_CONFIRMED' ? 'paid' : 'needs_review';
+    let failureReason = null;
+    if (event === 'OPENPIX:MOVEMENT_CONFIRMED') {
+      const confirmedValue = Number(payment.value ?? payload.transaction?.value ?? payload.data?.transaction?.value);
+      if (!Number.isSafeInteger(confirmedValue) || confirmedValue !== Number(transfer.rows[0].amount_cents)) {
+        status = 'needs_review';
+        failureReason = 'Valor do Pix Out não corresponde à comissão calculada.';
+      }
+    } else {
+      failureReason = String(payload.error?.description || payload.error?.code || 'Pix Out recusado pela Woovi').slice(0,500);
+    }
     await pool.query(
-      `UPDATE woovi_commission_transfers SET status=$2,paid_at=CASE WHEN $2='paid' THEN NOW() ELSE paid_at END,updated_at=NOW() WHERE correlation_id=$1`,
-      [correlationId, status]
+      `UPDATE woovi_commission_transfers SET status=$2,failure_reason=$3,paid_at=CASE WHEN $2='paid' THEN NOW() ELSE paid_at END,updated_at=NOW() WHERE correlation_id=$1`,
+      [correlationId, status, failureReason]
     );
     await pool.query('UPDATE cardapio_payment_transactions SET commission_status=$2,updated_at=NOW() WHERE order_id=$1',
       [transfer.rows[0].order_id, status]);
