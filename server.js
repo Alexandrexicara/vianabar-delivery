@@ -218,10 +218,6 @@ wss.on('connection', (ws) => {
           type: 'existingDeliveryOrders',
           orders: deliveryOrders.filter(o => ['accepted', 'preparing', 'delivering', 'onroute'].includes(String(o.status || '').toLowerCase()))
         }));
-        ws.send(JSON.stringify({
-          type: 'existingDeliveryOrders',
-          orders: deliveryOrders.filter(o => ['accepted', 'preparing', 'delivering', 'onroute'].includes(String(o.status || '').toLowerCase()))
-        }));
       } else if (data.type === 'kitchenLogin') {
         // Set client role to kitchen staff
         ws.role = 'kitchen';
