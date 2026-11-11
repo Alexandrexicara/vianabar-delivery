@@ -26,15 +26,19 @@ const DeliveryCommunication = {
     connectWebSocket() {
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
         const hostname = (window.location.hostname || 'localhost').trim() || 'localhost';
+        // Primeiro tenta a mesma origem HTTPS/WSS (Render termina TLS no proxy).
+        // Portas locais ficam como fallback para desenvolvimento.
         const portCandidates = [...new Set([
-            window.location.port,
+            window.location.port || '',
             '10000',
             '3002',
             '3001',
             '3000'
-        ].filter(Boolean))];
+        ])];
 
-        const buildUrl = (port) => `${protocol}://${hostname}:${port}`;
+        const buildUrl = (port) => port
+            ? `${protocol}://${hostname}:${port}`
+            : `${protocol}://${hostname}`;
 
         const tryConnect = (index = 0) => {
             if (index >= portCandidates.length) {
