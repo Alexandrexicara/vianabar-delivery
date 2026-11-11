@@ -944,7 +944,7 @@
                         <label class="payment-option">
                             <input type="radio" name="paymentMethod" value="card">
                             <span class="payment-icon">💳</span>
-                            <span class="payment-text">Cartão</span>
+                            <span class="payment-text">Cartão no caixa</span>
                         </label>
                         <label class="payment-option">
                             <input type="radio" name="paymentMethod" value="cash">
@@ -1527,10 +1527,30 @@
                         if (status) status.textContent = paymentStatus === 'expired' || providerStatus === 'expired'
                             ? 'Esta cobrança Pix expirou. Chame o atendente; não faça outro pedido.'
                             : 'Pagamento recebido com divergência e enviado para análise. Chame o atendente.';
+                        const overlay = document.getElementById('pixPaymentScreen');
+                        if (overlay && !document.getElementById('totemPixReturnButton')) {
+                            const button = document.createElement('button');
+                            button.id = 'totemPixReturnButton';
+                            button.type = 'button';
+                            button.textContent = 'Fechar e chamar atendente';
+                            button.style.cssText = 'width:100%;margin-top:14px;padding:14px;border:0;border-radius:10px;background:#475467;color:#fff;font-weight:800;';
+                            button.onclick = () => restartSystem();
+                            overlay.querySelector('div').appendChild(button);
+                        }
                     } else if (checks >= 240) {
                         clearInterval(pixStatusTimer); pixStatusTimer = null;
                         const status = document.getElementById('totemPixStatus');
                         if (status) status.textContent = 'A confirmação está demorando. Chame o atendente e informe o pedido ' + String(orderId).slice(0,8).toUpperCase() + '. Não repita o pedido.';
+                        const overlay = document.getElementById('pixPaymentScreen');
+                        if (overlay && !document.getElementById('totemPixReturnButton')) {
+                            const button = document.createElement('button');
+                            button.id = 'totemPixReturnButton';
+                            button.type = 'button';
+                            button.textContent = 'Fechar e chamar atendente';
+                            button.style.cssText = 'width:100%;margin-top:14px;padding:14px;border:0;border-radius:10px;background:#475467;color:#fff;font-weight:800;';
+                            button.onclick = () => restartSystem();
+                            overlay.querySelector('div').appendChild(button);
+                        }
                     }
                 } catch (error) {
                     console.warn('[TOTEM] Consulta de pagamento Pix:', error.message);
