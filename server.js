@@ -359,13 +359,11 @@ wss.on('connection', async (ws) => {
         } else if (ws.role === 'kitchen') {
           // Kitchen staff only see orders with items for kitchen sector
           ordersToSend = orders.filter(order => (!order.storeId || order.storeId === ws.storeId) && order.items.some(item => item.sector === 'kitchen') &&
-              (order.status === 'pending' || order.status === 'preparing');
-          });
+              (order.status === 'pending' || order.status === 'preparing'));
         } else if (ws.role === 'counter') {
           // Counter staff only see orders with items for counter sector
           ordersToSend = orders.filter(order => (!order.storeId || order.storeId === ws.storeId) && order.items.some(item => item.sector === 'counter') &&
-              (order.status === 'pending' || order.status === 'preparing');
-          });
+              (order.status === 'pending' || order.status === 'preparing'));
         } else {
           // Regular users only see their own orders
           ordersToSend = userOrders;
