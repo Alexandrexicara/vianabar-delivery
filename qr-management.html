@@ -368,6 +368,8 @@
                     <div class="form-group">
                         <label for="establishmentAddress">Endereço</label>
                         <input type="text" id="establishmentAddress" value="Rua das Flores, 123 - Centro" placeholder="Endereço completo">
+                        <button type="button" class="btn btn-secondary" onclick="captureEstablishmentLocation()" style="margin-top:10px">📍 Capturar localização GPS do estabelecimento</button>
+                        <small id="establishmentLocationStatus" style="display:block;margin-top:6px;color:#555">A localização será salva no cadastro e vinculada aos pedidos.</small>
                     </div>
                     
                     <div class="form-group">
@@ -601,6 +603,37 @@
             } catch(error) { console.error('[MERCHANT-SETTINGS] Falha ao carregar do Neon:',error); return null; }
         }
 
+        async function captureEstablishmentLocation() {
+            const status = document.getElementById('establishmentLocationStatus');
+            if (!navigator.geolocation) { if (status) status.textContent = 'Este aparelho não oferece GPS.'; return; }
+            if (status) status.textContent = 'Solicitando permissão de localização…';
+            navigator.geolocation.getCurrentPosition(async position => {
+                const establishmentLocation = {
+                    latitude:Number(position.coords.latitude), longitude:Number(position.coords.longitude),
+                    accuracy:Number(position.coords.accuracy)||null,
+                    updatedAt:new Date(position.timestamp||Date.now()).toISOString()
+                };
+                try {
+                    const response = await fetch(merchantSettingsApiUrl(), {
+                        method:'PUT', credentials:'include', headers:productAdminHeaders(),
+                        body:JSON.stringify({settings:{establishmentLocation}})
+                    });
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.error || 'Falha ao salvar GPS no Neon.');
+                    localStorage.setItem('establishmentCustomizations', JSON.stringify({
+                        ...JSON.parse(localStorage.getItem('establishmentCustomizations')||'{}'),
+                        ...(result.settings||{}), establishmentLocation
+                    }));
+                    if (status) status.textContent = '✓ GPS do estabelecimento salvo e sincronizado.';
+                } catch (error) {
+                    if (status) status.textContent = 'Falha ao salvar localização: ' + error.message;
+                }
+            }, error => {
+                const msg = {1:'Permissão de localização negada.',2:'GPS indisponível.',3:'Tempo esgotado ao obter GPS.'};
+                if (status) status.textContent = msg[error.code] || 'Não foi possível obter GPS.';
+            }, {enableHighAccuracy:true,timeout:15000,maximumAge:0});
+        }
+
         async function saveCustomization() {
             const old=JSON.parse(localStorage.getItem('establishmentCustomizations')||'{}');
             const val=id=>document.getElementById(id)?.value||'';
@@ -609,7 +642,8 @@
                 establishmentAddress:val('establishmentAddress'),establishmentPhone:val('establishmentPhone'),
                 establishmentHours:val('establishmentHours'),primaryColor:val('primaryColor')||'#e74c3c',
                 secondaryColor:val('secondaryColor')||'#3498db',facebook:val('facebook'),instagram:val('instagram'),
-                whatsapp:val('whatsapp'),logo:old.logo||'',background:old.background||''
+                whatsapp:val('whatsapp'),logo:old.logo||'',background:old.background||'',
+                establishmentLocation:old.establishmentLocation||null
             };
             try {
                 const response=await fetch(merchantSettingsApiUrl(),{method:'PUT',credentials:'include',headers:productAdminHeaders(),body:JSON.stringify({settings})});
