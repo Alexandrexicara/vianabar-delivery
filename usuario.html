@@ -1191,12 +1191,13 @@
                 const itemElement = document.createElement('div');
                 itemElement.className = 'menu-item';
                 itemElement.setAttribute('data-category', item.category);
+                itemElement.setAttribute('data-product-id', String(item.id || ''));
                 itemElement.innerHTML = `
                     <div class="item-image">${item.image ? `<img src="${item.image}" alt="${item.name}" class="item-image-placeholder">` : 'Imagem do Produto'}</div>
                     <div class="item-details">
                         <div class="item-header">
                             <div class="item-name">${item.name}</div>
-                            <div class="item-price">R$ ${(parseFloat(item.price) + parseFloat(localStorage.getItem('taxaPorProdutoGlobal') || '0.10')).toFixed(2).replace('.', ',')}</div>
+                            <div class="item-price">R$ ${parseFloat(item.price).toFixed(2).replace('.', ',')}</div>
                         </div>
                         <p>${item.description}</p>
                         <div class="quantity-control">
@@ -1316,6 +1317,9 @@
         console.log('[DEBUG] Calculando total do carrinho');
         let subtotal = 0;
         const cartItems = [];
+        const storeId = window.cardapioStoreId || 'main';
+        const menuCacheKey = 'menuItems_' + storeId.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const menuItems = JSON.parse(localStorage.getItem(menuCacheKey) || (storeId === 'main' ? localStorage.getItem('menuItems') : '[]') || '[]');
         document.querySelectorAll('.menu-item').forEach(item => {
             const quantity = parseInt(item.querySelector('.quantity').textContent);
             console.log('[DEBUG] Quantidade:', quantity);
@@ -1323,10 +1327,10 @@
                 const name = item.querySelector('.item-name').textContent;
                 const price = parseFloat(item.querySelector('.item-price').textContent.replace('R$ ', '').replace(',', '.'));
                 const category = item.getAttribute('data-category') || 'unknown';
+                const productId = item.getAttribute('data-product-id') || '';
                 
-                // Obter o setor do item do localStorage
-                const menuItems = JSON.parse(localStorage.getItem('menuItems') || '[]');
-                const menuItem = menuItems.find(mi => mi.name === name);
+                // Recupera o produto do mesmo estabelecimento e preserva o ID real do banco.
+                const menuItem = menuItems.find(mi => String(mi.id) === String(productId)) || menuItems.find(mi => mi.name === name);
                 let sector = 'kitchen'; // padrão para cozinha
                 
                 if (menuItem && menuItem.sector) {
@@ -1343,7 +1347,7 @@
                 }
                 
                 subtotal += price * quantity;
-                cartItems.push({ name, quantity, price, category, sector });
+                cartItems.push({ id: menuItem?.id || productId || null, name, quantity, price, category, sector });
                 console.log('[DEBUG] Item adicionado:', { name, quantity, price, category, sector });
             }
         });
