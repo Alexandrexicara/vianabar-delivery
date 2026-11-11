@@ -120,6 +120,8 @@ router.post('/bootstrap', async (req, res) => {
   }
   try {
     await ensureSchema();
+    const knownStore = await pool.query('SELECT store_id FROM merchant_settings WHERE store_id=$1 LIMIT 1', [storeId]);
+    if (!knownStore.rowCount) return res.status(404).json({success:false,error:'Loja não encontrada no cadastro da plataforma. Confira o código da loja.'});
     const existing = await pool.query('SELECT id FROM merchant_users WHERE store_id=$1 LIMIT 1', [storeId]);
     if (existing.rowCount) return res.status(409).json({ success: false, error: 'Esta loja já possui administrador. Use o login.' });
     const salt = crypto.randomBytes(16);
