@@ -565,10 +565,10 @@
             }
             
             // Connect using dynamic URL
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const host = window.location.hostname;
-            const port = window.location.port || '3002';
-            const wsUrl = `${protocol}//${host}:${port}`;
+            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const wsUrl = isLocal
+                ? `ws://${window.location.hostname}:3002`
+                : 'wss://vianabar-delivery.onrender.com';
             
             const ws = new WebSocket(wsUrl);
             
