@@ -207,9 +207,31 @@ wss.on('connection', (ws) => {
       console.log('Received:', data);
       
       if (data.type === 'userLogin') {
-        // Set client role to user
         ws.role = 'user';
+        ws.userInfo = data.userInfo || null;
         ws.send(JSON.stringify({ type: 'userLoginSuccess' }));
+      } else if (data.type === 'trackDeliveryOrder') {
+        const trackedOrder = deliveryOrders.find(o => String(o.id) === String(data.orderId));
+        if (!trackedOrder) {
+          ws.send(JSON.stringify({type:'deliveryOrderError',orderId:data.orderId,message:'Pedido não encontrado para acompanhamento.'}));
+          return;
+        }
+        ws.role = 'deliveryCustomer';
+        ws.trackingOrderId = String(trackedOrder.id);
+        ws.send(JSON.stringify({type:'deliveryOrderSnapshot',order:trackedOrder}));
+      } else if (data.type === 'updateCustomerLocation') {
+        const trackedOrder = deliveryOrders.find(o => String(o.id) === String(data.orderId));
+        const lat = Number(data.latitude), lng = Number(data.longitude);
+        const ownsOrder = trackedOrder && (String(ws.trackingOrderId||'') === String(data.orderId) || Number(trackedOrder.clientId) === Number(ws.clientId));
+        if (!ownsOrder || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat)>90 || Math.abs(lng)>180) {
+          ws.send(JSON.stringify({type:'locationUpdateError',orderId:data.orderId,message:'Localização não vinculada ao pedido.'}));
+          return;
+        }
+        trackedOrder.customerLocation = {latitude:lat,longitude:lng,accuracy:Number(data.accuracy)||null,updatedAt:data.timestamp||new Date().toISOString()};
+        persistDeliveryOrders();
+        const locationUpdate = {type:'deliveryCustomerLocation',orderId:trackedOrder.id,customerLocation:trackedOrder.customerLocation};
+        broadcastToAdmins(locationUpdate);
+        broadcastToMotoboys(locationUpdate);
       } else if (data.type === 'adminLogin') {
         // Set client role to admin
         ws.role = 'admin';
@@ -572,9 +594,12 @@ wss.on('connection', (ws) => {
           order = {
             ...data.order,
             clientId: ws.clientId,
+            merchantId: data.order.merchantId || 'main',
             status: data.order.status || 'pending',
             paymentStatus: data.order.paymentStatus || 'pending'
           };
+          ws.role = 'deliveryCustomer';
+          ws.trackingOrderId = String(order.id);
           deliveryOrders.push(order);
           persistDeliveryOrders();
           console.log('[DELIVERY] Novo pedido recebido:', order.id);
@@ -583,10 +608,16 @@ wss.on('connection', (ws) => {
           broadcastToAdmins({ type: 'newDeliveryOrder', order });
         } else if (!order.clientId) {
           order.clientId = ws.clientId;
+          ws.role = 'deliveryCustomer';
+          ws.trackingOrderId = String(order.id);
           persistDeliveryOrders();
+        } else {
+          ws.role = 'deliveryCustomer';
+          ws.trackingOrderId = String(order.id);
         }
 
         ws.send(JSON.stringify({ type: 'deliveryOrderConfirmation', orderId: order.id }));
+        ws.send(JSON.stringify({ type:'deliveryOrderSnapshot', order }));
         
       } else if (data.type === 'acceptDeliveryOrder') {
         // Motoboy accepts delivery order
@@ -792,13 +823,18 @@ function broadcastToAdmins(message) {
 }
 
 function broadcastToCustomer(orderId, message) {
-  // Find the customer who owns this order
-  const order = deliveryOrders.find(o => o.id === orderId);
-  
-  if (order && order.clientId) {
-    const customerClient = clients.get(order.clientId);
-    if (customerClient && customerClient.readyState === WebSocket.OPEN) {
-      customerClient.send(JSON.stringify(message));
+  const id = String(orderId);
+  const messageStr = JSON.stringify(message);
+  let sent = false;
+  clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN && String(client.trackingOrderId || '') === id) {
+      client.send(messageStr);
+      sent = true;
     }
+  });
+  if (!sent) {
+    const order = deliveryOrders.find(o => String(o.id) === id);
+    const originalClient = order?.clientId ? clients.get(order.clientId) : null;
+    if (originalClient && originalClient.readyState === WebSocket.OPEN) originalClient.send(messageStr);
   }
 }
