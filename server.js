@@ -385,7 +385,7 @@ wss.on('connection', async (ws, req) => {
         // Send different orders based on role
         let ordersToSend = [];
         if (ws.role === 'admin') {
-          ordersToSend = orders.filter(order => !order.storeId || order.storeId === ws.storeId);
+          ordersToSend = orders.filter(order => order.storeId === ws.storeId);
         } else if (ws.role === 'kitchen') {
           // Kitchen staff only see orders with items for kitchen sector
           ordersToSend = orders.filter(order => order.storeId === ws.storeId && ['paid','completed'].includes(String(order.paymentStatus || '').toLowerCase()) && order.items.some(item => item.sector === 'kitchen') &&
