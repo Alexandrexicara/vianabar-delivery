@@ -623,7 +623,7 @@ wss.on('connection', (ws) => {
         console.log('[DELIVERY] Motoboy iniciou entrega:', data.orderId);
         const order = deliveryOrders.find(o => String(o.id) === String(data.orderId));
         const senderId = String(ws.motoboyInfo?.id || ws.motoboyInfo?.phone || '');
-        if (ws.role !== 'motoboy' || !order || (order.motoboyId && senderId && String(order.motoboyId) !== senderId)) {
+        if (ws.role !== 'motoboy' || !order || !order.motoboyId || !senderId || String(order.motoboyId) !== senderId) {
           ws.send(JSON.stringify({ type:'deliveryOrderError', orderId:data.orderId, message:'Motoboy não está vinculado a este pedido.' }));
           return;
         }
@@ -657,7 +657,7 @@ wss.on('connection', (ws) => {
         console.log('[DELIVERY] Atualização GPS recebida:', data.orderId);
         const order = deliveryOrders.find(o => String(o.id) === String(data.orderId));
         const senderId = String(ws.motoboyInfo?.id || ws.motoboyInfo?.phone || '');
-        if (!order || (order.motoboyId && senderId && String(order.motoboyId) !== senderId)) {
+        if (!order || !order.motoboyId || !senderId || String(order.motoboyId) !== senderId) {
           ws.send(JSON.stringify({ type:'locationUpdateError', orderId:data.orderId, message:'Este motoboy não está associado ao pedido.' }));
           return;
         }
