@@ -74,6 +74,10 @@ app.get('/creator-dashboard.html', creatorAuth.requireCreator, (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.sendFile(path.resolve('creator-dashboard.html'));
 });
+app.get('/creator-woovi.html', creatorAuth.requireCreator, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.sendFile(path.resolve('creator-woovi.html'));
+});
 
 // Serve static files
 app.use(express.static('.'));
