@@ -1,21 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const { criarCharge } = require('../services/wooviService');
 
-router.post('/charge/create', async (req, res) => {
-  try {
-    const { merchantId, pedidoId, valorTotalCents, descricao, splitDetails } = req.body;
-
-    if (!merchantId || !pedidoId || !valorTotalCents || !descricao) {
-      return res.status(400).json({ success: false, error: 'merchantId, pedidoId, valorTotalCents e descrição são obrigatórios' });
-    }
-
-    const result = await criarCharge({ merchantId, pedidoId, valorTotalCents, descricao, splitDetails });
-    res.json(result);
-  } catch (error) {
-    console.error('Erro ao criar charge:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
+// A rota antiga aceitava valor e split enviados pelo navegador e chamava
+// um serviço com consulta SQL e autenticação incorretas. Não permitir cobranças
+// até a integração usar pedido persistido, valores calculados no servidor,
+// correlationID idempotente e confirmação autenticada do webhook Woovi.
+router.post('/charge/create', (_req, res) => {
+  return res.status(501).json({
+    success: false,
+    error: 'Checkout Woovi ainda não foi ativado. A cobrança não foi criada.'
+  });
 });
 
 module.exports = router;
