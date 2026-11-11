@@ -2187,10 +2187,16 @@
                     switch (data.paymentStatus) {
                         case 'completed':
                             notificationMessage = 'Pagamento do pedido ' + data.orderId + ' foi confirmado';
-                            addNotificationToDashboard('Pagamento do pedido ' + data.orderId + ' foi confirmado', data.orderId);
-                            
-                            // Clear order history after payment is completed
+                            addNotificationToDashboard(notificationMessage, data.orderId);
                             clearOrderHistory(data.orderId);
+                            break;
+                        case 'expired':
+                            notificationMessage = 'Cobrança Pix do pedido ' + data.orderId + ' expirou';
+                            addNotificationToDashboard(notificationMessage, data.orderId);
+                            break;
+                        case 'needs_review':
+                            notificationMessage = 'Pagamento do pedido ' + data.orderId + ' exige conferência';
+                            addNotificationToDashboard(notificationMessage, data.orderId);
                             break;
                     }
                     
