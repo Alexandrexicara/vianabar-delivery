@@ -580,7 +580,7 @@
                 if (window.ws && window.ws.readyState === WebSocket.OPEN) {
                     window.ws.send(JSON.stringify({
                         type: 'kitchenLogin',
-                        storeId: (function(){const p=new URLSearchParams(location.search);let d={};try{d=JSON.parse(localStorage.getItem('establishmentData')||'{}')}catch(e){};const n=String(d.establishmentName||'').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');return p.get('loja')||d.uniqueId||n||'main'})()
+                        storeId: (function(){const p=new URLSearchParams(location.search);let d={};try{d=JSON.parse(localStorage.getItem('establishmentData')||'{}')}catch(e){};const n=String(d.establishmentName||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');return p.get('loja')||d.uniqueId||n||'main'})()
                     }));
                 }
                 
