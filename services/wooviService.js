@@ -253,14 +253,14 @@ async function handleWebhook({ payload, rawBody, headers }) {
      VALUES($1,$2,$3,$4::jsonb) ON CONFLICT(event_key) DO NOTHING RETURNING id`,
     [eventKey, correlationId, event || 'UNKNOWN', JSON.stringify(payload)]
   );
-  if (!inserted.rowCount) return { accepted: true, duplicate: true };
+  if (!inserted.rowCount) return { accepted: true, duplicate: true, paid: row.status === 'paid', orderId: row.order_id };
 
   if (event === 'OPENPIX:CHARGE_COMPLETED') {
     const receivedValue = Number(charge.value ?? payload.value);
     if (!Number.isSafeInteger(receivedValue) || receivedValue !== Number(row.amount_cents)) {
       await pool.query("UPDATE cardapio_payment_transactions SET status='needs_review',updated_at=NOW() WHERE id=$1", [row.id]);
       await pool.query("UPDATE cardapio_orders SET payment_status='needs_review',updated_at=NOW() WHERE id=$1", [row.order_id]);
-      return { accepted: true, needsReview: true, reason: 'Valor do webhook diferente do valor do pedido.' };
+      return { accepted: true, needsReview: true, orderId: row.order_id, reason: 'Valor do webhook diferente do valor do pedido.' };
     }
     const client = await pool.connect();
     try {
@@ -294,6 +294,7 @@ async function handleWebhook({ payload, rawBody, headers }) {
   if (event === 'OPENPIX:CHARGE_EXPIRED') {
     await pool.query("UPDATE cardapio_payment_transactions SET status='expired',updated_at=NOW() WHERE id=$1 AND status<>'paid'", [row.id]);
     await pool.query("UPDATE cardapio_orders SET payment_status='expired',updated_at=NOW() WHERE id=$1 AND payment_status<>'paid'", [row.order_id]);
+    return { accepted: true, expired: true, orderId: row.order_id };
   }
   return { accepted: true, event };
 }
