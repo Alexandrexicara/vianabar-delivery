@@ -1893,6 +1893,9 @@
                     if (status) status.textContent = '✓ Consulta concluída: ' + (data.orders || []).length + ' pedido(s) em andamento recebidos às ' + new Date().toLocaleTimeString('pt-BR');
                 } else if (data.type === 'motoboyLocationUpdate' || data.type === 'deliveryMotoboyLocation') {
                     receiveDeliveryMapLocation(data);
+                } else if (data.type === 'deliveryCustomerLocation') {
+                    const target = deliveryMapOrders.find(item => String(item.id) === String(data.orderId));
+                    if (target) { target.customerLocation = data.customerLocation; renderDeliveryMapMarkers(); }
                 } else if (data.type === 'existingOrders') {
                     // Store orders data for combined view
                     window.ordersData = data.orders || [];
@@ -4189,6 +4192,9 @@
         let deliveryLeafletMap = null;
         let deliveryMapMarkers = new Map();
         let deliveryMapOrders = [];
+        let deliveryMapRouteLayer = null;
+        let deliveryMapRouteKey = '';
+        let deliveryMapRouteAt = 0;
         let deliveryMapFullscreen = false;
 
         async function initializeDeliveryMap() {
@@ -4227,34 +4233,57 @@
             return true;
         }
 
+        function deliveryMapPoint(value) {
+            if (!value) return null;
+            const lat = Number(value.latitude ?? value.lat), lng = Number(value.longitude ?? value.lng);
+            return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat)<=90 && Math.abs(lng)<=180 ? [lat,lng] : null;
+        }
+
+        async function drawDeliveryRoadRoute(origin, destination, orderId) {
+            if (!origin || !destination || !deliveryLeafletMap) return;
+            const key = String(orderId)+'|'+origin.join(',')+'|'+destination.join(',');
+            if (key === deliveryMapRouteKey && Date.now()-deliveryMapRouteAt < 12000) return;
+            deliveryMapRouteKey = key; deliveryMapRouteAt = Date.now();
+            try {
+                const url='https://router.project-osrm.org/route/v1/driving/'+origin[1]+','+origin[0]+';'+destination[1]+','+destination[0]+'?overview=full&geometries=geojson';
+                const response=await fetch(url), result=await response.json();
+                if (!response.ok || !result.routes || !result.routes[0]) throw new Error('Rota viária indisponível');
+                if (deliveryMapRouteLayer) deliveryLeafletMap.removeLayer(deliveryMapRouteLayer);
+                deliveryMapRouteLayer=L.geoJSON(result.routes[0].geometry,{style:{color:'#1769ff',weight:5,opacity:0.85}}).addTo(deliveryLeafletMap);
+            } catch(error) { console.warn('[DeliveryMap] Rota viária indisponível:',error); }
+        }
+
         function renderDeliveryMapMarkers() {
             if (!deliveryLeafletMap) return;
-            deliveryMapMarkers.forEach(marker => deliveryLeafletMap.removeLayer(marker));
+            deliveryMapMarkers.forEach(marker=>deliveryLeafletMap.removeLayer(marker));
             deliveryMapMarkers.clear();
-            let visible = 0;
-            const bounds = [];
-            deliveryMapOrders.forEach(order => {
-                const loc = order.motoboyLocation || order.currentLocation;
-                const lat = Number(loc && (loc.latitude ?? loc.lat));
-                const lng = Number(loc && (loc.longitude ?? loc.lng));
-                if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
-                const marker = L.marker([lat, lng], {
-                    icon: L.divIcon({ className:'delivery-live-marker', html:'<div style="font-size:27px;text-shadow:0 1px 4px #fff">🏍️</div>', iconSize:[32,32], iconAnchor:[16,16] })
-                }).addTo(deliveryLeafletMap);
-                const name = order.motoboyName || 'Motoboy';
-                marker.bindPopup('<strong>🏍️ '+escapeDeliveryMapText(name)+'</strong><br>Pedido: '+escapeDeliveryMapText(String(order.id || '—'))+'<br>Status: '+escapeDeliveryMapText(String(order.status || 'Em andamento')));
-                deliveryMapMarkers.set(String(order.id), marker);
-                bounds.push([lat,lng]);
-                visible++;
+            let merchants=0, customers=0, motoboys=0;
+            const bounds=[]; let route=null;
+            deliveryMapOrders.forEach(order=>{
+                const id=String(order.id||'');
+                const merchant=deliveryMapPoint(order.establishmentLocation);
+                const customer=deliveryMapPoint(order.customerLocation);
+                const motoboy=deliveryMapPoint(order.motoboyLocation||order.currentLocation);
+                const add=(kind,point,emoji,title,detail)=>{
+                    if(!point)return;
+                    const marker=L.marker(point,{icon:L.divIcon({className:'delivery-live-marker',html:'<div style="font-size:27px;text-shadow:0 1px 4px #fff">'+emoji+'</div>',iconSize:[34,34],iconAnchor:[17,17]})}).addTo(deliveryLeafletMap);
+                    marker.bindPopup('<strong>'+title+'</strong><br>'+escapeDeliveryMapText(detail)+'<br>Pedido: '+escapeDeliveryMapText(id));
+                    deliveryMapMarkers.set(id+':'+kind,marker); bounds.push(point);
+                };
+                add('merchant',merchant,'🏪','Comércio / origem',order.establishmentName||order.merchantId||'Comércio');
+                add('customer',customer,'🏠','Cliente / destino',order.address||'Endereço do cliente');
+                add('motoboy',motoboy,'🏍️','Motoboy / ao vivo',order.motoboyName||'Motoboy');
+                if(merchant)merchants++; if(customer)customers++; if(motoboy)motoboys++;
+                if(customer&&motoboy)route={origin:motoboy,destination:customer,id};
+                else if(merchant&&customer)route={origin:merchant,destination:customer,id};
             });
-            const empty = document.getElementById('deliveryMapEmpty');
-            if (empty) {
-                empty.textContent = visible
-                    ? visible+' motoboy(s) com localização recebida. A posição é atualizada quando o GPS envia novas coordenadas.'
-                    : 'Mapa ativo. Nenhuma localização de motoboy recebida ainda. O motoboy precisa iniciar uma entrega e permitir o acesso ao GPS.';
-                empty.style.display = 'block';
-            }
-            if (bounds.length) deliveryLeafletMap.fitBounds(bounds, { padding:[35,35], maxZoom:15 });
+            const empty=document.getElementById('deliveryMapEmpty');
+            if(empty){empty.textContent=deliveryMapOrders.length
+                ? 'Pedidos no mapa — comércio: '+merchants+' | clientes: '+customers+' | motoboys: '+motoboys+'. Linha azul: rota viária até o destino.'
+                : 'Mapa ativo. Nenhum pedido em andamento recebido.'; empty.style.display='block';}
+            if(bounds.length)deliveryLeafletMap.fitBounds(bounds,{padding:[35,35],maxZoom:15});
+            if(route)drawDeliveryRoadRoute(route.origin,route.destination,route.id);
+            else if(deliveryMapRouteLayer){deliveryLeafletMap.removeLayer(deliveryMapRouteLayer);deliveryMapRouteLayer=null;deliveryMapRouteKey='';}
         }
 
         function escapeDeliveryMapText(value) {
