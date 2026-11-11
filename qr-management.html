@@ -852,7 +852,7 @@
             const establishmentData = JSON.stringify(establishment);
             const data = establishment;
             console.log('[DEBUG] Sessão autenticada para loja:', session.storeId);
-            {
+            if (data) {
                 const adminNameElement = document.getElementById('adminName');
                 if (adminNameElement) {
                     adminNameElement.textContent = 'Administrador - ' + data.establishmentName;
