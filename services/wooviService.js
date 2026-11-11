@@ -34,11 +34,15 @@ async function verifyWebhookSignature(rawBody, signature) {
   if (!Buffer.isBuffer(rawBody) || !rawBody.length) throw new Error('Corpo bruto do webhook indisponível para validação.');
   if (!signature) throw new Error('Assinatura RSA do webhook ausente.');
   const signatureBytes = Buffer.from(String(signature), 'base64');
-  const keys = await getWebhookPublicKeys();
+  let keys = await getWebhookPublicKeys();
   for (const publicKey of keys) {
-    try {
-      if (crypto.verify('RSA-SHA256', rawBody, publicKey, signatureBytes)) return true;
-    } catch (_) {}
+    try { if (crypto.verify('RSA-SHA256', rawBody, publicKey, signatureBytes)) return true; } catch (_) {}
+  }
+  // Recarrega uma vez para aceitar rotação recente da chave pública da Woovi.
+  webhookPublicKeysCache = [];
+  keys = await getWebhookPublicKeys();
+  for (const publicKey of keys) {
+    try { if (crypto.verify('RSA-SHA256', rawBody, publicKey, signatureBytes)) return true; } catch (_) {}
   }
   throw new Error('Assinatura RSA do webhook não confere com as chaves públicas da Woovi.');
 }
