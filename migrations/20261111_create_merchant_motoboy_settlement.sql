@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS merchant_delivery_payout_items (
   obligation_id BIGINT NOT NULL REFERENCES merchant_delivery_obligations(id) ON DELETE RESTRICT,
   amount_cents BIGINT NOT NULL CHECK (amount_cents > 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT uq_delivery_payout_item_obligation UNIQUE (obligation_id)
+  CONSTRAINT uq_delivery_payout_item_batch_obligation UNIQUE (batch_id, obligation_id)
 );
 
 CREATE TABLE IF NOT EXISTS merchant_delivery_payout_events (
