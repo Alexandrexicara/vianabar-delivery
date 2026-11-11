@@ -230,6 +230,26 @@ orderEvents.on('order.paid', order => {
   });
 });
 
+orderEvents.on('order.expired', order => {
+  const index = orders.findIndex(existing => existing.id === order.id);
+  if (index >= 0) orders[index] = { ...orders[index], ...order };
+  const message = { type:'paymentStatusUpdate', orderId:order.id, paymentStatus:'expired', storeId:order.storeId };
+  clients.forEach(client => {
+    if (['admin','waiter'].includes(client.role)) sendCardapioMessage(client, order.storeId, message);
+    if (client.role === 'user' && client.trackingCardapioOrderId === String(order.id)) sendCardapioMessage(client, order.storeId, message);
+  });
+});
+
+orderEvents.on('order.paymentReview', order => {
+  const index = orders.findIndex(existing => existing.id === order.id);
+  if (index >= 0) orders[index] = { ...orders[index], ...order };
+  const message = { type:'paymentStatusUpdate', orderId:order.id, paymentStatus:'needs_review', storeId:order.storeId };
+  clients.forEach(client => {
+    if (['admin','waiter'].includes(client.role)) sendCardapioMessage(client, order.storeId, message);
+    if (client.role === 'user' && client.trackingCardapioOrderId === String(order.id)) sendCardapioMessage(client, order.storeId, message);
+  });
+});
+
 const deliveryOrdersFile = path.join(__dirname, 'data', 'delivery-orders.json');
 let deliveryOrders = [];
 
