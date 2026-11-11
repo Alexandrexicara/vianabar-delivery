@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const antiChargebackService = require("../services/antiChargebackService");
-const { criarPedido, pagarPix, pagarCartao } = require("../services/pagamentoService");
 const { log, logError, logSuccess } = require("../utils/logs");
 
 // 📋 Criar cliente no totem
@@ -37,80 +36,13 @@ router.post("/cliente", async (req, res) => {
 });
 
 // 🔥 Processar pedido com prova anti-chargeback
-router.post("/processar-pedido", async (req, res) => {
-    try {
-        const { 
-            clienteId, 
-            carrinho, 
-            valorTotal, 
-            metodoPagamento,
-            pagamentoData,
-            enderecoEntrega = null 
-        } = req.body;
-        
-        log(`🛡️ Processando pedido com prova anti-chargeback - Cliente: ${clienteId}`);
-        
-        // 1. Criar pedido no sistema
-        const pedido = criarPedido({
-            vendedorId: "v1",
-            motoboyId: enderecoEntrega ? "m1" : null,
-            valor: parseFloat(valorTotal),
-            metodo: metodoPagamento,
-            clienteId: clienteId,
-            carrinho: carrinho,
-            enderecoEntrega: enderecoEntrega
-        });
-        
-        // 2. Processar pagamento
-        let resultadoPagamento;
-        if (metodoPagamento === 'google_pay') {
-            resultadoPagamento = await pagarPix(pedido.id);
-        } else if (metodoPagamento === 'pix') {
-            resultadoPagamento = await pagarPix(pedido.id);
-        } else if (metodoPagamento === 'cartao') {
-            resultadoPagamento = await pagarCartao(pedido.id);
-        }
-        
-        // 3. Gerar prova completa anti-chargeback
-        const prova = await antiChargebackService.gerarProvaCompleta(
-            pedido.id, 
-            clienteId, 
-            {
-                metodo: metodoPagamento,
-                valor: valorTotal,
-                gateway: pagamentoData?.gateway || 'google_pay',
-                token: pagamentoData?.token,
-                cardNetwork: pagamentoData?.cardNetwork,
-                cardDetails: pagamentoData?.cardDetails,
-                pagoEm: new Date().toISOString()
-            }
-        );
-        
-        // 4. Adicionar prova ao pedido
-        pedido.antiChargebackProva = prova;
-        
-        logSuccess(`🛡️ Pedido com prova anti-chargeback processado: ${pedido.id}`);
-        
-        res.json({ 
-            success: true, 
-            data: {
-                pedido: pedido,
-                pagamento: resultadoPagamento,
-                antiChargeback: prova,
-                mensagem: "Pedido processado com proteção anti-chargeback completa!"
-            }
-        });
-        
-    } catch (error) {
-        logError(`❌ Erro ao processar pedido anti-chargeback: ${error.message}`);
-        res.status(500).json({ 
-            success: false, 
-            error: "Erro ao processar pedido com proteção anti-chargeback" 
-        });
-    }
+router.post("/processar-pedido", (_req, res) => {
+    return res.status(501).json({
+        success: false,
+        error: "A proteção anti-chargeback só pode ser gerada após confirmação real do pagamento pelo provedor. Esta rota antiga não confirma nem registra pagamentos."
+    });
 });
 
-// 🔍 Verificar prova específica
 router.get("/prova/:provaId", (req, res) => {
     try {
         const prova = antiChargebackService.verificarProva(req.params.provaId);
