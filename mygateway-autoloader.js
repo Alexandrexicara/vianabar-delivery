@@ -9,8 +9,7 @@
     
     // Lista de arquivos que devem ser carregados
     const scripts = [
-        'mygateway-integration.js',
-        'mygateway-bankdata.js'
+        'mygateway-integration.js'
     ];
     
     // Função para carregar script dinamicamente
@@ -48,7 +47,7 @@
         }
         
         console.log('[MYGATEWAY AUTO LOADER] ✅ Todos os módulos carregados!');
-        console.log('[MYGATEWAY AUTO LOADER] 💳 Dados bancários serão aplicados automaticamente');
+        console.log('[MYGATEWAY AUTO LOADER] Módulo de pagamentos legado carregado em modo desativado.');
     }
     
     // Iniciar carregamento quando o DOM estiver pronto
