@@ -146,6 +146,11 @@ async function registerMerchantAccount({ storeId, appId }) {
   const key = String(appId || '').trim();
   if (!/^[a-zA-Z0-9_-]{1,120}$/.test(id)) throw new Error('Identificador do estabelecimento inválido.');
   if (key.length < 12 || key.length > 500) throw new Error('AppID Woovi inválido.');
+  const storeExists = await pool.query(
+    'SELECT 1 FROM merchant_settings WHERE store_id=$1 UNION SELECT 1 FROM menu_products WHERE store_id=$1 LIMIT 1',
+    [id]
+  );
+  if (!storeExists.rowCount) throw new Error('Estabelecimento não encontrado no cadastro do cardápio. Confira o storeId.');
   if (!process.env.WOOVI_WEBHOOK_AUTH_TOKEN) throw new Error('Configure WOOVI_WEBHOOK_AUTH_TOKEN no backend antes de conectar a Ovi.');
   const encrypted = encryptSecret(key);
   await pool.query(
