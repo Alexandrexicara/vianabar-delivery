@@ -960,14 +960,10 @@
                 <div class="delivery-map-column">
                     <div class="column-header">
                         <h3>🗺️ Mapa de Entregas</h3>
-                        <button class="btn btn-small" onclick="refreshDeliveryMap()" style="background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 1.1em; font-weight: bold; min-width: 120px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🔄 ATUALIZAR</button>
+                        <div class="delivery-map-toolbar"><button class="btn btn-small" onclick="refreshDeliveryMap()" style="background:#3498db;color:white;border:0;padding:10px 14px;border-radius:8px;font-weight:bold;">🔄 ATUALIZAR</button><button id="deliveryMapFullscreenButton" class="btn btn-small" type="button" onclick="toggleDeliveryMapFullscreen()" style="background:#159957;color:white;border:0;padding:10px 14px;border-radius:8px;font-weight:bold;">⛶ EXPANDIR MAPA</button></div>
                     </div>
-                    <div id="deliveryMap">
-                        <div style="background: #f8f9fa; border: 2px dashed #ddd; border-radius: 10px; padding: 40px; text-align: center;">
-                            <i class="fas fa-map-marked-alt" style="font-size: 3em; color: #ddd; margin-bottom: 15px;"></i>
-                            <p style="color: #666;">Mapa de entregas em tempo real</p>
-                            <p style="font-size: 12px; color: #999;">Visualização das rotas de delivery</p>
-                        </div>
+                    <div id="deliveryMap" role="region" aria-label="Mapa de entregas em tempo real">
+                        <div id="deliveryMapEmpty" class="delivery-map-empty">Mapa carregando. As posições dos motoboys aparecerão aqui quando o rastreamento GPS estiver ativo.</div>
                     </div>
                 </div>
             </div>
@@ -1609,6 +1605,7 @@
                 } else if (tabName === 'delivery') {
                     loadDeliveryOrders();
                     updateDeliveryStats();
+                    setTimeout(() => initializeDeliveryMap(), 80);
                 } else if (tabName === 'customers') {
                     window.location.href = 'customer-analytics.html';
                 } else if (tabName === 'loyalty') {
@@ -1802,6 +1799,10 @@
                 
                 if (data.type === 'adminLoginSuccess') {
                     console.log('Admin login successful');
+                } else if (data.type === 'existingDeliveryOrders') {
+                    receiveDeliveryMapOrders(data.orders || []);
+                } else if (data.type === 'motoboyLocationUpdate' || data.type === 'deliveryMotoboyLocation') {
+                    receiveDeliveryMapLocation(data);
                 } else if (data.type === 'existingOrders') {
                     // Store orders data for combined view
                     window.ordersData = data.orders || [];
@@ -4095,10 +4096,108 @@
             }
         }
 
-        function refreshDeliveryMap() {
-            // Placeholder para funcionalidade de mapa
-            showNotification('Mapa de entregas atualizado!');
+        let deliveryLeafletMap = null;
+        let deliveryMapMarkers = new Map();
+        let deliveryMapOrders = [];
+        let deliveryMapFullscreen = false;
+
+        function initializeDeliveryMap() {
+            const element = document.getElementById('deliveryMap');
+            if (!element || typeof L === 'undefined') return false;
+            if (!deliveryLeafletMap) {
+                deliveryLeafletMap = L.map(element, { zoomControl: true }).setView([-16.735, -43.861], 12);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(deliveryLeafletMap);
+                L.control.scale().addTo(deliveryLeafletMap);
+            }
+            setTimeout(() => deliveryLeafletMap && deliveryLeafletMap.invalidateSize(), 120);
+            renderDeliveryMapMarkers();
+            return true;
         }
+
+        function renderDeliveryMapMarkers() {
+            if (!deliveryLeafletMap) return;
+            deliveryMapMarkers.forEach(marker => deliveryLeafletMap.removeLayer(marker));
+            deliveryMapMarkers.clear();
+            let visible = 0;
+            const bounds = [];
+            deliveryMapOrders.forEach(order => {
+                const loc = order.motoboyLocation || order.currentLocation;
+                const lat = Number(loc && (loc.latitude ?? loc.lat));
+                const lng = Number(loc && (loc.longitude ?? loc.lng));
+                if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
+                const marker = L.marker([lat, lng], {
+                    icon: L.divIcon({ className:'delivery-live-marker', html:'<div style="font-size:27px;text-shadow:0 1px 4px #fff">🏍️</div>', iconSize:[32,32], iconAnchor:[16,16] })
+                }).addTo(deliveryLeafletMap);
+                const name = order.motoboyName || 'Motoboy';
+                marker.bindPopup('<strong>🏍️ '+escapeDeliveryMapText(name)+'</strong><br>Pedido: '+escapeDeliveryMapText(String(order.id || '—'))+'<br>Status: '+escapeDeliveryMapText(String(order.status || 'Em andamento')));
+                deliveryMapMarkers.set(String(order.id), marker);
+                bounds.push([lat,lng]);
+                visible++;
+            });
+            const empty = document.getElementById('deliveryMapEmpty');
+            if (empty) {
+                empty.textContent = visible
+                    ? visible+' motoboy(s) com localização recebida. A posição é atualizada quando o GPS envia novas coordenadas.'
+                    : 'Mapa ativo. Nenhuma localização de motoboy recebida ainda. O motoboy precisa iniciar uma entrega e permitir o acesso ao GPS.';
+                empty.style.display = 'block';
+            }
+            if (bounds.length) deliveryLeafletMap.fitBounds(bounds, { padding:[35,35], maxZoom:15 });
+        }
+
+        function escapeDeliveryMapText(value) {
+            return String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+        }
+
+        function receiveDeliveryMapOrders(orders) {
+            deliveryMapOrders = Array.isArray(orders) ? orders.filter(order => ['accepted','preparing','delivering','onroute'].includes(String(order.status || '').toLowerCase())) : [];
+            renderDeliveryMapMarkers();
+        }
+
+        function receiveDeliveryMapLocation(data) {
+            if (!data || !data.orderId) return;
+            const order = deliveryMapOrders.find(item => String(item.id) === String(data.orderId));
+            if (order) {
+                order.motoboyLocation = { latitude:Number(data.latitude), longitude:Number(data.longitude), timestamp:data.timestamp || new Date().toISOString() };
+                if (data.motoboyName) order.motoboyName = data.motoboyName;
+            } else if (Number.isFinite(Number(data.latitude)) && Number.isFinite(Number(data.longitude))) {
+                deliveryMapOrders.push({ id:data.orderId, status:data.status || 'delivering', motoboyName:data.motoboyName || 'Motoboy', motoboyLocation:{latitude:Number(data.latitude),longitude:Number(data.longitude)} });
+            }
+            renderDeliveryMapMarkers();
+        }
+
+        function refreshDeliveryMap() {
+            if (!initializeDeliveryMap()) {
+                const empty = document.getElementById('deliveryMapEmpty');
+                if (empty) empty.textContent = 'Não foi possível carregar o mapa. Verifique sua conexão e tente novamente.';
+                return;
+            }
+            if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+                window.ws.send(JSON.stringify({ type:'getExistingDeliveryOrders' }));
+            }
+            renderDeliveryMapMarkers();
+        }
+
+        function toggleDeliveryMapFullscreen() {
+            const panel = document.querySelector('.delivery-map-column');
+            const button = document.getElementById('deliveryMapFullscreenButton');
+            if (!panel) return;
+            deliveryMapFullscreen = !deliveryMapFullscreen;
+            panel.classList.toggle('is-map-fullscreen', deliveryMapFullscreen);
+            if (button) {
+                button.textContent = deliveryMapFullscreen ? '✕ FECHAR TELA CHEIA' : '⛶ EXPANDIR MAPA';
+                button.setAttribute('aria-expanded', String(deliveryMapFullscreen));
+            }
+            document.body.style.overflow = deliveryMapFullscreen ? 'hidden' : '';
+            if (deliveryMapFullscreen && !panel.dataset.previousParent) panel.dataset.previousParent = 'delivery';
+            setTimeout(() => deliveryLeafletMap && deliveryLeafletMap.invalidateSize(), 180);
+        }
+
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && deliveryMapFullscreen) toggleDeliveryMapFullscreen();
+        });
 
         function openDeliverySettings() {
             // Placeholder para configurações de delivery
