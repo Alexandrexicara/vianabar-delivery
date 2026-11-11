@@ -871,6 +871,47 @@
             </div>
         </div>
 
+        <!-- Recebimentos e pagamentos do comerciante -->
+        <section class="section-card" id="recebimentos-pagamentos" style="margin-bottom: 30px;">
+            <div class="section-title">🏦 Recebimentos e pagamentos</div>
+            <p style="color:#5f6b76; line-height:1.6; margin-bottom:20px;">
+                Configure como seu estabelecimento vai receber dos clientes e como serão realizados os repasses da plataforma e dos motoboys. Esta configuração é feita aqui, depois do cadastro do estabelecimento.
+            </p>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:18px;">
+                <div style="border:1px solid #dce5ee; border-radius:12px; padding:20px;">
+                    <h3 style="color:#2c3e50; margin-bottom:10px;">Ovi (Woovi) — comerciante com CNPJ</h3>
+                    <p style="color:#5f6b76; line-height:1.6; margin-bottom:14px;">
+                        Selecione esta opção se sua empresa vai utilizar a Ovi para receber pagamentos via Pix. Faça o cadastro empresarial diretamente no ambiente oficial e conclua a validação solicitada pela Ovi.
+                    </p>
+                    <a href="https://woovi.com/" target="_blank" rel="noopener noreferrer" class="action-btn success" style="text-decoration:none; justify-content:center;">
+                        Acessar Ovi (Woovi)
+                    </a>
+                </div>
+
+                <div style="border:1px solid #dce5ee; border-radius:12px; padding:20px;">
+                    <h3 style="color:#2c3e50; margin-bottom:10px;">Sicoob — correntista pessoa jurídica</h3>
+                    <p style="color:#5f6b76; line-height:1.6; margin-bottom:14px;">
+                        Se sua empresa possui conta PJ no Sicoob, solicite ao Sicoob a habilitação das APIs de Pix Recebimentos e Pix Pagamentos e as credenciais/autorização para integração com a plataforma.
+                    </p>
+                    <p style="background:#fff3cd; color:#765600; padding:12px; border-radius:8px; line-height:1.5;">
+                        A ativação depende da aprovação e das condições do Sicoob. Ter uma conta corrente, por si só, não significa que o acesso às APIs esteja liberado.
+                    </p>
+                </div>
+
+                <div style="border:1px solid #dce5ee; border-radius:12px; padding:20px;">
+                    <h3 style="color:#2c3e50; margin-bottom:10px;">Comerciante sem CNPJ</h3>
+                    <p style="color:#5f6b76; line-height:1.6;">
+                        Antes de escolher uma instituição, confirme se ela aceita cadastro de pessoa física e se oferece os recursos necessários para recebimentos e pagamentos por integração. A disponibilidade das APIs do Sicoob para pessoa física ainda precisa ser confirmada diretamente com o banco.
+                    </p>
+                </div>
+            </div>
+
+            <p style="margin-top:18px; color:#687582; font-size:.92rem; line-height:1.5;">
+                <strong>Importante:</strong> esta área apresenta as orientações de cadastro. A conexão automática das contas, a autorização das APIs e a execução dos repasses ainda dependem da implementação técnica e da liberação de cada instituição. Não informe senhas bancárias ou códigos de acesso neste painel.
+            </p>
+        </section>
+
         <!-- Notificação -->
         <div class="notification" id="notification"></div>
     </div>
