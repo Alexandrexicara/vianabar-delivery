@@ -4389,7 +4389,7 @@
         let deliveryMapRefreshTimeout = null;
         async function refreshDeliveryMap() {
             const status = document.getElementById('deliveryMapRefreshStatus');
-            const button = document.querySelector('.delivery-map-toolbar button');
+            const button = document.getElementById('deliveryMapRefreshButton');
             if (button) { button.disabled = true; button.textContent = '⏳ CONSULTANDO…'; }
             if (status) status.textContent = 'Consultando o servidor…';
             try {
