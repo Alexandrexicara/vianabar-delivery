@@ -117,7 +117,7 @@ async function registrarFalhaLote({ batchId, reason, retrySafe = false }) {
     await client.query('BEGIN');
     const result = await client.query('UPDATE sicoob_daily_payout_batches SET status=$2,failure_reason=$3,updated_at=NOW() WHERE id=$1 AND status IN (\'pending\',\'processing\') RETURNING *', [id,status,detail]);
     if (!result.rowCount) throw new Error('Lote não está apto para registrar falha.');
-    if (retrySafe) await client.query('UPDATE sicoob_delivery_obligations SET status=\'due\',payout_batch_id=NULL,updated_at=NOW() WHERE payout_batch_id=$1 AND status=\'in_batch\'', [id]);
+    if (retrySafe) await client.query('UPDATE sicoob_daily_payout_batches SET status=\'pending\',provider_reference=NULL,failure_reason=NULL,updated_at=NOW() WHERE id=$1', [id]);
     await client.query('INSERT INTO sicoob_payout_events(batch_id,event_type,details) VALUES ($1,$2,$3::jsonb)', [id,'provider_failed',JSON.stringify({reason:detail,retrySafe})]);
     await client.query('COMMIT');
     return result.rows[0];
