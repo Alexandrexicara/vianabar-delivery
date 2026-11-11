@@ -1728,7 +1728,9 @@
         function getPaymentStatusText(paymentStatus) {
             switch (paymentStatus) {
                 case 'pending': return 'Pendente';
+                case 'awaiting_in_person': return 'Aguardando garçom';
                 case 'completed': return 'Pago';
+                case 'paid': return 'Pago';
                 default: return paymentStatus;
             }
         }
@@ -2028,7 +2030,7 @@
                         addNewOrderToKitchenSection(data.order);
                         addNewOrderToCounterSection(data.order);
                         // Add to payments section if payment is pending
-                        if (data.order.paymentStatus === 'pending') {
+                        if (['pending','awaiting_in_person'].includes(data.order.paymentStatus)) {
                             addOrderToPaymentsSection(data.order);
                         }
                         
