@@ -15,7 +15,8 @@ const app = express();
 const server = http.createServer(app);
 
 // Middleware
-app.use(cors());
+const allowedOrigins = new Set((process.env.ALLOWED_APP_ORIGINS || 'https://delivery-day.netlify.app,https://vianabar-delivery.onrender.com,http://localhost:3002,http://127.0.0.1:3002').split(',').map(value => value.trim()).filter(Boolean));
+app.use(cors({ origin(origin, callback) { if (!origin || allowedOrigins.has(origin)) return callback(null, true); return callback(new Error('Origem não autorizada.')); }, credentials: true }));
 
 app.use(express.json({ limit: '15mb', verify: (req, _res, buffer) => { if (req.originalUrl && req.originalUrl.startsWith('/woovi/webhook')) req.rawBody = Buffer.from(buffer); } }));
 app.use(express.urlencoded({ extended: true }));
@@ -63,6 +64,10 @@ app.post('/upload/:type', upload.single('image'), (req, res) => {
     message: 'Image uploaded successfully'
   });
 });
+
+// Sessão segura do comerciante (cookie HttpOnly + PostgreSQL).
+const merchantAuth = require('./routes/merchantAuth');
+app.use('/api/merchant-auth', merchantAuth.router);
 
 // Server-side authentication for creator dashboard.
 const creatorAuth = require('./routes/creatorAuth');
@@ -282,7 +287,8 @@ orders.forEach(order => {
 const wss = new WebSocket.Server({ server });
 
 // Handle WebSocket connections
-wss.on('connection', async (ws) => {
+wss.on('connection', async (ws, req) => {
+  ws.merchantSession = merchantAuth.sessionFromCookieHeader(req.headers.cookie);
   await ordersReady;
   const clientId = ++clientIdCounter;
   clients.set(clientId, ws);
@@ -338,28 +344,28 @@ wss.on('connection', async (ws) => {
         broadcastToAdmins(locationUpdate);
         broadcastToMotoboys(locationUpdate);
       } else if (data.type === 'adminLogin') {
-        // Set client role to admin
+        if (!ws.merchantSession || ws.merchantSession.role !== 'admin') { ws.send(JSON.stringify({ type: 'authRequired', message: 'Entre com o acesso seguro do comerciante.' })); ws.close(4401, 'Authentication required'); return; }
         ws.role = 'admin';
-        ws.storeId = String(data.storeId || 'main');
+        ws.storeId = ws.merchantSession.storeId;
         ws.send(JSON.stringify({ type: 'adminLoginSuccess' }));
         ws.send(JSON.stringify({
           type: 'existingDeliveryOrders',
           orders: deliveryOrders.filter(o => ['pending', 'accepted', 'preparing', 'delivering', 'onroute'].includes(String(o.status || '').toLowerCase()))
         }));
       } else if (data.type === 'kitchenLogin') {
-        // Set client role to kitchen staff
+        if (!ws.merchantSession) { ws.send(JSON.stringify({type:'authRequired'})); ws.close(4401, 'Authentication required'); return; }
         ws.role = 'kitchen';
-        ws.storeId = String(data.storeId || 'main');
+        ws.storeId = ws.merchantSession.storeId;
         ws.send(JSON.stringify({ type: 'kitchenLoginSuccess' }));
       } else if (data.type === 'counterLogin') {
-        // Set client role to counter staff
+        if (!ws.merchantSession) { ws.send(JSON.stringify({type:'authRequired'})); ws.close(4401, 'Authentication required'); return; }
         ws.role = 'counter';
-        ws.storeId = String(data.storeId || 'main');
+        ws.storeId = ws.merchantSession.storeId;
         ws.send(JSON.stringify({ type: 'counterLoginSuccess' }));
       } else if (data.type === 'waiterLogin') {
-        // Set client role to waiter
+        if (!ws.merchantSession) { ws.send(JSON.stringify({type:'authRequired'})); ws.close(4401, 'Authentication required'); return; }
         ws.role = 'waiter';
-        ws.storeId = String(data.storeId || 'main');
+        ws.storeId = ws.merchantSession.storeId;
         ws.send(JSON.stringify({ type: 'waiterLoginSuccess' }));
       } else if (data.type === 'getExistingDeliveryOrders') {
         if (ws.role === 'admin') {
