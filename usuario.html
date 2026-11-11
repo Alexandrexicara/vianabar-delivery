@@ -1967,12 +1967,20 @@
                 console.log('User login successful');
             } else if (message.type === 'paymentStatusUpdate') {
                 const currentOrderId = localStorage.getItem('currentCardapioOrderId') || document.getElementById('orderIdDisplay').textContent;
-                if (String(message.orderId) === String(currentOrderId) && message.paymentStatus === 'completed') {
+                if (String(message.orderId) === String(currentOrderId)) {
                     const title = document.getElementById('statusTitle');
                     const description = document.getElementById('statusDescription');
-                    if (title) title.textContent = 'Pagamento confirmado!';
-                    if (description) description.textContent = 'A Ovi confirmou o recebimento. Seu pedido foi liberado para preparo.';
-                    playTripleBeep();
+                    if (message.paymentStatus === 'completed') {
+                        if (title) title.textContent = 'Pagamento confirmado!';
+                        if (description) description.textContent = 'A Ovi confirmou o recebimento. Seu pedido foi liberado para preparo.';
+                        playTripleBeep();
+                    } else if (message.paymentStatus === 'expired') {
+                        if (title) title.textContent = 'Cobrança Pix expirada';
+                        if (description) description.textContent = 'A cobrança expirou sem confirmação. Solicite uma nova cobrança ao estabelecimento.';
+                    } else if (message.paymentStatus === 'needs_review') {
+                        if (title) title.textContent = 'Pagamento em análise';
+                        if (description) description.textContent = 'O estabelecimento foi avisado e fará a conferência do pagamento. Não pague novamente.';
+                    }
                 }
             } else if (message.type === 'cardapioOrderSnapshot') {
                 if (message.order) {
