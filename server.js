@@ -15,8 +15,7 @@ const app = express();
 const server = http.createServer(app);
 
 // Middleware
-const allowedOrigins = new Set((process.env.ALLOWED_APP_ORIGINS || 'https://delivery-day.netlify.app,https://vianabar-delivery.onrender.com,http://localhost:3002,http://127.0.0.1:3002').split(',').map(value => value.trim()).filter(Boolean));
-app.use(cors({ origin(origin, callback) { if (!origin || allowedOrigins.has(origin)) return callback(null, true); return callback(new Error('Origem não autorizada.')); }, credentials: true }));
+app.use(cors());
 
 app.use(express.json({ limit: '15mb', verify: (req, _res, buffer) => { if (req.originalUrl && req.originalUrl.startsWith('/woovi/webhook')) req.rawBody = Buffer.from(buffer); } }));
 app.use(express.urlencoded({ extended: true }));
@@ -64,10 +63,6 @@ app.post('/upload/:type', upload.single('image'), (req, res) => {
     message: 'Image uploaded successfully'
   });
 });
-
-// Sessão segura do comerciante (cookie HttpOnly + PostgreSQL).
-const merchantAuth = require('./routes/merchantAuth');
-app.use('/api/merchant-auth', merchantAuth.router);
 
 // Server-side authentication for creator dashboard.
 const creatorAuth = require('./routes/creatorAuth');
@@ -287,8 +282,7 @@ orders.forEach(order => {
 const wss = new WebSocket.Server({ server });
 
 // Handle WebSocket connections
-wss.on('connection', async (ws, req) => {
-  ws.merchantSession = merchantAuth.sessionFromCookieHeader(req.headers.cookie);
+wss.on('connection', async (ws) => {
   await ordersReady;
   const clientId = ++clientIdCounter;
   clients.set(clientId, ws);
@@ -344,32 +338,32 @@ wss.on('connection', async (ws, req) => {
         broadcastToAdmins(locationUpdate);
         broadcastToMotoboys(locationUpdate);
       } else if (data.type === 'adminLogin') {
-        if (!ws.merchantSession || ws.merchantSession.role !== 'admin') { ws.send(JSON.stringify({ type: 'authRequired', message: 'Entre com o acesso seguro do comerciante.' })); ws.close(4401, 'Authentication required'); return; }
+        // Set client role to admin
         ws.role = 'admin';
-        ws.storeId = ws.merchantSession.storeId;
+        ws.storeId = String(data.storeId || 'main');
         ws.send(JSON.stringify({ type: 'adminLoginSuccess' }));
         ws.send(JSON.stringify({
           type: 'existingDeliveryOrders',
-          orders: deliveryOrders.filter(o => o.storeId === ws.storeId && ['pending', 'accepted', 'preparing', 'delivering', 'onroute'].includes(String(o.status || '').toLowerCase()))
+          orders: deliveryOrders.filter(o => ['pending', 'accepted', 'preparing', 'delivering', 'onroute'].includes(String(o.status || '').toLowerCase()))
         }));
       } else if (data.type === 'kitchenLogin') {
-        if (!ws.merchantSession) { ws.send(JSON.stringify({type:'authRequired'})); ws.close(4401, 'Authentication required'); return; }
+        // Set client role to kitchen staff
         ws.role = 'kitchen';
-        ws.storeId = ws.merchantSession.storeId;
+        ws.storeId = String(data.storeId || 'main');
         ws.send(JSON.stringify({ type: 'kitchenLoginSuccess' }));
       } else if (data.type === 'counterLogin') {
-        if (!ws.merchantSession) { ws.send(JSON.stringify({type:'authRequired'})); ws.close(4401, 'Authentication required'); return; }
+        // Set client role to counter staff
         ws.role = 'counter';
-        ws.storeId = ws.merchantSession.storeId;
+        ws.storeId = String(data.storeId || 'main');
         ws.send(JSON.stringify({ type: 'counterLoginSuccess' }));
       } else if (data.type === 'waiterLogin') {
-        if (!ws.merchantSession) { ws.send(JSON.stringify({type:'authRequired'})); ws.close(4401, 'Authentication required'); return; }
+        // Set client role to waiter
         ws.role = 'waiter';
-        ws.storeId = ws.merchantSession.storeId;
+        ws.storeId = String(data.storeId || 'main');
         ws.send(JSON.stringify({ type: 'waiterLoginSuccess' }));
       } else if (data.type === 'getExistingDeliveryOrders') {
         if (ws.role === 'admin') {
-          const activeOrders = deliveryOrders.filter(o => o.storeId === ws.storeId && ['accepted', 'preparing', 'delivering', 'onroute'].includes(String(o.status || '').toLowerCase()));
+          const activeOrders = deliveryOrders.filter(o => ['accepted', 'preparing', 'delivering', 'onroute'].includes(String(o.status || '').toLowerCase()));
           ws.send(JSON.stringify({
             type: 'existingDeliveryOrders',
             requestId: data.requestId || null,
@@ -385,14 +379,14 @@ wss.on('connection', async (ws, req) => {
         // Send different orders based on role
         let ordersToSend = [];
         if (ws.role === 'admin') {
-          ordersToSend = orders.filter(order => order.storeId === ws.storeId);
+          ordersToSend = orders.filter(order => !order.storeId || order.storeId === ws.storeId);
         } else if (ws.role === 'kitchen') {
           // Kitchen staff only see orders with items for kitchen sector
-          ordersToSend = orders.filter(order => order.storeId === ws.storeId && ['paid','completed'].includes(String(order.paymentStatus || '').toLowerCase()) && order.items.some(item => item.sector === 'kitchen') &&
+          ordersToSend = orders.filter(order => (!order.storeId || order.storeId === ws.storeId) && order.items.some(item => item.sector === 'kitchen') &&
               (order.status === 'pending' || order.status === 'preparing'));
         } else if (ws.role === 'counter') {
           // Counter staff only see orders with items for counter sector
-          ordersToSend = orders.filter(order => order.storeId === ws.storeId && ['paid','completed'].includes(String(order.paymentStatus || '').toLowerCase()) && order.items.some(item => item.sector === 'counter') &&
+          ordersToSend = orders.filter(order => (!order.storeId || order.storeId === ws.storeId) && order.items.some(item => item.sector === 'counter') &&
               (order.status === 'pending' || order.status === 'preparing'));
         } else {
           // Regular users only see their own orders
@@ -414,7 +408,7 @@ wss.on('connection', async (ws, req) => {
         // Update order status
         console.log('[DEBUG] Servidor: Recebida solicitação de atualização de status', data);
         const order = orders.find(o => o.id === data.orderId);
-        if (ws.merchantSession && ['admin','kitchen','counter','waiter'].includes(ws.role) && order && order.storeId === ws.storeId && (ws.role === 'admin' || ['paid','completed'].includes(String(order.paymentStatus || '').toLowerCase()))) {
+        if (order && (!order.storeId || !ws.storeId || order.storeId === ws.storeId)) {
           if (order.storeId) cardapioDb.query('UPDATE cardapio_orders SET status=$2,updated_at=NOW() WHERE id=$1 AND store_id=$3', [String(order.id), String(data.status), order.storeId]).catch(error => console.error('[CARDAPIO] Falha ao persistir status:', error.message));
           console.log('[DEBUG] Servidor: Pedido encontrado, atualizando status de', order.status, 'para', data.status);
           order.status = data.status;
