@@ -1,147 +1,34 @@
-# 💰 DIVISÃO CORRETA - COMERCIANTE RECEBE E DIVIDE
+# Regras de repasse — versão corrigida
 
-## ✅ CONFIGURAÇÃO FINAL CORRETA
+> Este documento substitui a regra antiga baseada em percentuais. Não use os exemplos antigos deste arquivo ou de versões anteriores.
 
-### 📊 QUEM É QUEM:
+## Regra comercial
 
-```
-🏪 COMERCIANTE (Admin) = Quem vende os produtos
-👨‍💻 CRIADOR = Dono da plataforma (sistema)
-🏍️ MOTOBOY = Quem faz a entrega
-```
+Todos os componentes são valores fixos em reais, guardados como centavos no sistema:
 
----
+- valor dos produtos;
+- valor fixo da entrega;
+- taxa fixa da plataforma;
+- valor líquido do comerciante.
 
-### 💵 FLUXO DO DINHEIRO:
+Não calcular parte de nenhum participante por percentual do total do pedido. Não presumir que o motoboy recebe uma porcentagem do pedido.
 
-```mermaid
-graph TB
-    A[💵 Cliente paga R$ 100] --> B[🏪 COMERCIANTE recebe tudo]
-    B --> C{Comerciante divide}
-    C --> D[🏍️ Motoboy: 25%]
-    C --> E[👨‍💻 Criador: 10%]
-    C --> F[🏪 Comerciante fica com: 65%]
-```
+## Dois fluxos diferentes
 
----
+### A — Split automático do pedido
 
-### 📋 PORCENTAGENS CORRETAS:
+O provedor recebe o valor da cobrança e divide os valores fixos configurados para cada participante, desde que o contrato do provedor e a conta estejam habilitados para esse recurso. O servidor calcula e valida todos os valores antes de criar a cobrança.
 
-| Quem | Porcentagem | Valor (exemplo R$100) |
-|------|-------------|----------------------|
-| 🏪 **COMERCIANTE** | **65%** | **R$ 65,00** |
-| 🏍️ Motoboy | 25% | R$ 25,00 |
-| 👨‍💻 Criador | 10% | R$ 10,00 |
+### B — Motoboy contratado pelo comerciante
 
-**TOTAL: 100% = R$ 100,00**
+A entrega gera uma obrigação fixa do comerciante para o motoboy. O sistema acumula as obrigações e, após 48 horas, apresenta os valores vencidos para autorização do comerciante. A confirmação de pagamento deve vir do provedor de transferência.
 
----
+## Provedor
 
-## 🔄 COMO FUNCIONA:
+O código legado de MyGateway não é uma implementação válida de split: contém percentuais, endpoint não correspondente à documentação pública e chamadas feitas pelo navegador. Não usar esse código como integração financeira de produção.
 
-### Passo 1: Cliente Paga
-```
-Cliente finaliza pedido de R$ 100,00
-↓
-DINHEIRO VAI PARA O COMERCIANTE (ADMIN)
-```
+A documentação oficial da Woovi descreve split PIX por valores em centavos, com subcontas e saque separado. A implementação deve seguir o contrato oficial e usar credenciais somente no servidor.
 
-### Passo 2: MyGateway Divide Automaticamente
-```
-🏪 COMERCIANTE recebe R$ 100,00
-↓
-Automaticamente separa:
-- 🏍️ R$ 25,00 para Motoboy (25%)
-- 👨‍💻 R$ 10,00 para Criador (10%)
-- 🏪 Fica com R$ 65,00 (65%)
-```
+## Valores
 
-### Passo 3: Cada Um Recebe na Conta
-```
-🏍️ Motoboy → R$ 25,00 na conta bancária
-👨‍💻 Criador → R$ 10,00 na conta bancária
-🏪 Comerciante → R$ 65,00 na conta bancária
-```
-
----
-
-## 💡 EXEMPLO PRÁTICO:
-
-### Pedido de R$ 150,00:
-
-```
-💵 CLIENTE PAGA: R$ 150,00
-
-🏪 COMERCIANTE RECEBE E DIVIDE:
-
-🏍️ Motoboy (25%):
-   R$ 37,50 → Vai para conta do motoboy
-
-👨‍💻 Criador (10%):
-   R$ 15,00 → Vai para conta do criador
-
-🏪 Comerciante (65%):
-   R$ 97,50 → Fica com comerciante
-```
-
----
-
-## 🔧 IMPLEMENTAÇÃO TÉCNICA:
-
-### mygateway-integration.js:
-
-```javascript
-constructor() {
-    this.merchantId = null;     // COMERCIANTE/Admin
-    this.motoboyId = null;      // Motoboy
-    this.creatorId = null;      // Criador
-    
-    this.plataformaPercent = 10; // 10% Criador
-    this.motoboyPercent = 25;    // 25% Motoboy
-    // COMERCIANTE: 65% (100 - 10 - 25)
-}
-```
-
-### processarPagamento():
-
-```javascript
-// COMERCIANTE é quem processa o pagamento
-const paymentData = {
-    merchantId: this.merchantId, // COMERCIANTE
-    amount: valorTotal,
-    splits: [
-        { accountId: motoboyId, value: 25% },
-        { accountId: creatorId, value: 10% }
-        // COMERCIANTE fica com resto automaticamente
-    ]
-};
-```
-
----
-
-## 🎯 RESUMO FINAL:
-
-✅ **COMERCIANTE/Admin** recebe valor TOTAL do cliente  
-✅ **COMERCIANTE** divide automaticamente  
-✅ **Motoboy** recebe 25% do comerciante  
-✅ **Criador** recebe 10% do comerciante  
-✅ **COMERCIANTE** fica com 65%  
-
----
-
-## 📊 LOGS NO CONSOLE:
-
-```
-[MyGateway] 🏪 COMERCIANTE vai receber e dividir...
-[MyGateway] 💰 DIVISÃO DO COMERCIANTE:
-  💵 Cliente pagou: R$ 100.00
-  🏪 COMERCIANTE recebe: R$ 65.00 (65%)
-  🏍️ Motoboy recebe: R$ 25.00 (25%)
-  👨‍💻 Criador recebe: R$ 10.00 (10%)
-```
-
----
-
-## ✅ STATUS: CORRETO AGORA!
-
-**COMERCIANTE recebe total e divide com motoboy e criador!** 🎉
+Os valores comerciais devem ser definidos nas configurações administrativas e aprovados antes de habilitar pagamentos reais. Não há valores padrão de produção definidos neste documento.
