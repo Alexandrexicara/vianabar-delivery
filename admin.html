@@ -1016,7 +1016,7 @@
                 <div class="delivery-map-column">
                     <div class="column-header">
                         <h3>🗺️ Mapa de Entregas</h3>
-                        <div class="delivery-map-toolbar"><button class="btn btn-small" onclick="refreshDeliveryMap()" style="background:#3498db;color:white;border:0;padding:10px 14px;border-radius:8px;font-weight:bold;">🔄 ATUALIZAR</button><button id="deliveryMapFullscreenButton" class="btn btn-small" type="button" onclick="toggleDeliveryMapFullscreen()" style="background:#159957;color:white;border:0;padding:10px 14px;border-radius:8px;font-weight:bold;">⛶ EXPANDIR MAPA</button></div>
+                        <div class="delivery-map-toolbar"><span id="deliveryMapRefreshStatus" role="status" aria-live="polite" style="font-size:12px;color:#34495e;align-self:center;">Aguardando conexão com o servidor…</span><button class="btn btn-small" onclick="refreshDeliveryMap()" style="background:#3498db;color:white;border:0;padding:10px 14px;border-radius:8px;font-weight:bold;">🔄 ATUALIZAR</button><button id="deliveryMapFullscreenButton" class="btn btn-small" type="button" onclick="toggleDeliveryMapFullscreen()" style="background:#159957;color:white;border:0;padding:10px 14px;border-radius:8px;font-weight:bold;">⛶ EXPANDIR MAPA</button></div>
                     </div>
                     <div id="deliveryMap" role="region" aria-label="Mapa de entregas em tempo real">
                         <div id="deliveryMapEmpty" class="delivery-map-empty">Mapa carregando. As posições dos motoboys aparecerão aqui quando o rastreamento GPS estiver ativo.</div>
@@ -1841,9 +1841,8 @@
             
             // Connect using dynamic URL
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const host = window.location.hostname;
-            const port = window.location.port || '3002';
-            const wsUrl = `${protocol}//${host}:${port}`;
+            // Render termina TLS no proxy; o WebSocket usa a mesma origem, sem forçar a porta 3002.
+            const wsUrl = `${protocol}//${window.location.host}`;
             
             const ws = new WebSocket(wsUrl);
             
@@ -1860,9 +1859,10 @@
                 
                 // Request existing orders when connection is established
                 if (window.ws && window.ws.readyState === WebSocket.OPEN) {
-                    window.ws.send(JSON.stringify({
-                        type: 'getExistingOrders'
-                    }));
+                    window.ws.send(JSON.stringify({ type: 'getExistingOrders' }));
+                    window.ws.send(JSON.stringify({ type: 'getExistingDeliveryOrders' }));
+                    const mapStatus = document.getElementById('deliveryMapRefreshStatus');
+                    if (mapStatus) mapStatus.textContent = 'Conectado. Solicitando pedidos e posições…';
                 }
             };
             
@@ -1879,6 +1879,8 @@
                     console.log('Admin login successful');
                 } else if (data.type === 'existingDeliveryOrders') {
                     receiveDeliveryMapOrders(data.orders || []);
+                    const status = document.getElementById('deliveryMapRefreshStatus');
+                    if (status) status.textContent = '✓ Consulta concluída: ' + (data.orders || []).length + ' pedido(s) em andamento recebidos às ' + new Date().toLocaleTimeString('pt-BR');
                 } else if (data.type === 'motoboyLocationUpdate' || data.type === 'deliveryMotoboyLocation') {
                     receiveDeliveryMapLocation(data);
                 } else if (data.type === 'existingOrders') {
@@ -4266,13 +4268,33 @@
             renderDeliveryMapMarkers();
         }
 
+        let deliveryMapRefreshTimeout = null;
         async function refreshDeliveryMap() {
-            const ready = await initializeDeliveryMap();
-            if (!ready) return;
-            if (window.ws && window.ws.readyState === WebSocket.OPEN) {
-                window.ws.send(JSON.stringify({ type:'getExistingDeliveryOrders' }));
+            const status = document.getElementById('deliveryMapRefreshStatus');
+            const button = document.querySelector('.delivery-map-toolbar button');
+            if (button) { button.disabled = true; button.textContent = '⏳ CONSULTANDO…'; }
+            if (status) status.textContent = 'Consultando o servidor…';
+            try {
+                const ready = await initializeDeliveryMap();
+                if (!ready) throw new Error('O mapa não foi inicializado. Verifique o carregamento da biblioteca.');
+                if (!window.ws || window.ws.readyState !== WebSocket.OPEN) {
+                    throw new Error('Sem conexão WebSocket com o servidor. Aguardando reconexão.');
+                }
+                window.ws.send(JSON.stringify({ type:'getExistingDeliveryOrders', requestId:String(Date.now()) }));
+                if (deliveryMapRefreshTimeout) clearTimeout(deliveryMapRefreshTimeout);
+                deliveryMapRefreshTimeout = setTimeout(() => {
+                    if (status) status.textContent = '⚠️ O servidor não respondeu à consulta. Confira a conexão.';
+                    if (button) { button.disabled = false; button.textContent = '🔄 ATUALIZAR'; }
+                }, 8000);
+                renderDeliveryMapMarkers();
+            } catch (error) {
+                console.error('[DeliveryMap] Falha ao atualizar:', error);
+                if (status) status.textContent = '❌ ' + error.message;
+            } finally {
+                setTimeout(() => {
+                    if (button) { button.disabled = false; button.textContent = '🔄 ATUALIZAR'; }
+                }, 800);
             }
-            renderDeliveryMapMarkers();
         }
 
         function toggleDeliveryMapFullscreen() {
