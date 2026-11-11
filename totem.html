@@ -2463,7 +2463,7 @@
                 changeAmount: changeValue || null,
                 timestamp: new Date().toISOString(),
                 status: 'pending',
-                paymentStatus: 'completed'
+                paymentStatus: 'pending'
             };
             
             // Salvar pedido
@@ -2552,13 +2552,7 @@
                 };
                 
                 ws.send(JSON.stringify(wsOrder));
-                ws.send(JSON.stringify({
-                    type: 'updatePaymentStatus',
-                    orderId: order.id,
-                    paymentStatus: 'completed',
-                    updatedBy: 'totem'
-                }));
-                console.log('[TOTEM] Pedido e confirmação de pagamento enviados via WebSocket');
+                console.log('[TOTEM] Pedido enviado; pagamento permanece pendente até confirmação autenticada.');
             } else {
                 console.warn('[TOTEM] WebSocket não conectado, salvando só no localStorage');
             }
