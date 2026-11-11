@@ -2119,7 +2119,7 @@ Total: R$ ${order.total.toFixed(2).replace('.', ',')}`);
 
                 if (confirmation) {
                     updatePaymentStatus(orderId, 'completed');
-                    alert('Pagamento confirmado e status atualizado!');
+                    alert('Recebimento informado. O pedido permanece pendente até validação autenticada do comerciante.');
                 } else {
                     alert('Pagamento cancelado pelo garçom.');
                 }
@@ -2128,24 +2128,9 @@ Total: R$ ${order.total.toFixed(2).replace('.', ',')}`);
         
         // Update payment status
         function updatePaymentStatus(orderId, newPaymentStatus) {
-            // Send update to server
-            if (window.ws && window.ws.readyState === WebSocket.OPEN) {
-                window.ws.send(JSON.stringify({
-                    type: 'updatePaymentStatus',
-                    orderId: orderId,
-                    paymentStatus: newPaymentStatus
-                }));
-            }
-            
-            // Update local data
-            if (window.ordersData) {
-                const order = window.ordersData.find(o => o.id === orderId);
-                if (order) {
-                    order.paymentStatus = newPaymentStatus;
-                }
-            }
+            alert('O pagamento permanece pendente até confirmação autenticada. O navegador não pode alterar o estado financeiro.');
         }
-        
+
         // Close day orders
         function closeDayOrders() {
             if (confirm('Tem certeza que deseja fechar todos os pedidos do dia? Isso limpará a lista de pedidos.')) {
