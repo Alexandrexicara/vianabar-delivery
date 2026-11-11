@@ -1423,6 +1423,7 @@
         }
         const storeId = window.cardapioStoreId || 'main';
         const button = document.querySelector(method === 'pix' ? '#pixPayment button.btn-success' : method === 'card' ? '#cardPayment button' : '#cashPayment button');
+        let orderSubmitted = false;
         if (button) { button.disabled = true; button.textContent = 'Enviando pedido...'; }
         try {
             const response = await fetch('/api/cardapio/orders', {
@@ -1440,6 +1441,7 @@
             const result = await response.json();
             if (!response.ok || !result.success) throw new Error(result.error || 'Não foi possível registrar o pedido.');
             const order = result.order;
+            orderSubmitted = true;
             localStorage.setItem('currentCardapioOrderId', order.id);
             saveUserOrder(order);
             document.getElementById('orderIdDisplay').textContent = order.id;
@@ -1453,7 +1455,7 @@
                 document.getElementById('pixKey').value = payment.brCode || '';
                 const qr = document.getElementById('pixQrCode');
                 qr.innerHTML = '';
-                if (payment.qrCodeImage && /^https:\/\//i.test(payment.qrCodeImage)) {
+                if (payment.qrCodeImage && /^(https:\/\/|data:image\/(png|jpeg|webp);base64,)/i.test(payment.qrCodeImage)) {
                     const image = document.createElement('img');
                     image.src = payment.qrCodeImage;
                     image.alt = 'QR Code Pix Ovi';
@@ -1485,7 +1487,10 @@
         } catch (error) {
             alert(error.message);
         } finally {
-            if (button) { button.disabled = false; button.textContent = method === 'pix' ? 'Gerar cobrança e confirmar pedido' : 'Confirmar pedido e chamar garçom'; }
+            if (button) {
+                button.disabled = orderSubmitted;
+                button.textContent = orderSubmitted ? (method === 'pix' ? 'Cobrança criada — aguardando Pix' : 'Pedido enviado ao garçom') : (method === 'pix' ? 'Gerar cobrança e confirmar pedido' : 'Confirmar pedido e chamar garçom');
+            }
         }
     }
     
@@ -1973,13 +1978,16 @@
                     if (message.paymentStatus === 'completed') {
                         if (title) title.textContent = 'Pagamento confirmado!';
                         if (description) description.textContent = 'A Ovi confirmou o recebimento. Seu pedido foi liberado para preparo.';
+                        showSection('status');
                         playTripleBeep();
                     } else if (message.paymentStatus === 'expired') {
                         if (title) title.textContent = 'Cobrança Pix expirada';
                         if (description) description.textContent = 'A cobrança expirou sem confirmação. Solicite uma nova cobrança ao estabelecimento.';
+                        showSection('status');
                     } else if (message.paymentStatus === 'needs_review') {
                         if (title) title.textContent = 'Pagamento em análise';
                         if (description) description.textContent = 'O estabelecimento foi avisado e fará a conferência do pagamento. Não pague novamente.';
+                        showSection('status');
                     }
                 }
             } else if (message.type === 'cardapioOrderSnapshot') {
@@ -1988,6 +1996,7 @@
                     updateOrderItemsStatus(message.order.items || []);
                     if (message.order.paymentStatus === 'paid') {
                         document.getElementById('statusTitle').textContent = 'Pagamento confirmado!';
+                        showSection('status');
                     }
                 }
             } else if (message.type === 'orderRejected') {
