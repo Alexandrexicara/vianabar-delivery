@@ -62,3 +62,15 @@ Esses módulos não devem ser tratados como integração financeira pronta para 
 - Comissões de garçom nas telas administrativas passaram a usar valor fixo em reais, com padrão zero, em vez de percentual.
 
 Esses bloqueios evitam confirmações financeiras falsas. Eles também significam que o checkout e a liquidação reais ainda precisam ser integrados antes de aceitar pagamentos em produção.
+
+
+## Bloqueios identificados antes de ativar o fluxo real
+
+- O banco Neon de produção consultado contém as tabelas de configuração/itens do cardápio, mas não possui tabelas persistentes de pedidos, comerciantes ou cobranças.
+- A migration legada de cobranças referencia tabelas pedidos e merchants que não existem no schema de produção consultado.
+- O fluxo de pedidos usado pelo WebSocket ainda mantém pedidos em memória; isso não serve como fonte financeira persistente.
+- O projeto não tem, na branch main, uma sessão autenticada de comerciante pronta para autorizar lotes. Não expor as novas operações de autorização sem autenticação.
+- Os valores fixos de entrega e taxa da plataforma não estão definidos em configuração de produção consultada. Os antigos R$ 1 e R$ 10 eram exemplos e foram removidos.
+- O serviço de 48 horas ainda não foi ligado ao evento confiável de entrega concluída, porque o pedido atual não fornece valores fixos persistidos e autenticados.
+
+Esses pontos precisam ser resolvidos para ativar o checkout e a autorização de pagamentos sem simulação. A escolha de onde manter os recursos continua separada e em aberto.
