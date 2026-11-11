@@ -550,13 +550,6 @@
                     number: document.getElementById('cnhNumber').value,
                     category: document.getElementById('cnhCategory').value
                 },
-                bankAccount: {
-                    bankCode: document.getElementById('bankCode').value,
-                    agency: document.getElementById('bankAgency').value,
-                    account: document.getElementById('bankAccount').value,
-                    accountType: document.getElementById('bankAccountType').value,
-                    pixKey: document.getElementById('pixKey').value || ''
-                },
                 status: 'offline',
                 stats: {
                     todayDeliveries: 0,
@@ -608,30 +601,11 @@
                 return;
             }
             
-            // Validar dados bancários
-            if (!BankDataModule.validateBankCode(formData.bankAccount.bankCode)) {
-                showAlert('Código do banco inválido! Use 001, 341, 237, etc.', 'error');
-                return;
-            }
-            
-            if (!BankDataModule.validateAgency(formData.bankAccount.agency)) {
-                showAlert('Agência inválida! Deve ter 4 ou 5 dígitos', 'error');
-                return;
-            }
-            
-            if (!BankDataModule.validateAccount(formData.bankAccount.account)) {
-                showAlert('Conta corrente inválida! Verifique o número', 'error');
-                return;
-            }
-            
             // Adicionar novo motoboy
             motoboys.push(formData);
             localStorage.setItem('motoboys', JSON.stringify(motoboys));
             
-            // Salvar dados bancários no MyGateway
-            BankDataModule.saveBankData('MOTOBOY', formData.cpf, formData.bankAccount);
-            
-            showAlert('Cadastro realizado com sucesso! Dados bancários salvos para MyGateway.', 'success');
+            showAlert('Cadastro realizado. Dados bancários não foram solicitados nem armazenados; serão configurados após a definição do provedor de pagamentos.', 'success');
             
             // Limpar formulário
             document.getElementById('registerForm').querySelector('form').reset();
@@ -679,6 +653,5 @@
     
     <!-- Scripts do MyGateway -->
     <script src="mygateway-integration.js"></script>
-    <script src="mygateway-bankdata.js"></script>
 </body>
 </html>
