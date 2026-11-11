@@ -21,7 +21,7 @@ a{color:#1769aa}
 <p class="muted">Área restrita ao administrador da plataforma. A conexão é feita por estabelecimento. O AppID é enviado diretamente ao backend por HTTPS e armazenado criptografado; nunca é devolvido à página.</p>
 <hr style="margin:24px 0;border:0;border-top:1px solid #e1e7ee">
 <h2 style="font-size:19px">Chave Pix da plataforma</h2>
-<p class="muted">A chave será armazenada criptografada no Neon. Ela recebe automaticamente a comissão de 15% após cada pagamento confirmado.</p>
+<p class="muted">A chave será armazenada criptografada no Neon. Ela recebe a comissão de 15% após cada pagamento confirmado, desde que o Pix Out esteja habilitado na conta do comerciante.</p>
 <div id="platformStatus" class="status">Verificando chave Pix...</div>
 <label for="platformPixKey">Chave Pix de destino da plataforma</label>
 <input id="platformPixKey" type="password" autocomplete="new-password" placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória">
@@ -52,7 +52,7 @@ async function loadPlatformKeyStatus(){
   if(!response.ok||!result.success)throw new Error(result.error||'Falha ao consultar a chave.');
   platformStatus.textContent=result.configured
     ? 'Chave Pix configurada: '+result.masked+' ('+result.type+'). A chave completa não é exibida.'
-    : 'Chave Pix ainda não configurada. O checkout Ovi permanecerá bloqueado até salvar a chave.';
+    : 'Chave Pix ainda não configurada. As cobranças podem ser recebidas; o repasse automático da comissão ficará pendente até salvar a chave.';
 }
 savePlatformButton.addEventListener('click',async()=>{
   const pixKey=document.getElementById('platformPixKey').value.trim();
