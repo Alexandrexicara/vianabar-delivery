@@ -100,6 +100,17 @@ router.post('/', async (req, res) => {
     };
 
     if (paymentMethod === 'pix') {
+      const providerConfig = await client.query(
+        "SELECT settings->>'paymentProvider' AS provider FROM merchant_settings WHERE store_id=$1",
+        [storeId]
+      );
+      const selectedProvider = providerConfig.rows[0]?.provider || null;
+      if (selectedProvider === 'sicoob') {
+        return res.status(409).json({ success:false, error:'Este estabelecimento está configurado para receber pelo Cicobi/Sicoob. O checkout Ovi não será usado para esta loja.' });
+      }
+      if (selectedProvider && selectedProvider !== 'woovi') {
+        return res.status(409).json({ success:false, error:'O provedor de recebimento selecionado não está habilitado para checkout Pix.' });
+      }
       const account = await woovi.getMerchantAccount(storeId);
       if (!account || account.status !== 'active' || !account.webhook_registered) {
         return res.status(409).json({ success: false, error: 'Este estabelecimento ainda não concluiu a conexão de recebimentos pela Ovi.' });
