@@ -120,11 +120,11 @@ async function savePlatformPixKey({ pixKey, pixKeyType }) {
   if (type === 'RANDOM' && key.length < 20) throw new Error('A chave aleatória Pix parece incompleta.');
   const encrypted = encryptSecret(key);
   await pool.query(
-    \`INSERT INTO platform_payment_settings(setting_id,pix_key_ciphertext,pix_key_iv,pix_key_tag,pix_key_type)
+    `INSERT INTO platform_payment_settings(setting_id,pix_key_ciphertext,pix_key_iv,pix_key_tag,pix_key_type)
      VALUES('default',$1,$2,$3,$4)
      ON CONFLICT(setting_id) DO UPDATE SET
        pix_key_ciphertext=EXCLUDED.pix_key_ciphertext,pix_key_iv=EXCLUDED.pix_key_iv,
-       pix_key_tag=EXCLUDED.pix_key_tag,pix_key_type=EXCLUDED.pix_key_type,updated_at=NOW()\`,
+       pix_key_tag=EXCLUDED.pix_key_tag,pix_key_type=EXCLUDED.pix_key_type,updated_at=NOW()`,
     [encrypted.ciphertext,encrypted.iv,encrypted.tag,type]
   );
   return { configured:true, type, masked:'••••' + key.slice(-4) };
