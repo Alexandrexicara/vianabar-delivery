@@ -583,8 +583,7 @@
 // Função showSection movida para o início do script para garantir disponibilidade
         
         // Customization functions using the centralized system
-        const MERCHANT_API_BASE = 'https://vianabar-delivery.onrender.com';
-        function merchantSettingsApiUrl() { return MERCHANT_API_BASE + '/api/merchant-settings/' + encodeURIComponent(getMerchantStoreId()); }
+        function merchantSettingsApiUrl() { return '/api/merchant-settings/' + encodeURIComponent(getMerchantStoreId()); }
 
         async function loadMerchantSettings() {
             try {
@@ -830,29 +829,35 @@
         }
         
         // Load establishment data on page load
-        document.addEventListener('DOMContentLoaded', async function() {
+        document.addEventListener('DOMContentLoaded', function() {
             console.log('[DEBUG] Iniciando carregamento da página');
-            let session;
-            try {
-                const authResponse = await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/session', {credentials:'include',cache:'no-store'});
-                if (!authResponse.ok) throw new Error('Sessão ausente');
-                session = (await authResponse.json()).merchant;
-            } catch (_) {
-                alert('⚠️ É necessário entrar com o acesso seguro do comerciante.');
-                window.location.href = 'https://vianabar-delivery.onrender.com/login.html';
+            // Check if admin has proper access
+            const adminAccess = localStorage.getItem('adminAccess');
+            const establishmentData = localStorage.getItem('establishmentData');
+            
+            console.log('[DEBUG] adminAccess:', adminAccess);
+            console.log('[DEBUG] establishmentData:', establishmentData);
+            
+            // Aceita admin OU creator (isAuthenticated)
+            let hasAuth = false;
+            if (adminAccess && establishmentData) {
+                hasAuth = true;
+            } else if (establishmentData) {
+                try {
+                    const data = JSON.parse(establishmentData);
+                    hasAuth = data && data.isAuthenticated;
+                } catch(e) {}
+            }
+            
+            if (!hasAuth) {
+                alert('⚠️ É necessário fazer login!');
+                window.location.href = 'login.html';
                 return;
             }
-            localStorage.removeItem('adminAccess');
-            let establishment = {};
-            try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
-            establishment.uniqueId = session.storeId;
-            establishment.storeId = session.storeId;
-            establishment.email = session.email;
-            localStorage.setItem('establishmentData', JSON.stringify(establishment));
-            const establishmentData = JSON.stringify(establishment);
-            const data = establishment;
-            console.log('[DEBUG] Sessão autenticada para loja:', session.storeId);
-            if (data) {
+            
+            const data = JSON.parse(establishmentData);
+            console.log('[DEBUG] Dados do estabelecimento:', data);
+            if (data && (data.isAuthenticated || adminAccess === 'true')) {
                 const adminNameElement = document.getElementById('adminName');
                 if (adminNameElement) {
                     adminNameElement.textContent = 'Administrador - ' + data.establishmentName;
@@ -1141,12 +1146,16 @@
         function productAdminHeaders() {
             let establishment = {};
             try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
-            return { 'Content-Type': 'application/json' };
+            const authenticated = localStorage.getItem('adminAccess') === 'true' || establishment.isAuthenticated === true;
+            return {
+                'Content-Type': 'application/json',
+                'X-Admin-Access': authenticated ? 'true' : 'false'
+            };
         }
 
         async function saveItem(itemData) {
             try {
-                const response = await fetch(MERCHANT_API_BASE + '/api/products', {
+                const response = await fetch('/api/products', {
                     method: 'POST',
                     credentials: 'include',
                     headers: productAdminHeaders(),
@@ -1197,7 +1206,7 @@
                 }
                 if (restoreOldShowcase) {
                     for (const cachedProduct of cachedShowcase.slice(0, 8)) {
-                        const showcaseResponse = await fetch(`${MERCHANT_API_BASE}/api/products/${encodeURIComponent(cachedProduct.id)}/showcase`, {
+                        const showcaseResponse = await fetch(`/api/products/${encodeURIComponent(cachedProduct.id)}/showcase`, {
                             method: 'PATCH', credentials: 'include',
                             headers: productAdminHeaders(),
                             body: JSON.stringify({ storeId: getMerchantStoreId(), showcase: true })
