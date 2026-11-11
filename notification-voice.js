@@ -139,6 +139,23 @@
   // Registra um listener independente do onmessage já existente em cada página.
   window.WebSocket = new Proxy(NativeWebSocket, {
     construct(target, args) {
+      // Defesa adicional: páginas antigas/cacheadas ainda podem tentar WSS no próprio Netlify.
+      // Em produção, normaliza qualquer URL do frontend para o WebSocket do backend Render.
+      const requested = args[0];
+      if (typeof requested === 'string' && window.location.hostname.endsWith('netlify.app')) {
+        try {
+          const parsed = new URL(requested, window.location.href);
+          if (parsed.hostname === window.location.hostname || parsed.hostname.endsWith('netlify.app')) {
+            parsed.protocol = 'wss:';
+            parsed.hostname = 'vianabar-delivery.onrender.com';
+            parsed.port = '';
+            args[0] = parsed.toString();
+            console.warn('[Delivery Day] WebSocket redirecionado do Netlify para o backend Render:', args[0]);
+          }
+        } catch (error) {
+          console.error('[Delivery Day] URL WebSocket inválida:', requested, error);
+        }
+      }
       const socket = Reflect.construct(target, args);
       socket.addEventListener('message', handleMessage);
       return socket;
