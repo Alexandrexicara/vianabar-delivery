@@ -898,18 +898,19 @@
         async function loadDeliveryMerchantSettings() {
             const params = new URLSearchParams(window.location.search);
             deliveryStoreId = params.get('storeId') || 'main';
-            if (deliveryStoreId === 'main') {
-                deliveryMerchantSettings = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
-                return deliveryMerchantSettings;
-            }
             try {
                 const response = await fetch('/api/merchant-settings/' + encodeURIComponent(deliveryStoreId), {cache:'no-store'});
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Falha ao carregar dados do comércio.');
                 deliveryMerchantSettings = result.settings || {};
+                if (Object.keys(deliveryMerchantSettings).length) {
+                    localStorage.setItem('establishmentCustomizations', JSON.stringify(deliveryMerchantSettings));
+                } else {
+                    deliveryMerchantSettings = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
+                }
             } catch (error) {
                 console.error('[DELIVERY] Falha ao carregar localização do comércio:', error);
-                deliveryMerchantSettings = {};
+                deliveryMerchantSettings = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
             }
             return deliveryMerchantSettings;
         }
