@@ -1,3 +1,5 @@
+> **AVISO DE SEGURANÇA — documentação legada:** este guia descreve rotas antigas que simulam a confirmação de PIX/cartão e usam dados em memória. Elas não comprovam liquidação bancária e não devem ser usadas para receber dinheiro real. A frase antiga "100% funcional/pronto para produção" está revogada. Consulte PAGAMENTOS_ARQUITETURA_ATUAL.md para os fluxos corrigidos e as limitações atuais. Os valores devem ser fixos, nunca percentuais.
+
 # 🚀 SISTEMA DE PAGAMENTO E DELIVERY PROFISSIONAL
 
 ## 📋 ESTRUTURA COMPLETA DO SISTEMA
