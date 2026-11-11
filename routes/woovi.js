@@ -45,7 +45,7 @@ router.post('/webhook', async (req, res) => {
       rawBody: req.rawBody,
       headers: req.headers
     });
-    if (result.paid && result.orderId) {
+    if ((result.paid || result.expired || result.needsReview) && result.orderId) {
       const order = await woovi.pool.query(
         `SELECT o.id,o.store_id,o.customer_name,o.customer_phone,o.table_number,o.observations,
                 o.subtotal_cents,o.total_cents,o.status,o.payment_status,o.payment_method,o.created_at
@@ -58,7 +58,7 @@ router.post('/webhook', async (req, res) => {
           'SELECT product_id,product_name,quantity,unit_price_cents,sector FROM cardapio_order_items WHERE order_id=$1 ORDER BY id',
           [result.orderId]
         );
-        orderEvents.emit('order.paid', {
+        const orderSnapshot = {
           id: row.id, storeId: row.store_id,
           customer: { name: row.customer_name, phone: row.customer_phone, tableNumber: row.table_number },
           table: 'Mesa ' + row.table_number,
@@ -71,7 +71,10 @@ router.post('/webhook', async (req, res) => {
             id: item.product_id, name: item.product_name, quantity: item.quantity,
             price: Number(item.unit_price_cents)/100, sector: item.sector
           }))
-        });
+        };
+        if (result.paid) orderEvents.emit('order.paid', orderSnapshot);
+        else if (result.expired) orderEvents.emit('order.expired', orderSnapshot);
+        else if (result.needsReview) orderEvents.emit('order.paymentReview', orderSnapshot);
       }
     }
     res.status(200).json({ success:true, ...result });
