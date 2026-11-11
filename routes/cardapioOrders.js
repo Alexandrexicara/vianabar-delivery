@@ -2,18 +2,11 @@
 
 const express = require('express');
 const crypto = require('crypto');
-const { Pool } = require('pg');
 const woovi = require('../services/wooviService');
 const orderEvents = require('../services/orderEvents');
 
 const router = express.Router();
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  max: 5,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000
-});
+const pool = woovi.pool;
 
 function cleanStoreId(value) {
   const id = String(value || '').trim();
