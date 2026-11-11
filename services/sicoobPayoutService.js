@@ -39,16 +39,17 @@ async function criarLotesDiariosVencidos({ merchantId = null } = {}) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [merchantFilter || 'sicoob:all']);
     await client.query('UPDATE sicoob_delivery_obligations SET status=\'due\',updated_at=NOW() WHERE status=\'pending\' AND due_at<=NOW() AND ($1::varchar IS NULL OR merchant_id=$1)', [merchantFilter]);
     const groups = await client.query(
-      'SELECT merchant_id,motoboy_id,MIN(earned_at) AS period_start,MAX(due_at) AS period_end,SUM(amount_cents)::bigint AS total_cents,ARRAY_AGG(id ORDER BY earned_at,id) AS obligation_ids FROM sicoob_delivery_obligations WHERE status=\'due\' AND ($1::varchar IS NULL OR merchant_id=$1) GROUP BY merchant_id,motoboy_id ORDER BY merchant_id,motoboy_id',
+      'SELECT merchant_id,motoboy_id,due_at::date AS due_date,MIN(earned_at) AS period_start,MAX(due_at) AS period_end,SUM(amount_cents)::bigint AS total_cents,ARRAY_AGG(id ORDER BY earned_at,id) AS obligation_ids FROM sicoob_delivery_obligations WHERE status=\'due\' AND ($1::varchar IS NULL OR merchant_id=$1) GROUP BY merchant_id,motoboy_id,due_at::date ORDER BY merchant_id,motoboy_id,due_at::date',
       [merchantFilter]
     );
     const created = [];
     for (const group of groups.rows) {
       const total = Number(group.total_cents);
       if (!Number.isSafeInteger(total) || total <= 0) throw new Error('Total diário inválido.');
-      const dayKey = new Date(group.period_end).toISOString().slice(0,10);
+      const dayKey = new Date(group.due_date).toISOString().slice(0,10);
       const key = 'sicoob:' + group.merchant_id + ':' + group.motoboy_id + ':' + dayKey;
       const batch = await client.query(
         'INSERT INTO sicoob_daily_payout_batches (merchant_id,motoboy_id,total_cents,period_start,period_end,idempotency_key,status) VALUES ($1,$2,$3,$4,$5,$6,\'pending\') ON CONFLICT (idempotency_key) DO NOTHING RETURNING *',
