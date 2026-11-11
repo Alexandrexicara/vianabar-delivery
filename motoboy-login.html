@@ -315,55 +315,6 @@
                     </select>
                 </div>
                 
-                <!-- Dados Bancários para MyGateway -->
-                <div class="vehicle-info" style="margin-top: 20px;">
-                    <h4>
-                        <i class="fas fa-university"></i>
-                        Dados Bancários (MyGateway)
-                    </h4>
-                    
-                    <div class="form-group">
-                        <label for="bankCode">Código do Banco</label>
-                        <input type="text" id="bankCode" required placeholder="001 (Banco do Brasil), 341 (Itaú), etc">
-                    </div>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="bankAgency">Agência</label>
-                            <input type="text" id="bankAgency" required placeholder="0000-0">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="bankAccount">Conta Corrente</label>
-                            <input type="text" id="bankAccount" required placeholder="00000-0">
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="bankAccountType">Tipo de Conta</label>
-                        <select id="bankAccountType" required>
-                            <option value="">Selecione...</option>
-                            <option value="CORRENTE">Conta Corrente</option>
-                            <option value="POUPANCA">Poupança</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="pixKey">Chave PIX (opcional)</label>
-                        <input type="text" id="pixKey" placeholder="CPF, email, telefone ou aleatória">
-                    </div>
-
-                    <div style="margin-top: 15px; padding: 12px 14px; background: #f2f9f3; border: 1px solid #cfead8; border-radius: 8px; color: #204c2f; font-size: 0.95rem; line-height: 1.5;">
-                        <strong>Sua chave pix e importate você concluir o cadastro:</strong>
-                        <br>
-                        cadastre seu perfil no MyGateway para receber pagamentos.
-                        <br>
-                        <a href="" target="_blank" rel="noopener noreferrer" style="color: #0d6efd; text-decoration: underline; font-weight: 600;">
-                            
-                        </a>
-                    </div>
-                </div>
-                
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-user-plus"></i> Cadastrar
                 </button>
@@ -637,18 +588,6 @@
             }
         };
         
-        // Formatação dos campos bancários
-        document.getElementById('bankCode')?.addEventListener('input', function(e) {
-            BankDataModule.formatBankCode(this);
-        });
-        
-        document.getElementById('bankAgency')?.addEventListener('input', function(e) {
-            BankDataModule.formatAgency(this);
-        });
-        
-        document.getElementById('bankAccount')?.addEventListener('input', function(e) {
-            BankDataModule.formatAccount(this);
-        });
     </script>
     
     <!-- Scripts do MyGateway -->
