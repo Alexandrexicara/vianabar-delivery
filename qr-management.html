@@ -583,7 +583,8 @@
 // Função showSection movida para o início do script para garantir disponibilidade
         
         // Customization functions using the centralized system
-        function merchantSettingsApiUrl() { return '/api/merchant-settings/' + encodeURIComponent(getMerchantStoreId()); }
+        const MERCHANT_API_BASE = 'https://vianabar-delivery.onrender.com';
+        function merchantSettingsApiUrl() { return MERCHANT_API_BASE + '/api/merchant-settings/' + encodeURIComponent(getMerchantStoreId()); }
 
         async function loadMerchantSettings() {
             try {
@@ -1146,16 +1147,12 @@
         function productAdminHeaders() {
             let establishment = {};
             try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
-            const authenticated = localStorage.getItem('adminAccess') === 'true' || establishment.isAuthenticated === true;
-            return {
-                'Content-Type': 'application/json',
-                'X-Admin-Access': authenticated ? 'true' : 'false'
-            };
+            return { 'Content-Type': 'application/json' };
         }
 
         async function saveItem(itemData) {
             try {
-                const response = await fetch('/api/products', {
+                const response = await fetch(MERCHANT_API_BASE + '/api/products', {
                     method: 'POST',
                     credentials: 'include',
                     headers: productAdminHeaders(),
@@ -1206,7 +1203,7 @@
                 }
                 if (restoreOldShowcase) {
                     for (const cachedProduct of cachedShowcase.slice(0, 8)) {
-                        const showcaseResponse = await fetch(`/api/products/${encodeURIComponent(cachedProduct.id)}/showcase`, {
+                        const showcaseResponse = await fetch(`${MERCHANT_API_BASE}/api/products/${encodeURIComponent(cachedProduct.id)}/showcase`, {
                             method: 'PATCH', credentials: 'include',
                             headers: productAdminHeaders(),
                             body: JSON.stringify({ storeId: getMerchantStoreId(), showcase: true })
