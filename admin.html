@@ -1016,7 +1016,7 @@
                 <div class="delivery-map-column">
                     <div class="column-header">
                         <h3>🗺️ Mapa de Entregas</h3>
-                        <div class="delivery-map-toolbar"><span id="deliveryMapRefreshStatus" role="status" aria-live="polite" style="font-size:12px;color:#34495e;align-self:center;">Aguardando conexão com o servidor…</span><button class="btn btn-small" onclick="refreshDeliveryMap()" style="background:#3498db;color:white;border:0;padding:10px 14px;border-radius:8px;font-weight:bold;">🔄 ATUALIZAR</button><button id="deliveryMapFullscreenButton" class="btn btn-small" type="button" onclick="toggleDeliveryMapFullscreen()" style="background:#159957;color:white;border:0;padding:10px 14px;border-radius:8px;font-weight:bold;">⛶ EXPANDIR MAPA</button></div>
+                        <div class="delivery-map-toolbar"><span id="deliveryMapRefreshStatus" role="status" aria-live="polite" style="font-size:12px;color:#34495e;align-self:center;">Aguardando conexão com o servidor…</span><button id="merchantGpsButton" class="btn btn-small" type="button" onclick="captureMerchantLocation()" style="background:#087f5b;color:white;border:0;padding:10px 14px;border-radius:8px;font-weight:bold;">📍 ATIVAR GPS DO COMÉRCIO</button><button class="btn btn-small" onclick="refreshDeliveryMap()" style="background:#3498db;color:white;border:0;padding:10px 14px;border-radius:8px;font-weight:bold;">🔄 ATUALIZAR</button><button id="deliveryMapFullscreenButton" class="btn btn-small" type="button" onclick="toggleDeliveryMapFullscreen()" style="background:#159957;color:white;border:0;padding:10px 14px;border-radius:8px;font-weight:bold;">⛶ EXPANDIR MAPA</button></div>
                     </div>
                     <div id="deliveryMap" role="region" aria-label="Mapa de entregas em tempo real">
                         <div id="deliveryMapEmpty" class="delivery-map-empty">Mapa carregando. As posições dos motoboys aparecerão aqui quando o rastreamento GPS estiver ativo.</div>
@@ -4196,6 +4196,64 @@
         let deliveryMapRouteKey = '';
         let deliveryMapRouteAt = 0;
         let deliveryMapFullscreen = false;
+        let merchantMapLocation = null;
+        let merchantLocationCheckStarted = false;
+
+        function merchantStoreId() {
+            let establishment = {};
+            try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
+            if (establishment.uniqueId) return String(establishment.uniqueId).slice(0, 120);
+            const name = establishment.establishmentName || 'estabelecimento';
+            return name.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 100) || 'estabelecimento';
+        }
+
+        function merchantSettingsApi() {
+            const base = location.hostname === 'vianabar-delivery.onrender.com' ? '' : 'https://vianabar-delivery.onrender.com';
+            return base + '/api/merchant-settings/' + encodeURIComponent(merchantStoreId());
+        }
+
+        async function captureMerchantLocation() {
+            const status = document.getElementById('deliveryMapRefreshStatus');
+            const button = document.getElementById('merchantGpsButton');
+            if (!navigator.geolocation) { if (status) status.textContent = 'Este aparelho não oferece localização GPS.'; return; }
+            if (button) { button.disabled = true; button.textContent = '⏳ OBTENDO GPS…'; }
+            if (status) status.textContent = 'Solicitando permissão de localização do comércio…';
+            navigator.geolocation.getCurrentPosition(async position => {
+                const locationData = { latitude:Number(position.coords.latitude), longitude:Number(position.coords.longitude), accuracy:Number(position.coords.accuracy)||null, updatedAt:new Date(position.timestamp||Date.now()).toISOString() };
+                try {
+                    const response = await fetch(merchantSettingsApi(), { method:'PUT', headers:{'Content-Type':'application/json','X-Admin-Access':localStorage.getItem('adminAccess') === 'true' ? 'true' : 'false'}, body:JSON.stringify({settings:{establishmentLocation:locationData}}), cache:'no-store' });
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.error || 'Não foi possível gravar o GPS no cadastro do comércio.');
+                    merchantMapLocation = locationData;
+                    const cached = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
+                    localStorage.setItem('establishmentCustomizations', JSON.stringify({...cached, ...(result.settings||{}), establishmentLocation:locationData}));
+                    if (status) status.textContent = '✓ GPS do comércio salvo no banco e vinculado ao estabelecimento.';
+                    renderDeliveryMapMarkers();
+                } catch (error) {
+                    if (status) status.textContent = 'GPS obtido, mas não foi salvo no cadastro: ' + error.message;
+                    console.error('[DeliveryMap] Falha ao persistir GPS do comércio:', error);
+                } finally {
+                    if (button) { button.disabled = false; button.textContent = '📍 ATUALIZAR GPS DO COMÉRCIO'; }
+                }
+            }, error => {
+                const messages = {1:'Permissão de localização negada. Libere a localização nas permissões do navegador.',2:'GPS indisponível neste aparelho.',3:'Tempo esgotado ao obter GPS. Tente novamente.'};
+                if (status) status.textContent = messages[error.code] || 'Não foi possível obter a localização.';
+                if (button) { button.disabled = false; button.textContent = '📍 TENTAR GPS DO COMÉRCIO'; }
+            }, {enableHighAccuracy:true,timeout:20000,maximumAge:0});
+        }
+
+        async function ensureMerchantLocation() {
+            if (merchantLocationCheckStarted) return;
+            merchantLocationCheckStarted = true;
+            try {
+                const response = await fetch(merchantSettingsApi(), {headers:{'X-Admin-Access':localStorage.getItem('adminAccess') === 'true' ? 'true' : 'false'},cache:'no-store'});
+                const result = await response.json();
+                merchantMapLocation = result.settings?.establishmentLocation || null;
+                if (merchantMapLocation) { renderDeliveryMapMarkers(); return; }
+            } catch (error) { console.warn('[DeliveryMap] Não foi possível consultar GPS salvo:', error); }
+            // Solicita a permissão na primeira abertura da área de entregas.
+            captureMerchantLocation();
+        }
 
         async function initializeDeliveryMap() {
             const element = document.getElementById('deliveryMap');
@@ -4230,6 +4288,7 @@
             }
             setTimeout(() => deliveryLeafletMap && deliveryLeafletMap.invalidateSize(), 120);
             renderDeliveryMapMarkers();
+            ensureMerchantLocation();
             return true;
         }
 
@@ -4259,6 +4318,12 @@
             deliveryMapMarkers.clear();
             let merchants=0, customers=0, motoboys=0;
             const bounds=[]; let route=null;
+            const savedMerchantPoint = deliveryMapPoint(merchantMapLocation);
+            if (savedMerchantPoint) {
+                const marker = L.marker(savedMerchantPoint,{icon:L.divIcon({className:'delivery-live-marker',html:'<div style="font-size:27px;text-shadow:0 1px 4px #fff">🏪</div>',iconSize:[34,34],iconAnchor:[17,17]})}).addTo(deliveryLeafletMap);
+                marker.bindPopup('<strong>Comércio / origem</strong><br>Localização cadastrada do estabelecimento');
+                deliveryMapMarkers.set('merchant:establishment',marker); bounds.push(savedMerchantPoint); merchants++;
+            }
             deliveryMapOrders.forEach(order=>{
                 const id=String(order.id||'');
                 const merchant=deliveryMapPoint(order.establishmentLocation);
@@ -4387,6 +4452,6 @@
     </audio>
     
 
-    <script src="/notification-voice.js?v=20261111-ws-render-2" defer></script>
+    <script src="/notification-voice.js?v=20261111-location-voice-3" defer></script>
 </body>
 </html>
