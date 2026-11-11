@@ -202,8 +202,6 @@ async function createCharge({ storeId, orderId, amountCents, comment }) {
   if (!account || account.status !== 'active' || !account.webhook_registered) {
     throw new Error('O recebimento pela Ovi ainda não está conectado para este estabelecimento.');
   }
-  const platformPix = await getPlatformPixConfig();
-  if (!platformPix) throw new Error('A chave Pix da plataforma ainda não foi configurada para o repasse automático da comissão.');
   if (!Number.isSafeInteger(Number(amountCents)) || Number(amountCents) <= 0) throw new Error('Valor da cobrança inválido.');
   const appId = decryptSecret(account);
   const response = await apiRequest(appId, 'POST', '/api/v1/charge?return_existing=true', {
