@@ -17,7 +17,7 @@ const server = http.createServer(app);
 // Middleware
 app.use(cors());
 
-app.use(express.json({ limit: '15mb' }));
+app.use(express.json({ limit: '15mb', verify: (req, _res, buffer) => { if (req.originalUrl && req.originalUrl.startsWith('/woovi/webhook')) req.rawBody = Buffer.from(buffer); } }));
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static('uploads'));
 app.use('/api/notification-voice', require('./routes/notificationVoice'));
@@ -68,6 +68,7 @@ app.post('/upload/:type', upload.single('image'), (req, res) => {
 const creatorAuth = require('./routes/creatorAuth');
 app.use('/api/creator', creatorAuth.router);
 app.use('/api/products', require('./routes/menuProducts')());
+app.use('/api/cardapio/orders', require('./routes/cardapioOrders'));
 app.use('/api/merchant-settings', require('./routes/merchantSettings'));
 app.get('/creator-dashboard.html', creatorAuth.requireCreator, (req, res) => {
   res.set('Cache-Control', 'no-store');
@@ -159,6 +160,70 @@ let clientIdCounter = 0; // Track client ID
 
 // Start with an empty list of orders for production
 let orders = [];
+const cardapioDb = require('./services/wooviService').pool;
+const orderEvents = require('./services/orderEvents');
+
+const ordersReady = (async () => {
+  try {
+    const result = await cardapioDb.query(
+      "SELECT id,store_id,customer_name,customer_phone,table_number,observations,subtotal_cents,total_cents,status,payment_method,payment_status,created_at FROM cardapio_orders WHERE status NOT IN ('completed','cancelled') ORDER BY created_at DESC LIMIT 500"
+    );
+    if (!result.rowCount) return;
+    const ids = result.rows.map(row => row.id);
+    const itemResult = await cardapioDb.query(
+      "SELECT order_id,product_id,product_name,quantity,unit_price_cents,sector FROM cardapio_order_items WHERE order_id=ANY($1::text[]) ORDER BY id",
+      [ids]
+    );
+    const grouped = new Map();
+    for (const item of itemResult.rows) {
+      if (!grouped.has(item.order_id)) grouped.set(item.order_id, []);
+      grouped.get(item.order_id).push({
+        id: item.product_id, name: item.product_name, quantity: item.quantity,
+        price: Number(item.unit_price_cents) / 100, sector: item.sector
+      });
+    }
+    orders = result.rows.map(row => ({
+      id: row.id, storeId: row.store_id,
+      customer: { name: row.customer_name, phone: row.customer_phone, tableNumber: row.table_number },
+      table: 'Mesa ' + row.table_number, observations: row.observations,
+      items: grouped.get(row.id) || [],
+      subtotal: Number(row.subtotal_cents) / 100, total: Number(row.total_cents) / 100,
+      status: row.status, paymentMethod: row.payment_method,
+      paymentStatus: row.payment_status, timestamp: row.created_at
+    }));
+    console.log('[CARDAPIO] Pedidos ativos recuperados do Neon:', orders.length);
+  } catch (error) {
+    console.error('[CARDAPIO] Não foi possível recuperar pedidos persistidos:', error.message);
+  }
+})();
+
+function sendCardapioMessage(client, storeId, message) {
+  if (!client || client.readyState !== WebSocket.OPEN) return;
+  if (client.storeId && storeId && client.storeId !== storeId) return;
+  client.send(JSON.stringify(message));
+}
+
+orderEvents.on('order.created', ({ order, notifyKitchen }) => {
+  if (!orders.some(existing => existing.id === order.id)) orders.unshift(order);
+  const message = { type: 'newOrder', order };
+  clients.forEach(client => {
+    if (['admin','waiter'].includes(client.role)) sendCardapioMessage(client, order.storeId, message);
+    if (notifyKitchen && client.role === 'kitchen' && order.items.some(item => item.sector === 'kitchen')) sendCardapioMessage(client, order.storeId, message);
+    if (notifyKitchen && client.role === 'counter' && order.items.some(item => item.sector === 'counter')) sendCardapioMessage(client, order.storeId, message);
+  });
+});
+
+orderEvents.on('order.paid', order => {
+  const index = orders.findIndex(existing => existing.id === order.id);
+  if (index >= 0) orders[index] = { ...orders[index], ...order };
+  else orders.unshift(order);
+  const statusMessage = { type: 'paymentStatusUpdate', orderId: order.id, paymentStatus: 'completed', storeId: order.storeId };
+  clients.forEach(client => {
+    if (['admin','waiter','kitchen','counter'].includes(client.role)) sendCardapioMessage(client, order.storeId, statusMessage);
+    if (client.role === 'kitchen' && order.items.some(item => item.sector === 'kitchen')) sendCardapioMessage(client, order.storeId, { type:'newOrder', order });
+    if (client.role === 'counter' && order.items.some(item => item.sector === 'counter')) sendCardapioMessage(client, order.storeId, { type:'newOrder', order });
+  });
+});
 
 const deliveryOrdersFile = path.join(__dirname, 'data', 'delivery-orders.json');
 let deliveryOrders = [];
@@ -188,7 +253,8 @@ orders.forEach(order => {
 const wss = new WebSocket.Server({ server });
 
 // Handle WebSocket connections
-wss.on('connection', (ws) => {
+wss.on('connection', async (ws) => {
+  await ordersReady;
   const clientId = ++clientIdCounter;
   clients.set(clientId, ws);
   ws.clientId = clientId; // Attach clientId to the ws object for later reference
@@ -201,13 +267,15 @@ wss.on('connection', (ws) => {
   }));
   
   // Handle messages from client
-  ws.on('message', (message) => {
+  ws.on('message', async (message) => {
+    await ordersReady;
     try {
       const data = JSON.parse(message);
       console.log('Received:', data);
       
       if (data.type === 'userLogin') {
         ws.role = 'user';
+        ws.storeId = String(data.storeId || data.userInfo?.storeId || 'main');
         ws.userInfo = data.userInfo || null;
         ws.send(JSON.stringify({ type: 'userLoginSuccess' }));
       } else if (data.type === 'trackDeliveryOrder') {
@@ -235,6 +303,7 @@ wss.on('connection', (ws) => {
       } else if (data.type === 'adminLogin') {
         // Set client role to admin
         ws.role = 'admin';
+        ws.storeId = String(data.storeId || 'main');
         ws.send(JSON.stringify({ type: 'adminLoginSuccess' }));
         ws.send(JSON.stringify({
           type: 'existingDeliveryOrders',
@@ -243,14 +312,17 @@ wss.on('connection', (ws) => {
       } else if (data.type === 'kitchenLogin') {
         // Set client role to kitchen staff
         ws.role = 'kitchen';
+        ws.storeId = String(data.storeId || 'main');
         ws.send(JSON.stringify({ type: 'kitchenLoginSuccess' }));
       } else if (data.type === 'counterLogin') {
         // Set client role to counter staff
         ws.role = 'counter';
+        ws.storeId = String(data.storeId || 'main');
         ws.send(JSON.stringify({ type: 'counterLoginSuccess' }));
       } else if (data.type === 'waiterLogin') {
         // Set client role to waiter
         ws.role = 'waiter';
+        ws.storeId = String(data.storeId || 'main');
         ws.send(JSON.stringify({ type: 'waiterLoginSuccess' }));
       } else if (data.type === 'getExistingDeliveryOrders') {
         if (ws.role === 'admin') {
@@ -270,17 +342,15 @@ wss.on('connection', (ws) => {
         // Send different orders based on role
         let ordersToSend = [];
         if (ws.role === 'admin') {
-          ordersToSend = orders;
+          ordersToSend = orders.filter(order => !order.storeId || order.storeId === ws.storeId);
         } else if (ws.role === 'kitchen') {
           // Kitchen staff only see orders with items for kitchen sector
-          ordersToSend = orders.filter(order => {
-            return order.items.some(item => item.sector === 'kitchen') &&
+          ordersToSend = orders.filter(order => (!order.storeId || order.storeId === ws.storeId) && order.items.some(item => item.sector === 'kitchen') &&
               (order.status === 'pending' || order.status === 'preparing');
           });
         } else if (ws.role === 'counter') {
           // Counter staff only see orders with items for counter sector
-          ordersToSend = orders.filter(order => {
-            return order.items.some(item => item.sector === 'counter') &&
+          ordersToSend = orders.filter(order => (!order.storeId || order.storeId === ws.storeId) && order.items.some(item => item.sector === 'counter') &&
               (order.status === 'pending' || order.status === 'preparing');
           });
         } else {
@@ -293,65 +363,18 @@ wss.on('connection', (ws) => {
           orders: ordersToSend
         }));
       } else if (data.type === 'submitOrder') {
-        // Handle submitted order from customer
-        if (data.order) {
-          console.log('Processing submitted order:', data.order.id);
-          // Add the new order to the orders array and associate with the client's WebSocket
-          const orderData = { ...data.order, clientId: ws.clientId, paymentStatus: 'pending' };
-          orders.push(orderData);
-          
-          // Broadcast new order to all relevant clients
-          const newOrderMessage = JSON.stringify({
-            type: 'newOrder',
-            order: orderData
-          });
-          
-          // Send to admins
-          clients.forEach((client, id) => {
-            if (client.role === 'admin' && client.readyState === WebSocket.OPEN) {
-              client.send(newOrderMessage);
-            }
-          });
-          
-          // Send to kitchen staff if order has items for kitchen sector
-          const hasKitchenItems = data.order.items.some(item => item.sector === 'kitchen');
-          if (hasKitchenItems) {
-            clients.forEach((client, id) => {
-              if (client.role === 'kitchen' && client.readyState === WebSocket.OPEN) {
-                client.send(newOrderMessage);
-              }
-            });
-          }
-          
-          // Send to counter staff if order has items for counter sector
-          const hasCounterItems = data.order.items.some(item => item.sector === 'counter');
-          if (hasCounterItems) {
-            clients.forEach((client, id) => {
-              if (client.role === 'counter' && client.readyState === WebSocket.OPEN) {
-                client.send(newOrderMessage);
-              }
-            });
-          }
-          
-          // Send to waiters
-          clients.forEach((client, id) => {
-            if (client.role === 'waiter' && client.readyState === WebSocket.OPEN) {
-              client.send(newOrderMessage);
-            }
-          });
-          
-          // Send confirmation back to the customer
-          console.log('Sending order confirmation to customer');
-          ws.send(JSON.stringify({
-            type: 'orderConfirmation',
-            orderId: data.order.id
-          }));
-        }
+        // Pedidos de mesa agora precisam passar pela API que valida os produtos,
+        // persiste no Neon e cria a cobrança Ovi quando o método for Pix.
+        ws.send(JSON.stringify({
+          type: 'orderRejected',
+          message: 'Atualize o cardápio e confirme o pedido pela tela de pagamento.'
+        }));
       } else if (data.type === 'updateStatus') {
         // Update order status
         console.log('[DEBUG] Servidor: Recebida solicitação de atualização de status', data);
         const order = orders.find(o => o.id === data.orderId);
-        if (order) {
+        if (order && (!order.storeId || !ws.storeId || order.storeId === ws.storeId)) {
+          if (order.storeId) cardapioDb.query('UPDATE cardapio_orders SET status=$2,updated_at=NOW() WHERE id=$1 AND store_id=$3', [String(order.id), String(data.status), order.storeId]).catch(error => console.error('[CARDAPIO] Falha ao persistir status:', error.message));
           console.log('[DEBUG] Servidor: Pedido encontrado, atualizando status de', order.status, 'para', data.status);
           order.status = data.status;
           
