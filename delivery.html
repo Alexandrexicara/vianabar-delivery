@@ -899,7 +899,7 @@
             const params = new URLSearchParams(window.location.search);
             deliveryStoreId = params.get('storeId') || 'main';
             try {
-                const apiBase = location.hostname === 'vianabar-delivery.onrender.com' ? '' : 'https://vianabar-delivery.onrender.com';
+                const apiBase = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? `http://${location.hostname}:3002` : (location.hostname === 'vianabar-delivery.onrender.com' ? '' : 'https://vianabar-delivery.onrender.com');
                 const response = await fetch(apiBase + '/api/merchant-settings/' + encodeURIComponent(deliveryStoreId), {cache:'no-store'});
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Falha ao carregar dados do comércio.');
