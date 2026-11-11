@@ -80,13 +80,20 @@ router.put('/:storeId', requireCreator, async (req, res) => {
     const allowed = [
       'establishmentName','establishmentTagline','establishmentAddress','establishmentPhone',
       'establishmentHours','primaryColor','secondaryColor','facebook','instagram','whatsapp',
-      'logo','background'
+      'logo','background','establishmentLocation'
     ];
     const safeSettings = {};
     for (const key of allowed) {
-      if (Object.prototype.hasOwnProperty.call(settings, key)) {
-        const value = settings[key];
-        if (typeof value === 'string') safeSettings[key] = value.slice(0, key === 'logo' || key === 'background' ? 300 : 2000);
+      if (!Object.prototype.hasOwnProperty.call(settings, key)) continue;
+      const value = settings[key];
+      if (key === 'establishmentLocation' && value && typeof value === 'object') {
+        const latitude = Number(value.latitude ?? value.lat);
+        const longitude = Number(value.longitude ?? value.lng);
+        if (Number.isFinite(latitude) && Number.isFinite(longitude) && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180) {
+          safeSettings[key] = { latitude, longitude, accuracy:Number(value.accuracy)||null, updatedAt:value.updatedAt||new Date().toISOString() };
+        }
+      } else if (typeof value === 'string') {
+        safeSettings[key] = value.slice(0, key === 'logo' || key === 'background' ? 300 : 2000);
       }
     }
     await ensureSchema();
