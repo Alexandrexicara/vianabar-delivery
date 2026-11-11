@@ -39,7 +39,6 @@
             wrap.querySelector('span').textContent = 'Voz ativada';
             unlockButton.textContent = 'Áudio ativado';
             unlockButton.style.opacity = '.7';
-            processQueue();
           };
           test.onend = () => processQueue();
           test.onerror = () => {
