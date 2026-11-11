@@ -2068,12 +2068,14 @@
             return false;
         }
 
-        // Iniciar Google Pay REAL
-            initGooglePay(googlePayConfig, customerData, total);
-        }
-        
-        // Iniciar Google Pay REAL
+        // Integração Google Pay mantida desativada até existir um adquirente configurado.
         function initGooglePay(config, customerData, total) {
+            alert('Google Pay não está habilitado neste totem.');
+            return false;
+        }
+
+        /* Código legado do Google Pay removido para impedir cobranças sem adquirente.
+        function initGooglePayLegacy(config, customerData, total) {
             const paymentsClient = new google.payments.api.PaymentsClient({
                 environment: config.environment
             });
@@ -2109,8 +2111,8 @@
                 cancelPayment();
             });
         }
-        
-        // Mostrar Tela Google Pay REAL
+        */
+                // Mostrar Tela Google Pay REAL
         function showGooglePayScreenReal(config, customerData, total) {
             // Esconder formulário
             document.getElementById('customerForm').style.display = 'none';
