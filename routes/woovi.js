@@ -76,7 +76,7 @@ router.post('/webhook', async (req, res) => {
     if ((result.paid || result.expired || result.needsReview) && result.orderId) {
       const order = await woovi.pool.query(
         `SELECT o.id,o.store_id,o.customer_name,o.customer_phone,o.table_number,o.observations,
-                o.subtotal_cents,o.total_cents,o.status,o.payment_status,o.payment_method,o.created_at
+                o.subtotal_cents,o.total_cents,o.order_type,o.status,o.payment_status,o.payment_method,o.created_at
          FROM cardapio_orders o WHERE o.id=$1`,
         [result.orderId]
       );
@@ -89,7 +89,8 @@ router.post('/webhook', async (req, res) => {
         const orderSnapshot = {
           id: row.id, storeId: row.store_id,
           customer: { name: row.customer_name, phone: row.customer_phone, tableNumber: row.table_number },
-          table: 'Mesa ' + row.table_number,
+          table: row.order_type === 'totem' ? 'Totem' : row.order_type === 'counter' ? 'Balcão' : 'Mesa ' + row.table_number,
+          orderType: row.order_type,
           observations: row.observations,
           subtotal: Number(row.subtotal_cents)/100,
           total: Number(row.total_cents)/100,
