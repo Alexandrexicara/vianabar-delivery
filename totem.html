@@ -2241,10 +2241,10 @@
             return false;
         }
 
-        // Confirmar Pagamento Dinheiro
-        function confirmMoneyPayment(nome, cpf, whatsapp, total, changeValue) {
-            console.log('[TOTEM] Cliente informou pagamento em dinheiro; aguardando confirmação do caixa.');
-            completePayment(nome, cpf, whatsapp, total, 'money', changeValue);
+        // O totem nunca confirma recebimento presencial por conta própria.
+        function confirmMoneyPayment() {
+            alert('O pagamento em dinheiro deve ser confirmado pelo caixa. O totem não registra pagamento como recebido.');
+            return false;
         }
         
         // Cancelar Pagamento
@@ -2283,47 +2283,10 @@
             }
         }
         
-        // Completar Pagamento
-        function completePayment(nome, cpf, whatsapp, total, paymentMethod, changeValue = 0) {
-            console.log('[TOTEM] Pedido registrado; pagamento aguardando confirmação:', paymentMethod);
-            
-            // Remover tela de pagamento
-            const screens = ['pixPaymentScreen', 'cardPaymentScreen', 'googlePayScreen', 'moneyPaymentScreen'];
-            screens.forEach(screenId => {
-                const screen = document.getElementById(screenId);
-                if (screen) screen.remove();
-            });
-            
-            // Criar pedido
-            const order = {
-                id: `TOTEM-${currentOrderNumber}`,
-                customer: {
-                    nome: nome,
-                    cpf: cpf,
-                    whatsapp: whatsapp,
-                    paymentMethod: paymentMethod,
-                    changeAmount: changeValue || null
-                },
-                items: cart.map(item => ({
-                    name: item.name,
-                    quantity: item.quantity,
-                    price: parseFloat(item.price) || 0,
-                    sector: item.sector || 'counter'
-                })),
-                total: total,
-                paymentMethod: paymentMethod,
-                changeAmount: changeValue || null,
-                timestamp: new Date().toISOString(),
-                status: 'pending',
-                paymentStatus: 'pending'
-            };
-            
-            // Salvar pedido
-            saveOrder(order);
-            currentOrderNumber += 1;
-            
-            // Mostrar tela de sucesso
-            showSuccessScreen();
+        // Bloqueia o antigo fluxo local que simulava pedidos e pagamentos.
+        function completePayment() {
+            alert('O pedido deve ser registrado pelo servidor. A confirmação de pagamento é feita pelo provedor ou pelo caixa.');
+            return false;
         }
 
         // Inicializar WebSocket
