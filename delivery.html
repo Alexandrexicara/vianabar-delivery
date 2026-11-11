@@ -892,10 +892,46 @@
         let selectedPayment = '';
         let deliveryAddress = null;
         let deliveryFee = 0;
+        let deliveryStoreId = 'main';
+        let deliveryMerchantSettings = {};
 
-        document.addEventListener('DOMContentLoaded', () => {
+        async function loadDeliveryMerchantSettings() {
+            const params = new URLSearchParams(window.location.search);
+            deliveryStoreId = params.get('storeId') || 'main';
+            if (deliveryStoreId === 'main') {
+                deliveryMerchantSettings = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
+                return deliveryMerchantSettings;
+            }
+            try {
+                const response = await fetch('/api/merchant-settings/' + encodeURIComponent(deliveryStoreId), {cache:'no-store'});
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Falha ao carregar dados do comércio.');
+                deliveryMerchantSettings = result.settings || {};
+            } catch (error) {
+                console.error('[DELIVERY] Falha ao carregar localização do comércio:', error);
+                deliveryMerchantSettings = {};
+            }
+            return deliveryMerchantSettings;
+        }
+
+        function captureCustomerLocation() {
+            return new Promise(resolve => {
+                if (!navigator.geolocation) return resolve(null);
+                navigator.geolocation.getCurrentPosition(position => resolve({
+                    latitude:Number(position.coords.latitude), longitude:Number(position.coords.longitude),
+                    accuracy:Number(position.coords.accuracy)||null,
+                    updatedAt:new Date(position.timestamp||Date.now()).toISOString()
+                }), error => {
+                    console.warn('[DELIVERY] GPS do cliente indisponível:', error.message);
+                    resolve(null);
+                }, {enableHighAccuracy:true,timeout:15000,maximumAge:0});
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
             customizationData = loadCustomizations();
             applyCustomizationsToMenu();
+            await loadDeliveryMerchantSettings();
         });
 
         // Funções principais
@@ -1238,7 +1274,7 @@
         }
 
         // Salvar endereço
-        window.saveAddress = function() {
+        window.saveAddress = async function() {
             const address = {
                 cep: document.getElementById('cep').value,
                 rua: document.getElementById('rua').value,
@@ -1253,6 +1289,9 @@
                 alert('Por favor, preencha todos os campos obrigatórios.');
                 return;
             }
+
+            address.location = await captureCustomerLocation();
+            if (!address.location && !confirm('O GPS do destino não foi obtido. Continuar apenas com o endereço, sem rota exata no mapa?')) return;
 
             // Salvar no localStorage
             let savedAddresses = JSON.parse(localStorage.getItem('deliveryAddresses') || '[]');
@@ -1308,9 +1347,16 @@
         }
 
         // Selecionar endereço
-        function selectAddress(index) {
+        async function selectAddress(index) {
             const savedAddresses = JSON.parse(localStorage.getItem('deliveryAddresses') || '[]');
             deliveryAddress = savedAddresses[index];
+            if (!deliveryAddress.location) {
+                deliveryAddress.location = await captureCustomerLocation();
+                if (deliveryAddress.location) {
+                    savedAddresses[index] = deliveryAddress;
+                    localStorage.setItem('deliveryAddresses', JSON.stringify(savedAddresses));
+                }
+            }
             calculateDeliveryFee(deliveryAddress);
             
             console.log('[DELIVERY] Endereço selecionado, indo para pagamento...');
@@ -1394,6 +1440,12 @@
                 customerPhone: deliveryAddress?.phone || '',
                 address: deliveryAddress?.type === 'retirada' ? 'Retirada no Local' : 
                     deliveryAddress ? `${deliveryAddress.rua || ''}, ${deliveryAddress.numero || ''} - ${deliveryAddress.bairro || ''}` : 'Endereço não informado',
+                merchantId:deliveryStoreId,
+                establishmentName:deliveryMerchantSettings.establishmentName || new URLSearchParams(window.location.search).get('storeName') || 'Comércio',
+                establishmentAddress:deliveryMerchantSettings.establishmentAddress || '',
+                establishmentLocation:deliveryMerchantSettings.establishmentLocation || null,
+                customerLocation:deliveryAddress?.location || null,
+                customerAddress:deliveryAddress || null,
                 items: cart.map(item => ({
                     name: item.name,
                     quantity: item.quantity,
@@ -1512,6 +1564,9 @@
 
         // Mostrar confirmação do pedido
         function showOrderConfirmation(order) {
+            if (window.DeliveryCommunication && typeof DeliveryCommunication.trackDeliveryOrder === 'function') {
+                DeliveryCommunication.trackDeliveryOrder(order.id);
+            }
             const confirmationHTML = `
                 <div style="background: white; border-radius: 15px; padding: 30px; max-width: 500px; margin: 50px auto; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">
                     <h2 style="color: #27ae60; margin-bottom: 20px;">
