@@ -2219,7 +2219,7 @@
             for (const table in combinedOrdersByTable) {
                 const combinedOrder = combinedOrdersByTable[table];
                 
-                // Calcular comissão automaticamente com base na porcentagem
+                // Calcular comissão automaticamente pelo valor fixo configurado
                 combinedOrder.waiterCommission = calculateWaiterCommission(table, combinedOrder.totalPrice);
                 
                 html += `
@@ -2517,7 +2517,7 @@
             message += `\nValor do pedido: R$ ${order.total.toFixed(2).replace('.', ',')}`;
             if (commission > 0) {
                 
-                message += `\nComissão do garçom para mesa ${order.table} (${percentage}%): R$ ${commission.toFixed(2).replace('.', ',')}`;
+                message += `\nComissão fixa do garçom: R$ ${commission.toFixed(2).replace('.', ',')}`;
             }
             
             if (confirm(message)) {
@@ -2548,7 +2548,7 @@
             message += `\nValor total dos pedidos: R$ ${total.toFixed(2).replace('.', ',')}`;
             if (commission > 0) {
                 
-                message += `\nComissão do garçom (${percentage}%): R$ ${commission.toFixed(2).replace('.', ',')}`;
+                message += `\nComissão fixa do garçom: R$ ${commission.toFixed(2).replace('.', ',')}`;
                 message += `\nTotal com comissão: R$ ${totalWithCommission.toFixed(2).replace('.', ',')}`;
             }
             
@@ -2584,7 +2584,7 @@
             let promptMessage = `Valor total do pedido: R$ ${order.total.toFixed(2).replace('.', ',')}`;
             if (commission > 0) {
                 
-                promptMessage += `\nComissão do garçom (${percentage}%): R$ ${commission.toFixed(2).replace('.', ',')}`;
+                promptMessage += `\nComissão fixa do garçom: R$ ${commission.toFixed(2).replace('.', ',')}`;
                 promptMessage += `\nTotal com comissão: R$ ${totalWithCommission.toFixed(2).replace('.', ',')}`;
             }
             promptMessage += `\n\nDigite o valor pago pelo cliente:`;
@@ -2629,7 +2629,7 @@
                 message += `\nValor do pedido: R$ ${order.total.toFixed(2).replace('.', ',')}`;
                 if (commission > 0) {
                     
-                    message += `\nComissão do garçom para mesa ${order.table} (${percentage}%): R$ ${commission.toFixed(2).replace('.', ',')}`;
+                    message += `\nComissão fixa do garçom: R$ ${commission.toFixed(2).replace('.', ',')}`;
                 }
                 
                 if (confirm(message)) {
