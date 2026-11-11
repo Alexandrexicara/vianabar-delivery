@@ -411,83 +411,15 @@ wss.on('connection', (ws) => {
         } else {
           console.log('[DEBUG] Servidor: Pedido não encontrado:', data.orderId);
         }
-      } else if (data.type === 'updatePaymentStatus') {
-        // Update payment status
-        console.log('Updating payment status for order:', data.orderId, 'to', data.paymentStatus);
-        const order = orders.find(o => o.id === data.orderId);
-        if (order) {
-          order.paymentStatus = data.paymentStatus;
-          
-          // Broadcast payment status update to all relevant clients
-          const updateMessage = JSON.stringify({
-            type: 'paymentStatusUpdate',
-            orderId: data.orderId,
-            paymentStatus: data.paymentStatus
-          });
-          
-          // Send to admins
-          clients.forEach((client, id) => {
-            if (client.role === 'admin' && client.readyState === WebSocket.OPEN) {
-              client.send(updateMessage);
-            }
-          });
-          
-          // Send to waiters
-          clients.forEach((client, id) => {
-            if (client.role === 'waiter' && client.readyState === WebSocket.OPEN) {
-              client.send(updateMessage);
-            }
-          });
-          
-          // Send to the user who owns the order
-          const orderOwnerClient = clients.get(order.clientId);
-          if (orderOwnerClient && orderOwnerClient.readyState === WebSocket.OPEN) {
-            orderOwnerClient.send(updateMessage);
-          }
-        } else {
-          console.log('Order not found:', data.orderId);
-        }
-      } else if (data.type === 'paymentConfirmed') {
-        console.log('Payment confirmed for order:', data.orderId);
-        const orderIndex = orders.findIndex(o => o.id === data.orderId);
-        if (orderIndex > -1) {
-          const order = orders[orderIndex];
-          const userClientId = order.clientId; // Store the client ID
-          const userClient = clients.get(userClientId);
-
-          if (userClient && userClient.readyState === WebSocket.OPEN) {
-            console.log(`Sending clearHistory to client ${userClientId} for order ${order.id}`);
-            userClient.send(JSON.stringify({ type: 'clearHistory' }));
-          } else {
-            console.log(`Client ${userClientId} not found or not connected.`);
-          }
-
-          // Remove ALL orders from the same client (not just one)
-          const ordersToRemove = [];
-          for (let i = orders.length - 1; i >= 0; i--) {
-            if (orders[i].clientId === userClientId) {
-              ordersToRemove.push(orders[i].id);
-              orders.splice(i, 1);
-            }
-          }
-          
-          console.log(`Removed ${ordersToRemove.length} orders for client ${userClientId}`);
-          
-          // Notify all admins that the orders are completed and removed
-          ordersToRemove.forEach(orderId => {
-            const removalMessage = JSON.stringify({ type: 'orderRemoved', orderId: orderId });
-            
-            // Send to admins only
-            clients.forEach((client, id) => {
-              if (client.role === 'admin' && client.readyState === WebSocket.OPEN) {
-                client.send(removalMessage);
-              }
-            });
-          });
-
-        } else {
-          console.log('Order not found for payment confirmation:', data.orderId);
-        }
+      } else if (data.type === 'updatePaymentStatus' || data.type === 'paymentConfirmed') {
+        // Segurança: o navegador nunca pode declarar um pagamento como confirmado.
+        // Somente o webhook/consulta autenticada do provedor poderá alterar o estado financeiro.
+        ws.send(JSON.stringify({
+          type: 'paymentRejected',
+          orderId: data.orderId || null,
+          message: 'A confirmação do pagamento precisa ser validada pelo servidor.'
+        }));
+        return;
       } else if (data.type === 'notifyWaiterForDelivery') {
         // Handle notify waiter for delivery request from kitchen/counter
         console.log('[DEBUG] Servidor: Notificação de entrega recebida para pedido:', data.orderId);
