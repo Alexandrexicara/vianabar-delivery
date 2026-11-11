@@ -220,6 +220,7 @@ orderEvents.on('order.paid', order => {
   const statusMessage = { type: 'paymentStatusUpdate', orderId: order.id, paymentStatus: 'completed', storeId: order.storeId };
   clients.forEach(client => {
     if (['admin','waiter','kitchen','counter'].includes(client.role)) sendCardapioMessage(client, order.storeId, statusMessage);
+    if (client.role === 'user' && client.trackingCardapioOrderId === String(order.id)) sendCardapioMessage(client, order.storeId, { type:'paymentStatusUpdate', orderId:order.id, paymentStatus:'completed', status:'paid' });
     if (client.role === 'kitchen' && order.items.some(item => item.sector === 'kitchen')) sendCardapioMessage(client, order.storeId, { type:'newOrder', order });
     if (client.role === 'counter' && order.items.some(item => item.sector === 'counter')) sendCardapioMessage(client, order.storeId, { type:'newOrder', order });
   });
@@ -277,7 +278,15 @@ wss.on('connection', async (ws) => {
         ws.role = 'user';
         ws.storeId = String(data.storeId || data.userInfo?.storeId || 'main');
         ws.userInfo = data.userInfo || null;
-        ws.send(JSON.stringify({ type: 'userLoginSuccess' }));
+        ws.send(JSON.stringify({ type: 'userLoginSuccess', clientId: ws.clientId, storeId: ws.storeId }));
+      } else if (data.type === 'trackCardapioOrder') {
+        const tracked = orders.find(order => String(order.id) === String(data.orderId));
+        if (ws.role !== 'user' || !tracked || (tracked.storeId && tracked.storeId !== ws.storeId)) {
+          ws.send(JSON.stringify({ type:'cardapioTrackingError', orderId:data.orderId, message:'Pedido não encontrado para esta loja.' }));
+          return;
+        }
+        ws.trackingCardapioOrderId = String(tracked.id);
+        ws.send(JSON.stringify({ type:'cardapioOrderSnapshot', order:tracked }));
       } else if (data.type === 'trackDeliveryOrder') {
         const trackedOrder = deliveryOrders.find(o => String(o.id) === String(data.orderId));
         if (!trackedOrder) {
@@ -521,7 +530,7 @@ wss.on('connection', async (ws) => {
         });
 
         clients.forEach((client, id) => {
-          if ((client.role === 'admin' || client.role === 'waiter') && client.readyState === WebSocket.OPEN) {
+          if ((client.role === 'admin' || client.role === 'waiter') && client.readyState === WebSocket.OPEN && (!ws.storeId || !client.storeId || client.storeId === ws.storeId)) {
             client.send(paymentRequestMessage);
           }
         });
@@ -543,7 +552,7 @@ wss.on('connection', async (ws) => {
         });
         
         clients.forEach((client, id) => {
-          if ((client.role === 'admin' || client.role === 'waiter') && client.readyState === WebSocket.OPEN) {
+          if ((client.role === 'admin' || client.role === 'waiter') && client.readyState === WebSocket.OPEN && (!ws.storeId || !client.storeId || client.storeId === ws.storeId)) {
             client.send(callWaiterMessage);
           }
         });
