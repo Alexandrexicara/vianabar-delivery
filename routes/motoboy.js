@@ -29,7 +29,7 @@ router.post("/sacar/:id", (req, res) => {
     
     const resultado = sacar(req.params.id, valor);
     if (resultado.error) {
-      return res.status(400).json({ success: false, error: resultado.error });
+      return res.status(409).json({ success: false, error: resultado.error });
     }
     res.json({ success: true, data: resultado });
   } catch (error) {
