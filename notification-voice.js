@@ -10,7 +10,7 @@
   let playing = false;
   let enabled = false;
   let unlockButton;
-  const VOICE_API_BASE = location.hostname === 'vianabar-delivery.onrender.com' ? '' : 'https://vianabar-delivery.onrender.com';
+  const VOICE_API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? `http://${location.hostname}:3002` : (location.hostname === 'vianabar-delivery.onrender.com' ? '' : 'https://vianabar-delivery.onrender.com');
 
   function addUnlockControl() {
     if (document.getElementById('delivery-voice-enable')) return;
