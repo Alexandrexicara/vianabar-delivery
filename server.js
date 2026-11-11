@@ -260,13 +260,13 @@ wss.on('connection', (ws) => {
         if (data.order) {
           console.log('Processing submitted order:', data.order.id);
           // Add the new order to the orders array and associate with the client's WebSocket
-          const orderData = { ...data.order, clientId: ws.clientId };
+          const orderData = { ...data.order, clientId: ws.clientId, paymentStatus: 'pending' };
           orders.push(orderData);
           
           // Broadcast new order to all relevant clients
           const newOrderMessage = JSON.stringify({
             type: 'newOrder',
-            order: data.order
+            order: orderData
           });
           
           // Send to admins
