@@ -311,7 +311,11 @@ async function handleWebhook({ payload, rawBody, headers }) {
      VALUES($1,$2,$3,$4::jsonb) ON CONFLICT(event_key) DO NOTHING RETURNING id`,
     [eventKey, correlationId, event || 'UNKNOWN', JSON.stringify(payload)]
   );
-  if (!inserted.rowCount) return { accepted: true, duplicate: true, paid: row.status === 'paid', orderId: row.order_id };
+  if (!inserted.rowCount && ((event === 'OPENPIX:CHARGE_COMPLETED' && row.status === 'paid') || (event === 'OPENPIX:CHARGE_EXPIRED' && row.status === 'expired'))) {
+    return { accepted: true, duplicate: true, paid: row.status === 'paid', expired: row.status === 'expired', orderId: row.order_id };
+  }
+  // Se a tentativa anterior gravou o evento mas falhou antes de atualizar o pedido,
+  // permite que a repetição legítima do webhook conclua o processamento.
 
   if (event === 'OPENPIX:CHARGE_COMPLETED') {
     const receivedValue = Number(charge.value ?? payload.value);
