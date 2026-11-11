@@ -1454,15 +1454,22 @@
                 customerName: order.customerName || 'Cliente',
                 customerPhone: order.customerPhone || '',
                 customerAddress: order.address || 'Endereço não informado',
-                coordinates: { lat: -21.4735, lng: -43.7722 }, // Montes Claros padrão
+                customerLocation: order.customerLocation || null,
+                coordinates: order.customerLocation ? {
+                    lat: Number(order.customerLocation.latitude ?? order.customerLocation.lat),
+                    lng: Number(order.customerLocation.longitude ?? order.customerLocation.lng)
+                } : null,
                 items: order.items || [],
                 total: order.total || 0,
-                estimatedTime: order.estimatedTime || 35,
-                restaurant: 'Pizza Express Digital',
-                restaurantAddress: 'Rua das Pizzas, 123 - Centro, São Paulo - SP',
-                restaurantCoordinates: { lat: -23.5505, lng: -46.6333 },
+                estimatedTime: order.estimatedTime || null,
+                restaurant: order.establishmentName || 'Comércio',
+                restaurantAddress: order.establishmentAddress || '',
+                restaurantCoordinates: order.establishmentLocation ? {
+                    lat: Number(order.establishmentLocation.latitude ?? order.establishmentLocation.lat),
+                    lng: Number(order.establishmentLocation.longitude ?? order.establishmentLocation.lng)
+                } : null,
                 paymentMethod: order.paymentMethod || 'pix',
-                paymentStatus: 'Pago',
+                paymentStatus: order.paymentStatus || 'pending',
                 // 🔥 DIFERENCIAÇÃO IMPORTANTE
                 orderType: order.deliveryType === 'retirada' ? 'DELIVERY VIAGEM' : 'DELIVERY ENTREGA',
                 isDelivery: true,
