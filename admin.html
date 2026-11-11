@@ -1886,6 +1886,12 @@
                 
                 if (data.type === 'adminLoginSuccess') {
                     console.log('Admin login successful');
+                } else if (data.type === 'newDeliveryOrder') {
+                    const incoming = data.order;
+                    if (incoming && !deliveryMapOrders.some(item => String(item.id) === String(incoming.id))) {
+                        deliveryMapOrders.push(incoming);
+                        renderDeliveryMapMarkers();
+                    }
                 } else if (data.type === 'existingDeliveryOrders') {
                     if (deliveryMapRefreshTimeout) clearTimeout(deliveryMapRefreshTimeout);
                     receiveDeliveryMapOrders(data.orders || []);
@@ -4204,7 +4210,7 @@
             try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
             if (establishment.uniqueId) return String(establishment.uniqueId).slice(0, 120);
             const name = establishment.establishmentName || 'estabelecimento';
-            return name.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 100) || 'estabelecimento';
+            return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 100) || 'estabelecimento';
         }
 
         function merchantSettingsApi() {
@@ -4356,7 +4362,7 @@
         }
 
         function receiveDeliveryMapOrders(orders) {
-            deliveryMapOrders = Array.isArray(orders) ? orders.filter(order => ['accepted','preparing','delivering','onroute'].includes(String(order.status || '').toLowerCase())) : [];
+            deliveryMapOrders = Array.isArray(orders) ? orders.filter(order => ['pending','accepted','preparing','delivering','onroute'].includes(String(order.status || '').toLowerCase())) : [];
             renderDeliveryMapMarkers();
         }
 
