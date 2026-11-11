@@ -30,6 +30,7 @@ router.post('/', async (req, res) => {
   const customer = req.body?.customer || {};
   const rawItems = req.body?.items;
   const paymentMethod = String(req.body?.paymentMethod || '').toLowerCase();
+  const orderType = ['table','totem','delivery','counter'].includes(String(req.body?.orderType || '').toLowerCase()) ? String(req.body.orderType).toLowerCase() : 'table';
   if (!storeId) return res.status(400).json({ success: false, error: 'Estabelecimento inválido.' });
   if (!['pix','cash','card'].includes(paymentMethod)) {
     return res.status(400).json({ success: false, error: 'Escolha PIX, dinheiro ou cartão.' });
@@ -88,7 +89,8 @@ router.post('/', async (req, res) => {
       items: items.map(({ id, name, price, quantity, sector }) => ({ id, name, price, quantity, sector })),
       observations: cleanText(req.body?.observations, 1000),
       subtotal: subtotalCents / 100, total: subtotalCents / 100,
-      table: 'Mesa ' + tableNumber, status: 'pending', paymentStatus,
+      table: orderType === 'totem' ? 'Totem' : orderType === 'counter' ? 'Balcão' : 'Mesa ' + tableNumber,
+      orderType, status: 'pending', paymentStatus,
       paymentMethod, timestamp: new Date().toISOString()
     };
 
@@ -113,9 +115,9 @@ router.post('/', async (req, res) => {
     await client.query('BEGIN');
     await client.query(
       `INSERT INTO cardapio_orders
-       (id,store_id,customer_name,customer_phone,table_number,observations,subtotal_cents,total_cents,status,payment_method,payment_status,provider)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$7,'pending',$8,$9,$10)`,
-      [orderId,storeId,customerName,customerPhone,tableNumber,order.observations,subtotalCents,paymentMethod,paymentStatus,paymentMethod==='pix'?'woovi':null]
+       (id,store_id,customer_name,customer_phone,table_number,observations,subtotal_cents,total_cents,status,payment_method,payment_status,provider,order_type)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$7,'pending',$8,$9,$10,$11)`,
+      [orderId,storeId,customerName,customerPhone,tableNumber,order.observations,subtotalCents,paymentMethod,paymentStatus,paymentMethod==='pix'?'woovi':null,orderType]
     );
     for (const item of items) {
       await client.query(
@@ -181,7 +183,7 @@ router.post('/', async (req, res) => {
 router.get('/:orderId', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT o.id,o.store_id,o.status,o.payment_status,o.payment_method,o.total_cents,o.created_at,
+      `SELECT o.id,o.store_id,o.order_type,o.status,o.payment_status,o.payment_method,o.total_cents,o.created_at,
               p.status AS provider_status,p.br_code,p.qr_code_image,p.payment_link_url,p.commission_status
        FROM cardapio_orders o LEFT JOIN cardapio_payment_transactions p ON p.order_id=o.id
        WHERE o.id=$1`,
@@ -191,7 +193,7 @@ router.get('/:orderId', async (req, res) => {
     const row = result.rows[0];
     res.set('Cache-Control','no-store');
     res.json({ success: true, order: {
-      id: row.id, storeId: row.store_id, status: row.status,
+      id: row.id, storeId: row.store_id, orderType: row.order_type, status: row.status,
       paymentStatus: row.payment_status, paymentMethod: row.payment_method,
       total: Number(row.total_cents)/100, createdAt: row.created_at,
       payment: row.provider_status ? {
