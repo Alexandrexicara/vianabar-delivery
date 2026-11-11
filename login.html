@@ -291,6 +291,10 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', async function() {
+            if (location.hostname !== 'vianabar-delivery.onrender.com') {
+                location.replace('https://vianabar-delivery.onrender.com/login.html' + location.search);
+                return;
+            }
             let establishment = {};
             try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
             const storeInput = document.getElementById('storeId');
@@ -299,7 +303,7 @@
             }
             try {
                 const response = await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/session', { credentials:'include', cache:'no-store' });
-                if (response.ok) window.location.href = 'admin.html';
+                if (response.ok) window.location.href = 'https://vianabar-delivery.onrender.com/admin.html';
             } catch (_) {}
         });
 
