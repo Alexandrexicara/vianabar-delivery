@@ -999,9 +999,20 @@
             
             // Atualizar status
             order.status = 'preparing';
-            order.motoboyId = motoboyData.id;
+            order.motoboyId = motoboyData.id || motoboyData.phone || null;
             order.motoboyName = motoboyData.name;
             order.acceptedAt = new Date().toISOString();
+
+            // Registrar no servidor o vínculo motoboy-pedido antes de iniciar o rastreamento.
+            if (window.DeliveryCommunication) {
+                DeliveryCommunication.send({
+                    type: 'acceptDeliveryOrder',
+                    orderId: orderId,
+                    motoboyId: order.motoboyId,
+                    motoboyName: motoboyData.name,
+                    motoboyPhone: motoboyData.phone
+                });
+            }
             
             saveOrders();
             renderOrders();
