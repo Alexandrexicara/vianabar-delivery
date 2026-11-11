@@ -232,10 +232,14 @@ wss.on('connection', (ws) => {
         ws.send(JSON.stringify({ type: 'waiterLoginSuccess' }));
       } else if (data.type === 'getExistingDeliveryOrders') {
         if (ws.role === 'admin') {
+          const activeOrders = deliveryOrders.filter(o => ['accepted', 'preparing', 'delivering', 'onroute'].includes(String(o.status || '').toLowerCase()));
           ws.send(JSON.stringify({
             type: 'existingDeliveryOrders',
-            orders: deliveryOrders.filter(o => ['accepted', 'preparing', 'delivering', 'onroute'].includes(String(o.status || '').toLowerCase()))
+            requestId: data.requestId || null,
+            orders: activeOrders
           }));
+        } else {
+          ws.send(JSON.stringify({ type:'messageError', message:'Acesso não autorizado à consulta de entregas.' }));
         }
       } else if (data.type === 'getExistingOrders') {
         console.log('Sending existing orders to client');
