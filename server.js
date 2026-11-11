@@ -238,7 +238,7 @@ wss.on('connection', (ws) => {
         ws.send(JSON.stringify({ type: 'adminLoginSuccess' }));
         ws.send(JSON.stringify({
           type: 'existingDeliveryOrders',
-          orders: deliveryOrders.filter(o => ['accepted', 'preparing', 'delivering', 'onroute'].includes(String(o.status || '').toLowerCase()))
+          orders: deliveryOrders.filter(o => ['pending', 'accepted', 'preparing', 'delivering', 'onroute'].includes(String(o.status || '').toLowerCase()))
         }));
       } else if (data.type === 'kitchenLogin') {
         // Set client role to kitchen staff
