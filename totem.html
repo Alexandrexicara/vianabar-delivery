@@ -1408,7 +1408,7 @@
 
                 if (paymentMethod === 'pix') {
                     if (myGateway && typeof myGateway.gerarQRCode === 'function') {
-                        const split = myGateway.calcularSplit ? myGateway.calcularSplit(total, paymentMethod) : { taxa: 0 };
+                        const split = null;
                         const pedido = {
                             cliente: { nome, cpf, whatsapp },
                             total: total,
@@ -1474,9 +1474,6 @@
                         <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
                             <p style="font-size: 1.2rem; margin-bottom: 10px;">
                                 <strong>Valor Total:</strong> R$${pedido.total.toFixed(2)}
-                            </p>
-                            <p style="font-size: 0.9rem; color: #666;">
-                                Taxa MyGateway: ${split.taxa}% (R$${(pedido.total * split.taxa / 100).toFixed(2)})
                             </p>
                         </div>
                         
