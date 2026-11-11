@@ -1859,7 +1859,6 @@
             const totalCustomers = merchants.reduce((sum, m) => sum + Math.floor(m.customerBalances / 50), 0); // Estimativa
             const avgCustomerBalance = totalCustomers > 0 ? globalStats.totalCustomerBalances / totalCustomers : 0;
             const dailyWithdrawals = globalStats.totalWithdrawals / 30; // Simplificado
-            const pendingWithdrawals = globalStats.totalCustomerBalances * 0.1; // 10% pendente
             
             // Atualizar UI
             document.getElementById('globalRevenue').textContent = `R$ ${globalStats.totalRevenue.toFixed(2)}`;
@@ -1872,7 +1871,7 @@
             document.getElementById('totalCustomers').textContent = totalCustomers.toLocaleString();
             document.getElementById('avgCustomerBalance').textContent = `R$ ${avgCustomerBalance.toFixed(2)}`;
             document.getElementById('dailyWithdrawals').textContent = `R$ ${dailyWithdrawals.toFixed(2)}`;
-            document.getElementById('pendingWithdrawals').textContent = `R$ ${pendingWithdrawals.toFixed(2)}`;
+            document.getElementById('pendingWithdrawals').textContent = 'Aguardando conciliação';
             
             // Atualizar progresso
             const targetRevenue = 50000; // Meta mensal
