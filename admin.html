@@ -1923,7 +1923,7 @@
                         addNewOrderToCounterSection(order);
                                         
                         // Add to payments section if payment is pending
-                        if (order.paymentStatus === 'pending') {
+                        if (['pending','awaiting_in_person'].includes(order.paymentStatus)) {
                             addOrderToPaymentsSection(order);
                         }
                                         
@@ -2536,7 +2536,7 @@
             let completedTotal = 0;
             
             orders.forEach(order => {
-                if (order.paymentStatus === 'pending') {
+                if (['pending','awaiting_in_person'].includes(order.paymentStatus)) {
                     pendingTotal += order.total;
                 } else if (order.paymentStatus === 'completed') {
                     completedTotal += order.total;
