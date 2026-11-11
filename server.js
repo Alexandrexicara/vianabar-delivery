@@ -388,11 +388,11 @@ wss.on('connection', async (ws, req) => {
           ordersToSend = orders.filter(order => !order.storeId || order.storeId === ws.storeId);
         } else if (ws.role === 'kitchen') {
           // Kitchen staff only see orders with items for kitchen sector
-          ordersToSend = orders.filter(order => (!order.storeId || order.storeId === ws.storeId) && order.items.some(item => item.sector === 'kitchen') &&
+          ordersToSend = orders.filter(order => order.storeId === ws.storeId && ['paid','completed'].includes(String(order.paymentStatus || '').toLowerCase()) && order.items.some(item => item.sector === 'kitchen') &&
               (order.status === 'pending' || order.status === 'preparing'));
         } else if (ws.role === 'counter') {
           // Counter staff only see orders with items for counter sector
-          ordersToSend = orders.filter(order => (!order.storeId || order.storeId === ws.storeId) && order.items.some(item => item.sector === 'counter') &&
+          ordersToSend = orders.filter(order => order.storeId === ws.storeId && ['paid','completed'].includes(String(order.paymentStatus || '').toLowerCase()) && order.items.some(item => item.sector === 'counter') &&
               (order.status === 'pending' || order.status === 'preparing'));
         } else {
           // Regular users only see their own orders
