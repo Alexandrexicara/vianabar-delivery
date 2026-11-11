@@ -1877,9 +1877,8 @@
         if (!wsUrl) {
             // Usar a mesma porta do servidor HTTP atual
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const host = window.location.hostname;
-            const port = window.location.port || '3002';
-            wsUrl = `${protocol}//${host}:${port}`;
+            // Em produção, conectar na mesma origem; não forçar a porta interna 3002.
+            wsUrl = `${protocol}//${window.location.host}`;
         }
         
         // If accessing via subdomain, use the main domain for WebSocket connection
