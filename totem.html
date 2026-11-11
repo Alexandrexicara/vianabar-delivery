@@ -1121,6 +1121,26 @@
             if (settings.secondaryColor && /^#[0-9a-f]{6}$/i.test(settings.secondaryColor)) {
                 document.documentElement.style.setProperty('--secondary-color', settings.secondaryColor);
             }
+            if (settings.background && /^https?:\/\//i.test(settings.background)) {
+                document.body.style.backgroundImage = 'url("' + settings.background.replace(/["\\]/g, '') + '")';
+                document.body.style.backgroundSize = 'cover';
+                document.body.style.backgroundAttachment = 'fixed';
+                document.body.style.backgroundRepeat = 'no-repeat';
+            }
+            const socialContainer = document.getElementById('socialMediaLinks');
+            if (socialContainer) {
+                socialContainer.innerHTML = '';
+                [['Facebook',settings.facebook],['Instagram',settings.instagram],['WhatsApp',settings.whatsapp]].forEach(([label,url]) => {
+                    if (!url || !/^https?:\/\//i.test(String(url))) return;
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.textContent = label;
+                    link.style.cssText = 'display:inline-block;margin:4px;padding:8px 10px;border-radius:8px;background:#f2f4f7;color:#344054;text-decoration:none;font-weight:700;';
+                    socialContainer.appendChild(link);
+                });
+            }
             const logoContainer = document.getElementById('establishmentLogo');
             if (logoContainer && settings.logo) {
                 let logo = document.getElementById('totemMerchantLogo');
