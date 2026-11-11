@@ -505,9 +505,12 @@
 
     <script>
         // DOM Ready
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize WebSocket connection
-            initWebSocket();
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                const auth = await fetch('/api/merchant-auth/session', {credentials:'include',cache:'no-store'});
+                if (!auth.ok) throw new Error('Sessão ausente');
+                initWebSocket();
+            } catch (_) { location.replace('/login.html'); }
         });
 
         // Show tab
