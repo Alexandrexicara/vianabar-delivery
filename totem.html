@@ -928,12 +928,8 @@
                     <input type="text" id="customerName" required placeholder="Digite seu nome">
                 </div>
                 <div class="form-group">
-                    <label for="customerCPF">CPF</label>
-                    <input type="text" id="customerCPF" required placeholder="000.000.000-00">
-                </div>
-                <div class="form-group">
-                    <label for="customerWhatsApp">WhatsApp</label>
-                    <input type="tel" id="customerWhatsApp" required placeholder="(00) 00000-0000">
+                    <label for="customerWhatsApp">WhatsApp (opcional)</label>
+                    <input type="tel" id="customerWhatsApp" placeholder="(00) 00000-0000">
                 </div>
                 
                 <!-- Opções de Pagamento -->
@@ -951,9 +947,9 @@
                             <span class="payment-text">Cartão</span>
                         </label>
                         <label class="payment-option">
-                            <input type="radio" name="paymentMethod" value="googlepay">
-                            <span class="payment-icon">🟢</span>
-                            <span class="payment-text">Google Pay</span>
+                            <input type="radio" name="paymentMethod" value="cash">
+                            <span class="payment-icon">💵</span>
+                            <span class="payment-text">Dinheiro no caixa</span>
                         </label>
                     </div>
                 </div>
@@ -980,8 +976,7 @@
                 Pedido #<span id="orderNumberValue">000</span>
             </div>
             <p class="success-message">
-                📱 Você receberá uma notificação no WhatsApp<br>
-                🕐 Tempo estimado: 15-20 minutos
+                Obrigado! Aguarde a chamada do seu pedido.
             </p>
         </div>
     </div>
@@ -990,71 +985,32 @@
     <script>
         // Variáveis Globais
         let cart = [];
+        let menuItems = [];
         let currentCategory = 'all';
         let currentOrderNumber = 1;
+        let currentOrderDisplay = null;
         let stream = null;
         let codeReader = null;
         let countdownInterval = null;
         let cameraStarted = false;
         let videoLoaded = false;
+        let orderSubmitting = false;
+        let pixStatusTimer = null;
+        let activePixOrderId = null;
+        const totemParams = new URLSearchParams(window.location.search);
+        const totemStoreId = String(totemParams.get('loja') || totemParams.get('storeId') || '').trim().slice(0,120);
+        const totemTableNumber = String(totemParams.get('mesa') || 'Totem').trim().slice(0,40) || 'Totem';
         
-        // MyGateway Integration
+        // O totem usa o checkout oficial do servidor. Nenhum ID ou gateway de demonstração é aceito.
         let myGateway = null;
         let currentTransactionId = null;
-        
-        // Totem Payment Configuration
         let totemPaymentConfig = null;
-        
-        // Carregar configuração do totem do localStorage
-        function loadTotemConfig() {
-            totemPaymentConfig = JSON.parse(localStorage.getItem('totemPaymentConfig') || 'null');
-            return totemPaymentConfig;
-        }
-        
-        // Inicializar MyGateway
+        function loadTotemConfig() { return { storeId: totemStoreId }; }
         function initMyGateway() {
-            try {
-                myGateway = new MyGatewayIntegration();
-                console.log('[TOTEM] MyGateway inicializado com sucesso!');
-                
-                // Carregar configuração do totem
-                const config = loadTotemConfig();
-                
-                // Aplicar configuração se existir
-                if (config) {
-                    myGateway.merchantId = config.merchantId || 'merchant_id_demo';
-                    myGateway.motoboyId = config.motoboyId || 'motoboy_id_demo';
-                    
-                    // Habilitar/desabilitar pagamento por cartão baseado na configuração
-                    const cardEnabled = config.enabled !== false; // Default: enabled
-                    document.getElementById('cardPaymentOption').disabled = !cardEnabled;
-                    
-                    if (!cardEnabled) {
-                        console.log('[TOTEM] Pagamento por cartão desabilitado na configuração');
-                    }
-                    
-                    console.log('[TOTEM] Configuração do totem aplicada:', {
-                        brand: config.brand,
-                        model: config.model,
-                        connectionType: config.connectionType,
-                        enabled: cardEnabled
-                    });
-                } else {
-                    console.log('[TOTEM] Nenhuma configuração do totem encontrada');
-                    // Manter valores padrão quando não há configuração
-                    myGateway.merchantId = 'merchant_id_demo';
-                    myGateway.motoboyId = 'motoboy_id_demo';
-                    // Desabilitar opção de cartão quando não há configuração
-                    const cardOption = document.querySelector('input[value="card"]');
-                    if (cardOption) {
-                        cardOption.disabled = true;
-                        cardOption.parentElement.style.opacity = '0.5';
-                        cardOption.parentElement.style.cursor = 'not-allowed';
-                    }
-                }
-                
-            } catch (error) {
-                console.error('[TOTEM] Erro ao inicializar MyGateway:', error);
+            const googlePayOption = document.querySelector('input[name="paymentMethod"][value="googlepay"]');
+            if (googlePayOption) {
+                googlePayOption.disabled = true;
+                googlePayOption.parentElement.style.display = 'none';
             }
         }
 
@@ -1062,10 +1018,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('[TOTEM] Inicializando sistema...');
 
-            loadCustomizations();
-            applyCustomizationsToMenu();
-            
-            // Inicializar MyGateway
+            // Não carregar personalizações padrão do navegador: o estabelecimento vem do Neon.
             initMyGateway();
             
             // Verificar bibliotecas carregadas
@@ -1142,31 +1095,96 @@
             }
         }
 
-        // Carregar Itens do Menu
-        async function loadMenuItems() {
-            try {
-                const response = await fetch('/api/products?storeId=main', { cache: 'no-store' });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.error || 'Falha ao carregar produtos');
-                menuItems = result.products || [];
-                localStorage.setItem('menuItems', JSON.stringify(menuItems));
-                console.log('[TOTEM] Produtos sincronizados com PostgreSQL:', menuItems.length);
-            } catch (error) {
-                console.error('[TOTEM] Falha na sincronização; usando cache local:', error);
-                try { menuItems = JSON.parse(localStorage.getItem('menuItems') || '[]'); }
-                catch (_) { menuItems = []; }
+        function escapeTotemHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+            })[char]);
+        }
+
+        function applyTotemMerchantSettings(settings) {
+            const name = settings.establishmentName || 'Cardápio do estabelecimento';
+            const tagline = settings.establishmentTagline || 'Faça seu pedido pelo totem';
+            document.title = name + ' - Totem';
+            const nameEl = document.getElementById('establishmentName');
+            const taglineEl = document.getElementById('establishmentTagline');
+            const addressEl = document.getElementById('establishmentAddress');
+            const hoursEl = document.getElementById('establishmentHours');
+            const footerEl = document.getElementById('establishmentFooterInfo');
+            if (nameEl) nameEl.textContent = name;
+            if (taglineEl) taglineEl.textContent = tagline;
+            if (addressEl) addressEl.textContent = settings.establishmentAddress || '';
+            if (hoursEl) hoursEl.textContent = settings.establishmentHours || '';
+            if (footerEl) footerEl.textContent = [settings.establishmentAddress, settings.establishmentHours].filter(Boolean).join(' | ');
+            if (settings.primaryColor && /^#[0-9a-f]{6}$/i.test(settings.primaryColor)) {
+                document.documentElement.style.setProperty('--primary-color', settings.primaryColor);
             }
-            if (menuItems.length === 0) {
-                const menuGrid = document.getElementById('menuGrid');
-                menuGrid.innerHTML = `
-                    <div style="text-align:center;padding:60px 20px;color:#6c757d;">
-                        <div style="font-size:4rem;margin-bottom:20px;">📭</div>
-                        <h3 style="font-size:1.5rem;margin-bottom:15px;">Nenhum produto encontrado</h3>
-                        <p style="font-size:1.1rem;line-height:1.6;">Cadastre produtos no painel administrativo para que apareçam aqui.</p>
-                    </div>`;
+            if (settings.secondaryColor && /^#[0-9a-f]{6}$/i.test(settings.secondaryColor)) {
+                document.documentElement.style.setProperty('--secondary-color', settings.secondaryColor);
+            }
+            const logoContainer = document.getElementById('establishmentLogo');
+            if (logoContainer && settings.logo) {
+                let logo = document.getElementById('totemMerchantLogo');
+                if (!logo) {
+                    logo = document.createElement('img');
+                    logo.id = 'totemMerchantLogo';
+                    logo.style.cssText = 'max-height:54px;max-width:110px;object-fit:contain;margin-right:12px;';
+                    logoContainer.insertBefore(logo, logoContainer.firstChild);
+                }
+                logo.src = settings.logo;
+                logo.alt = 'Logo ' + name;
+            }
+        }
+
+        function renderTotemLoadError(message) {
+            const menuGrid = document.getElementById('menuGrid');
+            if (menuGrid) menuGrid.innerHTML = '<div style="text-align:center;padding:60px 20px;color:#6c757d;"><div style="font-size:3rem;margin-bottom:18px;">📭</div><h3 style="margin-bottom:12px;">Totem não configurado</h3><p>' + escapeTotemHtml(message) + '</p></div>';
+        }
+
+        // Produtos e personalização são sempre carregados do Neon para a loja indicada na URL.
+        async function loadMenuItems() {
+            if (!totemStoreId) {
+                renderTotemLoadError('Abra o endereço do totem vinculado ao estabelecimento. O parâmetro loja precisa estar configurado no painel do comerciante.');
                 return;
             }
-            renderMenuItems();
+            try {
+                const [settingsResponse, productsResponse] = await Promise.all([
+                    fetch('/api/merchant-settings/' + encodeURIComponent(totemStoreId), { cache: 'no-store' }),
+                    fetch('/api/products?storeId=' + encodeURIComponent(totemStoreId), { cache: 'no-store' })
+                ]);
+                const settingsResult = await settingsResponse.json();
+                const productsResult = await productsResponse.json();
+                if (!settingsResponse.ok) throw new Error(settingsResult.error || 'Não foi possível carregar o estabelecimento.');
+                if (!productsResponse.ok) throw new Error(productsResult.error || 'Não foi possível carregar os produtos.');
+                applyTotemMerchantSettings(settingsResult.settings || {});
+                menuItems = Array.isArray(productsResult.products) ? productsResult.products : [];
+                if (menuItems.length === 0) {
+                    renderTotemLoadError('Este estabelecimento ainda não possui produtos ativos cadastrados.');
+                    return;
+                }
+                buildTotemCategories();
+                renderMenuItems();
+                console.log('[TOTEM] ' + menuItems.length + ' produtos carregados para ' + totemStoreId);
+            } catch (error) {
+                console.error('[TOTEM] Falha ao carregar dados do estabelecimento:', error);
+                renderTotemLoadError(error.message || 'Não foi possível carregar o cardápio. Verifique a conexão.');
+            }
+        }
+
+        function buildTotemCategories() {
+            const container = document.querySelector('.categories');
+            if (!container) return;
+            container.querySelectorAll('.category-btn').forEach(button => button.remove());
+            const categories = [...new Set(menuItems.map(item => String(item.category || '').trim()).filter(Boolean))];
+            const buttons = [{ value:'all', label:'Todos' }, ...categories.map(value => ({ value, label:value }))];
+            const sidePanel = container.querySelector('.side-panel');
+            buttons.forEach((item, index) => {
+                const button = document.createElement('button');
+                button.className = 'category-btn' + (index === 0 ? ' active' : '');
+                button.type = 'button';
+                button.textContent = item.label;
+                button.addEventListener('click', () => filterByCategory(item.value));
+                container.insertBefore(button, sidePanel || null);
+            });
         }
 
         // Renderizar Itens do Menu
@@ -1192,14 +1210,17 @@
             // Converter preço para número (evitar erro de toFixed)
             const price = parseFloat(item.price) || 0;
             
+            const safeName = escapeTotemHtml(item.name);
+            const safeDescription = escapeTotemHtml(item.description || '');
+            const safeImage = item.image ? escapeTotemHtml(item.image) : '';
             return `
-                <div class="menu-item" onclick="addToCart(${item.id})">
+                <div class="menu-item" onclick="addToCart('${escapeTotemHtml(item.id)}')">
                     <div class="item-image">
-                        ${item.image ? `<img src="${item.image}" alt="${item.name}" style="width: 100%; height: 100%; object-fit: cover;">` : '🍽️'}
+                        ${safeImage ? `<img src="${safeImage}" alt="${safeName}" style="width: 100%; height: 100%; object-fit: cover;">` : '🍽️'}
                     </div>
                     <div class="item-details">
-                        <h3 class="item-name">${item.name}</h3>
-                        <p class="item-description">${item.description || ''}</p>
+                        <h3 class="item-name">${safeName}</h3>
+                        <p class="item-description">${safeDescription}</p>
                         <div class="item-price">R$ ${price.toFixed(2)}</div>
                         <button class="add-to-cart ${quantity > 0 ? 'added' : ''}">
                             ${quantity > 0 ? `${quantity}x Adicionado` : 'Adicionar ao Carrinho'}
@@ -1212,13 +1233,9 @@
         // Filtrar por Categoria
         function filterByCategory(category) {
             currentCategory = category;
-            
-            // Atualizar botões ativos
             document.querySelectorAll('.category-btn').forEach(btn => {
-                btn.classList.remove('active');
+                btn.classList.toggle('active', btn.textContent === (category === 'all' ? 'Todos' : category));
             });
-            event.target.classList.add('active');
-            
             renderMenuItems();
         }
 
@@ -1352,83 +1369,148 @@
         
         // Manipular mudança de pagamento
         function handlePaymentChange() {
-            const selectedPayment = document.querySelector('input[name="paymentMethod"]:checked').value;
-            if (selectedPayment === 'money') {
-                document.getElementById('changeAmount').value = '';
-            }
+            // As formas presenciais são registradas como aguardando recebimento no caixa.
         }
 
         // Processar Formulário de Cliente
         function handleCustomerSubmit(e) {
             e.preventDefault();
-            
             const customerData = {
-                nome: document.getElementById('customerName').value,
-                cpf: document.getElementById('customerCPF').value,
-                whatsapp: document.getElementById('customerWhatsApp').value,
-                paymentMethod: document.querySelector('input[name="paymentMethod"]:checked').value,
-                changeAmount: document.getElementById('changeAmount').value || null
+                nome: document.getElementById('customerName').value.trim(),
+                whatsapp: document.getElementById('customerWhatsApp').value.trim(),
+                paymentMethod: document.querySelector('input[name="paymentMethod"]:checked')?.value || 'pix'
             };
-            
-            // Validação básica
-            if (!customerData.nome || !customerData.cpf || !customerData.whatsapp) {
-                alert('Por favor, preencha todos os campos.');
+            if (!customerData.nome) {
+                alert('Informe o nome do cliente.');
                 return;
             }
-            
-            // Calcular total
-            const total = cart.reduce((sum, item) => {
-                const price = parseFloat(item.price) || 0;
-                return sum + (price * item.quantity);
-            }, 0);
-
-            // Esconder formulário antes da confirmação de pagamento
+            if (!totemStoreId) {
+                alert('Este totem ainda não está vinculado a um estabelecimento.');
+                return;
+            }
+            const total = cart.reduce((sum, item) => sum + ((Number(item.price) || 0) * item.quantity), 0);
             hideCustomerForm();
-            processRealPayment(customerData.nome, customerData.cpf, customerData.whatsapp, total, customerData.paymentMethod);
+            processRealPayment(customerData.nome, '', customerData.whatsapp, total, customerData.paymentMethod);
         }
         
-        // Processar Pagamento REAL com MyGateway
-        async function processRealPayment(nome, cpf, whatsapp, total, paymentMethod) {
-            console.log('[TOTEM] Processando pagamento REAL:', paymentMethod);
-            
+        // Registra o pedido no servidor; o valor é recalculado pelo banco usando os IDs dos produtos.
+        async function processRealPayment(nome, _cpf, whatsapp, total, paymentMethod) {
+            if (orderSubmitting) return;
+            orderSubmitting = true;
+            const submitButton = document.querySelector('#customerFormElement .btn-submit');
+            if (submitButton) { submitButton.disabled = true; submitButton.textContent = 'Registrando pedido...'; }
             try {
-                if (!myGateway) {
-                    console.log('[TOTEM] MyGateway não inicializado; usando fluxo local do totem');
+                const response = await fetch('/api/cardapio/orders', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        storeId: totemStoreId,
+                        orderType: 'totem',
+                        tableNumber: totemTableNumber,
+                        customer: { fullName: nome, phone: whatsapp, tableNumber: totemTableNumber },
+                        items: cart.map(item => ({ id: String(item.id), quantity: item.quantity })),
+                        paymentMethod,
+                        observations: 'Pedido realizado no totem'
+                    })
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    const error = new Error(result.error || 'Não foi possível registrar o pedido.');
+                    error.orderWasCreated = Boolean(result.orderId);
+                    throw error;
                 }
-                
-                // Verificar se pagamento por cartão está habilitado na configuração
-                const cardEnabled = totemPaymentConfig ? totemPaymentConfig.enabled !== false : true;
-                if (paymentMethod === 'card' && !cardEnabled) {
-                    alert('❌ Pagamento por cartão não está configurado. Por favor, configure a maquininha no painel do admin ou escolha Pix.');
-                    // Reset to Pix or show error
-                    const pixRadio = document.querySelector('input[value="pix"]');
-                    if (pixRadio) pixRadio.checked = true;
-                    return;
-                }
-
+                const order = result.order;
+                currentOrderDisplay = String(order.id).slice(0, 8).toUpperCase();
                 if (paymentMethod === 'pix') {
-                    alert('PIX temporariamente indisponível. O checkout ainda não está conectado ao provedor no servidor; nenhuma cobrança foi criada.');
+                    if (!result.payment || !result.payment.brCode) {
+                        throw new Error('O pedido foi registrado, mas a cobrança Pix não retornou o código de pagamento. Chame o atendente e informe o pedido ' + currentOrderDisplay + '.');
+                    }
+                    showTotemPixPayment(order, result.payment);
                     return;
                 }
-
-                if (paymentMethod === 'card') {
-                    processCardPayment({ nome, cpf, whatsapp }, total);
-                    return;
-                }
-
-                if (paymentMethod === 'googlepay') {
-                    processGooglePayPayment({ nome, cpf, whatsapp }, total);
-                    return;
-                }
-
-                alert('Forma de pagamento não suportada.');
+                const paymentLabel = paymentMethod === 'card' ? 'cartão' : 'dinheiro';
+                showSuccessScreen('Pedido registrado!', 'Dirija-se ao caixa para pagar com ' + paymentLabel + '. O preparo já foi avisado.');
             } catch (error) {
-                console.error('[TOTEM] Erro no pagamento:', error);
-                alert('Erro ao processar pagamento: ' + error.message);
-                cancelPayment();
+                console.error('[TOTEM] Erro ao registrar pedido:', error);
+                alert(error.message + (error.orderWasCreated ? '\\nNão envie o pedido novamente; chame o atendente para consultar o registro.' : ''));
+                document.getElementById('customerForm').style.display = 'flex';
+            } finally {
+                orderSubmitting = false;
+                if (submitButton) { submitButton.disabled = false; submitButton.innerHTML = '<i class="fas fa-check"></i> Confirmar Pedido'; }
             }
         }
-        
+
+        function showTotemPixPayment(order, payment) {
+            activePixOrderId = String(order.id);
+            const existing = document.getElementById('pixPaymentScreen');
+            if (existing) existing.remove();
+            const overlay = document.createElement('div');
+            overlay.id = 'pixPaymentScreen';
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(8,20,35,.94);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto;';
+            const qr = payment.qrCodeImage || '';
+            overlay.innerHTML = `
+                <div style="background:#fff;color:#182230;padding:28px;border-radius:22px;max-width:560px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35);">
+                    <h2 style="font-size:1.8rem;margin-bottom:8px;">Pague com Pix</h2>
+                    <p style="color:#667085;margin-bottom:18px;">Pedido #${escapeTotemHtml(String(order.id).slice(0,8).toUpperCase())}</p>
+                    <div style="font-size:2rem;font-weight:800;color:#138a4b;margin-bottom:18px;">R$ ${Number(order.total).toFixed(2).replace('.',',')}</div>
+                    ${qr ? `<img src="${escapeTotemHtml(qr)}" alt="QR Code Pix" style="width:230px;height:230px;object-fit:contain;margin:0 auto 16px;border:1px solid #e4e7ec;border-radius:12px;padding:8px;">` : ''}
+                    <p style="font-weight:700;margin:8px 0;">Escaneie o QR Code ou copie o Pix</p>
+                    <textarea id="totemPixCode" readonly style="width:100%;height:86px;resize:none;padding:12px;border:1px solid #d0d5dd;border-radius:10px;font-size:12px;word-break:break-all;">${escapeTotemHtml(payment.brCode)}</textarea>
+                    <button type="button" onclick="copyTotemPixCode()" style="width:100%;margin-top:12px;padding:14px;border:0;border-radius:10px;background:#138a4b;color:#fff;font-weight:800;font-size:1rem;">Copiar código Pix</button>
+                    <p id="totemPixStatus" role="status" style="margin-top:18px;color:#475467;">Aguardando confirmação automática do pagamento...</p>
+                    <p style="font-size:.85rem;color:#667085;margin-top:8px;">Não feche esta tela. O pedido só será enviado para preparo após a confirmação do banco.</p>
+                </div>`;
+            document.body.appendChild(overlay);
+            monitorTotemPixPayment(activePixOrderId);
+        }
+
+        async function copyTotemPixCode() {
+            const field = document.getElementById('totemPixCode');
+            if (!field) return;
+            try {
+                await navigator.clipboard.writeText(field.value);
+                const status = document.getElementById('totemPixStatus');
+                if (status) status.textContent = 'Código Pix copiado. Aguardando confirmação automática...';
+            } catch (_) {
+                field.focus(); field.select();
+                document.execCommand('copy');
+            }
+        }
+
+        function monitorTotemPixPayment(orderId) {
+            if (pixStatusTimer) clearInterval(pixStatusTimer);
+            let checks = 0;
+            pixStatusTimer = setInterval(async () => {
+                checks++;
+                try {
+                    const response = await fetch('/api/cardapio/orders/' + encodeURIComponent(orderId), { cache:'no-store' });
+                    const result = await response.json();
+                    if (!response.ok || !result.success) throw new Error(result.error || 'Consulta indisponível');
+                    const paymentStatus = String(result.order.paymentStatus || '').toLowerCase();
+                    const providerStatus = String(result.order.payment?.status || '').toLowerCase();
+                    if (paymentStatus === 'paid' || paymentStatus === 'completed' || providerStatus === 'paid') {
+                        clearInterval(pixStatusTimer); pixStatusTimer = null;
+                        const overlay = document.getElementById('pixPaymentScreen');
+                        if (overlay) overlay.remove();
+                        showSuccessScreen('Pagamento confirmado!', 'Seu pedido foi enviado para preparo. Aguarde ser chamado.');
+                    } else if (paymentStatus === 'expired' || providerStatus === 'expired' || paymentStatus === 'needs_review' || providerStatus === 'needs_review') {
+                        clearInterval(pixStatusTimer); pixStatusTimer = null;
+                        const status = document.getElementById('totemPixStatus');
+                        if (status) status.textContent = paymentStatus === 'expired' || providerStatus === 'expired'
+                            ? 'Esta cobrança Pix expirou. Chame o atendente; não faça outro pedido.'
+                            : 'Pagamento recebido com divergência e enviado para análise. Chame o atendente.';
+                    } else if (checks >= 240) {
+                        clearInterval(pixStatusTimer); pixStatusTimer = null;
+                        const status = document.getElementById('totemPixStatus');
+                        if (status) status.textContent = 'A confirmação está demorando. Chame o atendente e informe o pedido ' + String(orderId).slice(0,8).toUpperCase() + '. Não repita o pedido.';
+                    }
+                } catch (error) {
+                    console.warn('[TOTEM] Consulta de pagamento Pix:', error.message);
+                }
+            }, 3000);
+        }
+
         // Processar PIX MyGateway
         async function processarPixMyGateway(pedido, split) {
             console.log('[TOTEM] Processando PIX com MyGateway...');
@@ -2260,8 +2342,7 @@
             
             ws.onopen = function() {
                 console.log('[TOTEM] WebSocket conectado');
-                // Enviar login como totem
-                ws.send(JSON.stringify({ type: 'counterLogin' }));
+                ws.send(JSON.stringify({ type: 'counterLogin', storeId: totemStoreId || 'main' }));
             };
             
             ws.onmessage = function(event) {
@@ -2557,7 +2638,7 @@ ${paymentInfo}
         // Mostrar Tela de Sucesso
         let countdownTime = 5;
         
-        function showSuccessScreen() {
+        function showSuccessScreen(title = 'Pedido registrado!', message = 'Seu pedido foi registrado com sucesso.') {
             console.log('[TOTEM] Mostrando tela de sucesso...');
             
             // Resetar contador
@@ -2567,7 +2648,12 @@ ${paymentInfo}
             }
             
             // Mostrar tela de sucesso
-            document.getElementById('orderNumberValue').textContent = currentOrderNumber;
+            document.getElementById('orderNumberValue').textContent = currentOrderDisplay || currentOrderNumber;
+            const successTitle = document.querySelector('#successScreen .success-title');
+            const successMessages = document.querySelectorAll('#successScreen .success-message');
+            if (successTitle) successTitle.textContent = title;
+            if (successMessages[0]) successMessages[0].textContent = message;
+            if (successMessages[1]) successMessages[1].textContent = 'Obrigado! Aguarde a chamada do seu pedido.';
             document.getElementById('successScreen').style.display = 'flex';
             
             // Adicionar contador visual
@@ -2645,8 +2731,12 @@ ${paymentInfo}
                 cameraStarted = false;
                 videoLoaded = false;
                 
-                // Limpar dados
+                // Limpar dados do próximo atendimento
                 cart = [];
+                currentOrderDisplay = null;
+                activePixOrderId = null;
+                if (pixStatusTimer) { clearInterval(pixStatusTimer); pixStatusTimer = null; }
+                orderSubmitting = false;
                 currentOrderNumber++;
                 updateCart();
                 
