@@ -10,6 +10,7 @@
   let playing = false;
   let enabled = false;
   let unlockButton;
+  const VOICE_API_BASE = location.hostname === 'vianabar-delivery.onrender.com' ? '' : 'https://vianabar-delivery.onrender.com';
 
   function addUnlockControl() {
     if (document.getElementById('delivery-voice-enable')) return;
@@ -23,20 +24,42 @@
     unlockButton.id = 'delivery-voice-enable-button';
     unlockButton.textContent = 'Ativar áudio';
     unlockButton.style.cssText = 'border:0;border-radius:8px;padding:8px 11px;background:#b7f34a;color:#14210b;font-weight:700';
-    unlockButton.addEventListener('click', async () => {
+    unlockButton.addEventListener('click', () => {
       enabled = true;
-      try {
-        const test = new Audio();
-        test.muted = true;
-        await test.play().catch(() => {});
-        test.pause();
-        wrap.querySelector('span').textContent = 'Voz ativada';
-        unlockButton.textContent = 'Ativado';
-        unlockButton.disabled = true;
-        unlockButton.style.opacity = '.7';
+      unlockButton.disabled = true;
+      unlockButton.textContent = 'Testando voz…';
+      // O desbloqueio precisa produzir áudio real; tocar um Audio() mudo não libera a fala no Android.
+      if ('speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined') {
+        try {
+          window.speechSynthesis.cancel();
+          const test = new SpeechSynthesisUtterance('Avisos por voz ativados.');
+          test.lang = 'pt-BR';
+          test.rate = 0.95;
+          test.onstart = () => {
+            wrap.querySelector('span').textContent = 'Voz ativada';
+            unlockButton.textContent = 'Áudio ativado';
+            unlockButton.style.opacity = '.7';
+            processQueue();
+          };
+          test.onend = () => processQueue();
+          test.onerror = () => {
+            enabled = false;
+            unlockButton.disabled = false;
+            unlockButton.textContent = 'Tentar ativar áudio';
+            wrap.querySelector('span').textContent = 'O navegador bloqueou a voz. Toque novamente.';
+          };
+          window.speechSynthesis.speak(test);
+        } catch (_) {
+          enabled = false;
+          unlockButton.disabled = false;
+          unlockButton.textContent = 'Tentar ativar áudio';
+          wrap.querySelector('span').textContent = 'Não foi possível ativar a voz.';
+        }
+      } else {
+        // Mesmo sem voz nativa, habilita a tentativa do serviço de voz do servidor.
+        wrap.querySelector('span').textContent = 'Ativando avisos de voz…';
+        unlockButton.textContent = 'Áudio ativado';
         processQueue();
-      } catch (_) {
-        wrap.querySelector('span').textContent = 'Toque novamente para ativar';
       }
     });
     wrap.append(label, unlockButton);
@@ -81,7 +104,7 @@
     const text = queue.shift();
     let objectUrl;
     try {
-      const response = await fetch('/api/notification-voice/speech', {
+      const response = await fetch(VOICE_API_BASE + '/api/notification-voice/speech', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text })
