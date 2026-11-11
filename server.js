@@ -186,7 +186,7 @@ const ordersReady = (async () => {
         price: Number(item.unit_price_cents) / 100, sector: item.sector
       });
     }
-    orders = result.rows.map(row => ({
+    const persistedOrders = result.rows.map(row => ({
       id: row.id, storeId: row.store_id,
       customer: { name: row.customer_name, phone: row.customer_phone, tableNumber: row.table_number },
       table: 'Mesa ' + row.table_number, observations: row.observations,
@@ -195,7 +195,10 @@ const ordersReady = (async () => {
       status: row.status, paymentMethod: row.payment_method,
       paymentStatus: row.payment_status, timestamp: row.created_at
     }));
-    console.log('[CARDAPIO] Pedidos ativos recuperados do Neon:', orders.length);
+    for (const persistedOrder of persistedOrders) {
+      if (!orders.some(existing => String(existing.id) === String(persistedOrder.id))) orders.push(persistedOrder);
+    }
+    console.log('[CARDAPIO] Pedidos ativos recuperados do Neon:', persistedOrders.length);
   } catch (error) {
     console.error('[CARDAPIO] Não foi possível recuperar pedidos persistidos:', error.message);
   }
