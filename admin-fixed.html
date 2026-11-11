@@ -2356,8 +2356,8 @@
         
         // Valor fixo de comissão do garçom por mesa, em reais.
         function getSavedCommissionAmount(table) {
-            const savedAmount = localStorage.getItem(`commission_amount_${table}`);
-            return savedAmount !== null ? Math.max(0, Number(savedAmount) || 0) : 0;
+            const savedAmount = Number(localStorage.getItem(`commission_amount_${table}`));
+            return Number.isFinite(savedAmount) && savedAmount >= 0 ? savedAmount : 0;
         }
 
         function saveWaiterCommissionAmount(table, amount) {
