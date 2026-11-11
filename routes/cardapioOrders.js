@@ -202,8 +202,8 @@ router.post('/:orderId/confirm-in-person', requireMerchant, async (req, res) => 
     }
     const row = updated.rows[0];
     const itemRows = await client.query(
-      'SELECT product_id,product_name,quantity,unit_price_cents,sector FROM cardapio_order_items WHERE order_id=$1 AND store_id=$2',
-      [orderId, storeId]
+      'SELECT product_id,product_name,quantity,unit_price_cents,sector FROM cardapio_order_items WHERE order_id=$1',
+      [orderId]
     );
     await client.query('COMMIT');
     const order = {
