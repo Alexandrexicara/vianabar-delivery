@@ -1706,6 +1706,9 @@
         let restaurantMarker = null;
         let customerMarker = null;
         let routeLine = null;
+        let trackingRouteAt = 0;
+        let trackingRoutePending = false;
+        let trackingRouteResult = null;
 
         // Mostrar confirmação do pedido COM RASTREAMENTO
         function showOrderConfirmation(order) {
@@ -2160,6 +2163,9 @@
         // Atualizar rota no mapa
         async function updateRoute(motoboyLat,motoboyLng,customerLat,customerLng) {
             if(!trackingMap)return null;
+            if(trackingRoutePending || (Date.now()-trackingRouteAt<10000 && routeLine)) return trackingRouteResult;
+            trackingRoutePending=true;
+            trackingRouteAt=Date.now();
             const url='https://router.project-osrm.org/route/v1/driving/'+motoboyLng+','+motoboyLat+';'+customerLng+','+customerLat+'?overview=full&geometries=geojson';
             try{
                 const response=await fetch(url),data=await response.json();
@@ -2167,13 +2173,15 @@
                 if(routeLine)trackingMap.removeLayer(routeLine);
                 routeLine=L.geoJSON(data.routes[0].geometry,{style:{color:'#1769ff',weight:5,opacity:0.85}}).addTo(trackingMap);
                 trackingMap.fitBounds(routeLine.getBounds(),{padding:[35,35]});
-                return {distanceKm:data.routes[0].distance/1000,durationMinutes:data.routes[0].duration/60};
+                trackingRouteResult={distanceKm:data.routes[0].distance/1000,durationMinutes:data.routes[0].duration/60};
+                return trackingRouteResult;
             }catch(error){
                 console.warn('[DELIVERY] Falha ao calcular rota viária:',error);
                 if(routeLine)trackingMap.removeLayer(routeLine);
                 routeLine=L.polyline([[motoboyLat,motoboyLng],[customerLat,customerLng]],{color:'#999',weight:3,dashArray:'6,8'}).addTo(trackingMap);
+                trackingRouteResult=null;
                 return null;
-            }
+            }finally{trackingRoutePending=false;}
         }
         
         // ============================================
