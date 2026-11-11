@@ -13,47 +13,14 @@ function verSaldo(motoboyId) {
 }
 
 function sacar(motoboyId, valor) {
-  const motoboy = motoboys[motoboyId];
-  
-  if (!motoboy) {
-    logError(`Saque - Motoboy não encontrado: ${motoboyId}`);
-    return { error: "Motoboy não encontrado" };
-  }
-
-  if (motoboy.saldo < valor) {
-    logError(`Saque - Saldo insuficiente - Motoboy: ${motoboyId} - Saldo: R$${motoboy.saldo} - Tentativa: R$${valor}`);
-    return { error: "Saldo insuficiente" };
-  }
-
-  const sacado = valor;
-  motoboy.saldo -= valor;
-  
-  logSuccess(`Saque realizado - Motoboy: ${motoboyId} - Valor: R$${sacado} - Saldo restante: R$${motoboy.saldo}`);
-
-  return { 
-    sacado, 
-    saldoRestante: motoboy.saldo,
-    motoboyId 
+  return {
+    error: "Saque direto desativado. Os pagamentos de motoboys precisam seguir o ciclo de 48 horas, autorização do comerciante e confirmação do provedor."
   };
 }
 
 function sacarTotal(motoboyId) {
-  const motoboy = motoboys[motoboyId];
-  
-  if (!motoboy) {
-    logError(`Saque total - Motoboy não encontrado: ${motoboyId}`);
-    return { error: "Motoboy não encontrado" };
-  }
-
-  const valor = motoboy.saldo;
-  motoboy.saldo = 0;
-
-  logSuccess(`Saque total realizado - Motoboy: ${motoboyId} - Valor: R$${valor}`);
-
-  return { 
-    sacado: valor, 
-    saldoRestante: 0,
-    motoboyId 
+  return {
+    error: "Saque total direto desativado. Os pagamentos de motoboys precisam seguir o ciclo de 48 horas, autorização do comerciante e confirmação do provedor."
   };
 }
 
@@ -72,7 +39,7 @@ function getHistoricoPedidos(motoboyId) {
 function getResumoGanho(motoboyId) {
   const pedidosMotoboy = Object.values(pedidos).filter(p => p.motoboyId === motoboyId && p.status === "pago");
   
-  const totalGanho = pedidosMotoboy.reduce((total, pedido) => total + pedido.valorMotoboy, 0);
+  const totalGanho = pedidosMotoboy.reduce((total, pedido) => total + Number(pedido.valorMotoboy || 0), 0);
   const totalPedidos = pedidosMotoboy.length;
   
   return {
