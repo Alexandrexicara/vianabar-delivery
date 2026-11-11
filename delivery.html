@@ -1746,7 +1746,10 @@
         // Iniciar rastreamento do pedido
         function startOrderTracking() {
             if (!currentOrder) return;
-            
+            if (window.DeliveryCommunication) {
+                DeliveryCommunication.trackDeliveryOrder(currentOrder.id);
+                DeliveryCommunication.send({type:'requestMotoboyLocation',orderId:currentOrder.id});
+            }
             console.log('[DELIVERY] Iniciando rastreamento do pedido:', currentOrder.id);
             
             // Mostrar tela de rastreamento
@@ -1839,42 +1842,39 @@
         }
 
         // Inicializar mapa de rastreamento
+        function trackingPoint(value) {
+            if (!value) return null;
+            const lat=Number(value.latitude??value.lat), lng=Number(value.longitude??value.lng);
+            return Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180 ? [lat,lng] : null;
+        }
+
         function initializeTrackingMap() {
-            console.log('[DELIVERY] Inicializando mapa de rastreamento...');
-            
+            console.log('[DELIVERY] Inicializando mapa de rastreamento com coordenadas reais...');
             try {
-                trackingMap = L.map('trackingMap').setView([-21.4735, -43.7722], 13);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap contributors'
-                }).addTo(trackingMap);
-                
-                // Adicionar marcador do cliente
-                customerMarker = L.marker([-21.4735, -43.7722], {
-                    icon: L.divIcon({
-                        html: '<div style="background: #e74c3c; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">🏠</div>',
-                        iconSize: [46, 46],
-                        className: 'customer-marker'
-                    })
-                }).addTo(trackingMap);
-                
-                customerMarker.bindPopup(`<strong>🏁 SEU ENDEREÇO</strong><br>${currentOrder.address}`);
-                
-                // Adicionar marcador do restaurante
-                restaurantMarker = L.marker([-23.5505, -46.6333], {
-                    icon: L.divIcon({
-                        html: '<div style="background: #27ae60; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">🏪</div>',
-                        iconSize: [46, 46],
-                        className: 'restaurant-marker'
-                    })
-                }).addTo(trackingMap);
-                
-                restaurantMarker.bindPopup(`<strong>🏪 RESTAURANTE</strong><br>Pizza Express Digital`);
-                
-                console.log('[DELIVERY] Mapa de rastreamento inicializado');
-                
-            } catch (error) {
-                console.error('[DELIVERY] Erro ao inicializar mapa de rastreamento:', error);
-            }
+                const customer=trackingPoint(currentOrder.customerLocation);
+                const merchant=trackingPoint(currentOrder.establishmentLocation);
+                const motoboy=trackingPoint(currentOrder.motoboyLocation);
+                const center=customer||merchant||motoboy||[-16.735,-43.861];
+                trackingMap=L.map('trackingMap').setView(center,13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors'}).addTo(trackingMap);
+                const add=(point,emoji,title,detail)=>{
+                    if(!point)return null;
+                    return L.marker(point,{icon:L.divIcon({html:'<div style="font-size:30px;text-shadow:0 1px 4px #fff">'+emoji+'</div>',iconSize:[36,36],iconAnchor:[18,18]})})
+                        .addTo(trackingMap).bindPopup('<strong>'+title+'</strong><br>'+String(detail||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])));
+                };
+                customerMarker=add(customer,'🏠','Destino do cliente',currentOrder.address);
+                restaurantMarker=add(merchant,'🏪','Origem do comércio',currentOrder.establishmentName||currentOrder.establishmentAddress);
+                motoboyMarker=add(motoboy,'🏍️','Motoboy',currentOrder.motoboyName||'Posição atual');
+                const bounds=[customer,merchant,motoboy].filter(Boolean);
+                if(bounds.length)trackingMap.fitBounds(bounds,{padding:[35,35],maxZoom:15});
+                if(motoboy&&customer)updateRoute(motoboy[0],motoboy[1],customer[0],customer[1]);
+                else if(merchant&&customer)updateRoute(merchant[0],merchant[1],customer[0],customer[1]);
+                if(!customer){
+                    const map=document.getElementById('trackingMap');
+                    if(map)map.insertAdjacentHTML('afterend','<p style="color:#9a5b00">O destino ainda não possui coordenadas GPS. O endereço continua registrado, mas a rota exata não pode ser exibida.</p>');
+                }
+                console.log('[DELIVERY] Mapa real inicializado:',{customer,merchant,motoboy});
+            } catch(error) { console.error('[DELIVERY] Erro ao inicializar mapa:',error); }
         }
 
         // Atualizar status do pedido
@@ -2099,34 +2099,40 @@
             
             // Escutar atualizações de localização do motoboy em tempo real
             window.addEventListener('motoboyLocationUpdated', function(event) {
-                const { orderId, latitude, longitude, motoboyName, motoboyPhone } = event.detail;
-                console.log('[DELIVERY] Localização atualizada em tempo real:', orderId, latitude, longitude);
-                
-                // Se for o pedido atual e estivermos na tela de rastreamento
-                if (currentOrder && currentOrder.id === orderId && trackingMap && motoboyMarker) {
-                    // Atualizar posição do motoboy no mapa (DADOS REAIS DO GPS)
-                    motoboyMarker.setLatLng([latitude, longitude]);
-                    
-                    // Atualizar informações do motoboy
-                    document.getElementById('motoboy-name').textContent = motoboyName || '--';
-                    document.getElementById('motoboy-phone').textContent = motoboyPhone || '--';
-                    
-                    // Recalcular distância e ETA
-                    // Coordenadas do restaurante (ajustar conforme necessário)
-                    const restaurantLat = -21.4735;
-                    const restaurantLng = -43.7722;
-                    
-                    // Calcular distância do motoboy até o cliente
-                    const distanceToCustomer = calculateDistance(latitude, longitude, restaurantLat, restaurantLng);
-                    const eta = Math.round(distanceToCustomer * 2); // 2 minutos por km
-                    
-                    document.getElementById('motoboy-distance').textContent = `${distanceToCustomer.toFixed(1)} km`;
-                    document.getElementById('motoboy-eta').textContent = `${eta} minutos`;
-                    
-                    // Atualizar rota no mapa
-                    updateRoute(latitude, longitude, restaurantLat, restaurantLng);
-                    
-                    console.log(`[DELIVERY] Mapa atualizado: ${motoboyName} está em ${latitude}, ${longitude}`);
+                const {orderId,latitude,longitude,motoboyName,motoboyPhone}=event.detail||{};
+                if(!currentOrder||String(currentOrder.id)!==String(orderId))return;
+                currentOrder.motoboyLocation={latitude:Number(latitude),longitude:Number(longitude),updatedAt:new Date().toISOString()};
+                currentOrder.motoboyName=motoboyName||currentOrder.motoboyName;
+                currentOrder.motoboyPhone=motoboyPhone||currentOrder.motoboyPhone;
+                if(!trackingMap)return;
+                if(motoboyMarker)motoboyMarker.setLatLng([Number(latitude),Number(longitude)]);
+                else motoboyMarker=L.marker([Number(latitude),Number(longitude)]).addTo(trackingMap).bindPopup('🏍️ Motoboy');
+                const name=document.getElementById('motoboy-name'),phone=document.getElementById('motoboy-phone');
+                if(name)name.textContent=motoboyName||'--'; if(phone)phone.textContent=motoboyPhone||'--';
+                const destination=trackingPoint(currentOrder.customerLocation);
+                if(destination){
+                    updateRoute(Number(latitude),Number(longitude),destination[0],destination[1]).then(route=>{
+                        const distance=document.getElementById('motoboy-distance'),eta=document.getElementById('motoboy-eta');
+                        if(distance)distance.textContent=route?route.distanceKm.toFixed(1)+' km':'--';
+                        if(eta)eta.textContent=route?Math.ceil(route.durationMinutes)+' min':'--';
+                    });
+                }
+                localStorage.setItem('deliveryOrders',JSON.stringify((JSON.parse(localStorage.getItem('deliveryOrders')||'[]')).map(o=>String(o.id)===String(orderId)?{...o,motoboyLocation:currentOrder.motoboyLocation}:o)));
+            });
+
+            window.addEventListener('deliveryOrderUpdate', function(event) {
+                const message=event.detail||{};
+                if(message.order && String(message.order.id)===String(currentOrder?.id)) {
+                    currentOrder={...currentOrder,...message.order};
+                    if(trackingMap) {
+                        const customer=trackingPoint(currentOrder.customerLocation), merchant=trackingPoint(currentOrder.establishmentLocation);
+                        if(customer) { if(customerMarker)customerMarker.setLatLng(customer); else customerMarker=L.marker(customer).addTo(trackingMap).bindPopup('🏠 Destino do cliente'); }
+                        if(merchant) { if(restaurantMarker)restaurantMarker.setLatLng(merchant); else restaurantMarker=L.marker(merchant).addTo(trackingMap).bindPopup('🏪 Comércio'); }
+                        const moto=trackingPoint(currentOrder.motoboyLocation);
+                        if(moto) { if(motoboyMarker)motoboyMarker.setLatLng(moto); else motoboyMarker=L.marker(moto).addTo(trackingMap).bindPopup('🏍️ Motoboy'); }
+                        const start=moto||merchant;
+                        if(start&&customer)updateRoute(start[0],start[1],customer[0],customer[1]);
+                    }
                 }
             });
             
@@ -2148,30 +2154,22 @@
         };
         
         // Atualizar rota no mapa
-        function updateRoute(motoboyLat, motoboyLng, customerLat, customerLng) {
-            if (!trackingMap) return;
-            
-            // Remover rota anterior se existir
-            if (routeLine) {
-                trackingMap.removeLayer(routeLine);
+        async function updateRoute(motoboyLat,motoboyLng,customerLat,customerLng) {
+            if(!trackingMap)return null;
+            const url='https://router.project-osrm.org/route/v1/driving/'+motoboyLng+','+motoboyLat+';'+customerLng+','+customerLat+'?overview=full&geometries=geojson';
+            try{
+                const response=await fetch(url),data=await response.json();
+                if(!response.ok||!data.routes||!data.routes[0])throw new Error('Rota não disponível');
+                if(routeLine)trackingMap.removeLayer(routeLine);
+                routeLine=L.geoJSON(data.routes[0].geometry,{style:{color:'#1769ff',weight:5,opacity:0.85}}).addTo(trackingMap);
+                trackingMap.fitBounds(routeLine.getBounds(),{padding:[35,35]});
+                return {distanceKm:data.routes[0].distance/1000,durationMinutes:data.routes[0].duration/60};
+            }catch(error){
+                console.warn('[DELIVERY] Falha ao calcular rota viária:',error);
+                if(routeLine)trackingMap.removeLayer(routeLine);
+                routeLine=L.polyline([[motoboyLat,motoboyLng],[customerLat,customerLng]],{color:'#999',weight:3,dashArray:'6,8'}).addTo(trackingMap);
+                return null;
             }
-            
-            // Desenhar nova rota
-            const routePoints = [
-                [motoboyLat, motoboyLng],
-                [customerLat, customerLng]
-            ];
-            
-            routeLine = L.polyline(routePoints, {
-                color: '#3498db',
-                weight: 4,
-                opacity: 0.8,
-                dashArray: '10, 10'
-            }).addTo(trackingMap);
-            
-            // Ajustar zoom para mostrar rota completa
-            const bounds = L.latLngBounds(routePoints);
-            trackingMap.fitBounds(bounds, { padding: [50, 50] });
         }
         
         // ============================================
