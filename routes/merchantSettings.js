@@ -86,7 +86,7 @@ router.put('/:storeId', requireMerchantAdmin, async (req, res) => {
     const allowed = [
       'establishmentName','establishmentTagline','establishmentAddress','establishmentPhone',
       'establishmentHours','primaryColor','secondaryColor','facebook','instagram','whatsapp',
-      'logo','background','establishmentLocation'
+      'logo','background','establishmentLocation','paymentProvider'
     ];
     const safeSettings = {};
     for (const key of allowed) {
@@ -98,6 +98,9 @@ router.put('/:storeId', requireMerchantAdmin, async (req, res) => {
         if (Number.isFinite(latitude) && Number.isFinite(longitude) && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180) {
           safeSettings[key] = { latitude, longitude, accuracy:Number(value.accuracy)||null, updatedAt:value.updatedAt||new Date().toISOString() };
         }
+      } else if (key === 'paymentProvider') {
+        const provider = String(value || '').toLowerCase();
+        if (['woovi','sicoob'].includes(provider)) safeSettings[key] = provider;
       } else if (typeof value === 'string') {
         safeSettings[key] = value.slice(0, key === 'logo' || key === 'background' ? 300 : 2000);
       }
