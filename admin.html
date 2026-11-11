@@ -4214,7 +4214,7 @@
         }
 
         function merchantSettingsApi() {
-            const base = location.hostname === 'vianabar-delivery.onrender.com' ? '' : 'https://vianabar-delivery.onrender.com';
+            const base = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? `http://${location.hostname}:3002` : (location.hostname === 'vianabar-delivery.onrender.com' ? '' : 'https://vianabar-delivery.onrender.com');
             return base + '/api/merchant-settings/' + encodeURIComponent(merchantStoreId());
         }
 
