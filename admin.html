@@ -1887,6 +1887,7 @@
                 if (data.type === 'adminLoginSuccess') {
                     console.log('Admin login successful');
                 } else if (data.type === 'existingDeliveryOrders') {
+                    if (deliveryMapRefreshTimeout) clearTimeout(deliveryMapRefreshTimeout);
                     receiveDeliveryMapOrders(data.orders || []);
                     const status = document.getElementById('deliveryMapRefreshStatus');
                     if (status) status.textContent = '✓ Consulta concluída: ' + (data.orders || []).length + ' pedido(s) em andamento recebidos às ' + new Date().toLocaleTimeString('pt-BR');
