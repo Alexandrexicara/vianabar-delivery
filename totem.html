@@ -1241,10 +1241,10 @@
 
         // Adicionar ao Carrinho
         function addToCart(itemId) {
-            const item = menuItems.find(i => i.id === itemId);
+            const item = menuItems.find(i => String(i.id) === String(itemId));
             if (!item) return;
             
-            const existingItem = cart.find(c => c.id === itemId);
+            const existingItem = cart.find(c => String(c.id) === String(itemId));
             if (existingItem) {
                 existingItem.quantity++;
             } else {
@@ -1261,14 +1261,14 @@
 
         // Remover do Carrinho
         function removeFromCart(itemId) {
-            cart = cart.filter(item => item.id !== itemId);
+            cart = cart.filter(item => String(item.id) !== String(itemId));
             updateCart();
             renderMenuItems();
         }
 
         // Atualizar Quantidade
         function updateQuantity(itemId, change) {
-            const item = cart.find(c => c.id === itemId);
+            const item = cart.find(c => String(c.id) === String(itemId));
             if (!item) return;
             
             item.quantity += change;
@@ -1297,13 +1297,13 @@
                 return `
                 <div class="cart-item">
                     <div class="cart-item-info">
-                        <div class="cart-item-name">${item.name}</div>
+                        <div class="cart-item-name">${escapeTotemHtml(item.name)}</div>
                         <div class="cart-item-price">R$ ${price.toFixed(2)}</div>
                     </div>
                     <div class="quantity-controls">
-                        <button class="quantity-btn" onclick="updateQuantity(${item.id}, -1)">-</button>
+                        <button class="quantity-btn" onclick="updateQuantity('${escapeTotemHtml(item.id)}', -1)">-</button>
                         <span>${item.quantity}</span>
-                        <button class="quantity-btn" onclick="updateQuantity(${item.id}, 1)">+</button>
+                        <button class="quantity-btn" onclick="updateQuantity('${escapeTotemHtml(item.id)}', 1)">+</button>
                     </div>
                 </div>
             `;
