@@ -183,7 +183,7 @@ async function registerMerchantAccount({ storeId, appId }) {
     );
     await pool.query(
       `INSERT INTO merchant_settings(store_id,settings) VALUES($1,jsonb_build_object('paymentProvider','woovi'))
-       ON CONFLICT(store_id) DO UPDATE SET settings=merchant_settings.settings || EXCLUDED.settings,updated_at=NOW()`,
+       ON CONFLICT(store_id) DO UPDATE SET settings=COALESCE(merchant_settings.settings,'{}'::jsonb) || EXCLUDED.settings,updated_at=NOW()`,
       [id]
     );
     return { storeId: id, provider: 'woovi', status: 'active', webhookRegistered: true };
