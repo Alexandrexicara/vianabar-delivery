@@ -69,6 +69,11 @@ function sessionFromCookieHeader(header) {
   } catch (_) { return null; }
 }
 function requireMerchant(req, res, next) {
+  if (!['GET','HEAD','OPTIONS'].includes(req.method)) {
+    const origin = String(req.get('Origin') || '');
+    const allowed = new Set((process.env.ALLOWED_APP_ORIGINS || 'https://delivery-day.netlify.app,https://vianabar-delivery.onrender.com,http://localhost:3002,http://127.0.0.1:3002').split(',').map(value => value.trim()).filter(Boolean));
+    if (!allowed.has(origin)) return res.status(403).json({ success:false, error:'Origem não autorizada.' });
+  }
   const session = sessionFromCookieHeader(req.headers.cookie);
   if (!session) return res.status(401).json({ success: false, error: 'Sessão do comerciante expirada. Entre novamente.' });
   req.merchant = session;
@@ -81,7 +86,7 @@ function setSession(res, user) {
   })).toString('base64url');
   res.cookie(COOKIE, body + '.' + sign(body), {
     httpOnly: true, secure: process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER),
-    sameSite: 'strict', path: '/', maxAge: SESSION_SECONDS * 1000
+    sameSite: 'none', path: '/', maxAge: SESSION_SECONDS * 1000
   });
 }
 function verifyPassword(password, saltHex, hashHex) {
@@ -163,7 +168,7 @@ router.get('/session', requireMerchant, (req, res) => {
   res.json({ success: true, merchant: { email: req.merchant.email, storeId: req.merchant.storeId, role: req.merchant.role } });
 });
 router.post('/logout', (_req, res) => {
-  res.clearCookie(COOKIE, { httpOnly: true, secure: process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER), sameSite: 'strict', path: '/' });
+  res.clearCookie(COOKIE, { httpOnly: true, secure: process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER), sameSite: 'none', path: '/' });
   res.json({ success: true });
 });
 
