@@ -825,32 +825,6 @@
                     </div>
                 </div>
 
-                <!-- Configurações -->
-                <div class="section-card">
-                    <div class="section-title">
-                        ⚙️ Configurações
-                    </div>
-                    
-                    <div style="display: grid; gap: 15px;">
-                        <div>
-                            <label style="font-weight: 600; color: #2c3e50; margin-bottom: 5px; display: block;">Meta Mensal</label>
-                            <input type="number" id="monthlyTarget" value="15000" min="0" onchange="updateSettings()" 
-                                   style="width: 100%; padding: 10px; border: 2px solid #e1e8ed; border-radius: 8px;">
-                        </div>
-                        
-                        <div>
-                            <label style="font-weight: 600; color: #2c3e50; margin-bottom: 5px; display: block;">Taxa por Item</label>
-                            <input type="number" id="feePerItem" value="0.10" min="0" step="0.01" onchange="updateSettings()"
-                                   style="width: 100%; padding: 10px; border: 2px solid #e1e8ed; border-radius: 8px;">
-                        </div>
-                        
-                        <div>
-                            <label style="font-weight: 600; color: #2c3e50; margin-bottom: 5px; display: block;">Limite Saque Diário</label>
-                            <input type="number" id="dailyWithdrawalLimit" value="100" min="0" onchange="updateSettings()"
-                                   style="width: 100%; padding: 10px; border: 2px solid #e1e8ed; border-radius: 8px;">
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -964,24 +938,13 @@
         let orders = [];
         let withdrawals = [];
         let customerBalances = {};
-        let settings = {
-            monthlyTarget: 15000,
-            feePerItem: 0.10,
-            dailyWithdrawalLimit: 100
-        };
-
         // Carregar dados
         function loadData() {
             try {
                 orders = JSON.parse(localStorage.getItem('orders') || '[]');
                 withdrawals = JSON.parse(localStorage.getItem('withdrawals') || '[]');
                 customerBalances = JSON.parse(localStorage.getItem('customerBalances') || '{}');
-                
-                // Carregar configurações
-                const savedSettings = localStorage.getItem('merchantSettings');
-                if (savedSettings) {
-                    settings = { ...settings, ...JSON.parse(savedSettings) };
-                }
+
                 
                 updateUI();
                 
@@ -996,7 +959,6 @@
             updateFinancialSummary();
             updateCustomerBalances();
             renderTransactions();
-            loadSettingsToForm();
         }
 
         // Atualizar estatísticas
@@ -1027,7 +989,7 @@
 
         // Atualizar progresso mensal
         function updateMonthlyProgress(currentRevenue) {
-            const target = settings.monthlyTarget;
+            const target = 15000;
             const percentage = Math.min((currentRevenue / target) * 100, 100);
             
             const progressBar = document.getElementById('monthlyProgress');
@@ -1384,25 +1346,6 @@
             
             // Implementar reset de estatísticas
             showNotification('Estatísticas diárias reiniciadas!', 'success');
-        }
-
-        // Atualizar configurações
-        function updateSettings() {
-            settings.monthlyTarget = parseFloat(document.getElementById('monthlyTarget').value);
-            settings.feePerItem = parseFloat(document.getElementById('feePerItem').value);
-            settings.dailyWithdrawalLimit = parseFloat(document.getElementById('dailyWithdrawalLimit').value);
-            
-            localStorage.setItem('merchantSettings', JSON.stringify(settings));
-            
-            updateUI();
-            showNotification('Configurações atualizadas!', 'success');
-        }
-
-        // Carregar configurações para o formulário
-        function loadSettingsToForm() {
-            document.getElementById('monthlyTarget').value = settings.monthlyTarget;
-            document.getElementById('feePerItem').value = settings.feePerItem;
-            document.getElementById('dailyWithdrawalLimit').value = settings.dailyWithdrawalLimit;
         }
 
         // Filtrar transações
