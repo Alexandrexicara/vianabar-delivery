@@ -266,12 +266,12 @@
                         <div class="payment-method" data-method="pix">
                             <i class="fas fa-qrcode"></i>
                             <p>PIX</p>
-                            <small>0,99% de taxa</small>
+                            <small>Taxa informada pelo provedor</small>
                         </div>
                         <div class="payment-method" data-method="card">
                             <i class="fas fa-credit-card"></i>
                             <p>Cartão</p>
-                            <small>1,00% de taxa</small>
+                            <small>Taxa informada pelo provedor</small>
                         </div>
                         <div class="payment-method" data-method="money">
                             <i class="fas fa-money-bill-wave"></i>
@@ -409,7 +409,7 @@
                 const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
                 
                 // Calcular taxas
-                const split = myGateway.calcularSplit(total, 'pix');
+                const split = null;
                 console.log('[DELIVERY] Split calculado:', split);
                 
                 // Dados do pedido
@@ -468,9 +468,6 @@
                         <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
                             <p style="font-size: 1.2rem; margin-bottom: 10px;">
                                 <strong>Valor Total:</strong> R$${pedido.total.toFixed(2)}
-                            </p>
-                            <p style="font-size: 0.9rem; color: #666;">
-                                Taxa MyGateway: ${split.taxa}% (R$${(pedido.total * split.taxa / 100).toFixed(2)})
                             </p>
                             <p style="font-size: 0.9rem; color: #666;">
                                 Taxa Entrega: R$${(pedido.distanciaKm * 2.00).toFixed(2)} (${pedido.distanciaKm}km × R$2,00/km)
