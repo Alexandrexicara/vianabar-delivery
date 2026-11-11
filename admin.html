@@ -2473,48 +2473,9 @@
 
         // Process all payments
         function processAllPayments() {
-            if (!window.ordersData || window.ordersData.length === 0) {
-                playTripleBeep(); // Som sonoro para nenhum pedido
-                return;
-            }
-            
-            const pendingOrders = window.ordersData.filter(order => order.paymentStatus === 'pending');
-            
-            if (pendingOrders.length === 0) {
-                playTripleBeep(); // Som sonoro para nenhum pagamento pendente
-                return;
-            }
-            
-            if (!confirm(`Deseja processar o pagamento de ${pendingOrders.length} pedido(s)?`)) {
-                return;
-            }
-            
-            // Process each pending order
-            pendingOrders.forEach(order => {
-                // Update payment status
-                order.paymentStatus = 'completed';
-                
-                // Send update to server
-                if (window.ws && window.ws.readyState === WebSocket.OPEN) {
-                    window.ws.send(JSON.stringify({
-                        type: 'updatePaymentStatus',
-                        orderId: order.id,
-                        paymentStatus: 'completed'
-                    }));
-                }
-                
-                // Update UI
-                updatePaymentStatusUI(order.id, 'completed');
-            });
-            
-            // Update combined orders display
-                            if (document.getElementById('combined')?.classList.contains('active')) {
-                displayCombinedOrders(window.ordersData);
-            }
-            
-            playTripleBeep(); // Som sonoro para pagamentos processados
+            alert('Confirmação automática indisponível. Os pedidos só podem ser marcados como pagos após validação autenticada do provedor ou do recebimento pelo comerciante.');
         }
-        
+
         // Update payment status UI
         function updatePaymentStatusUI(orderId, paymentStatus) {
             // Find the payment card by order ID
@@ -2572,81 +2533,10 @@
         // Confirm payment and notify user to clear history
         function confirmPayment(orderId) {
             if (!orderId) return;
-
-            if (confirm(`Confirmar o pagamento para o pedido ${orderId}? Esta ação limpará o histórico do cliente.`)) {
-                if (window.ws && window.ws.readyState === WebSocket.OPEN) {
-                    // Notify server to clear user history
-                    window.ws.send(JSON.stringify({ 
-                        type: 'paymentConfirmed', 
-                        orderId: orderId 
-                    }));
-
-                    // Update payment status locally
-                    updatePaymentStatusUI(orderId, 'completed');
-
-                    // Optionally update the main order data
-                    if (window.ordersData) {
-                        const order = window.ordersData.find(o => o.id === orderId);
-                        if (order) {
-                            order.paymentStatus = 'completed';
-                        }
-                    }
-                }
-                playTripleBeep(); // Som sonoro para pagamento confirmado
-            }
+            alert('A confirmação de pagamento deve ser feita pelo fluxo autenticado do provedor. Nenhum status foi alterado.');
         }
 
-        // Processar pagamento PIX
-        function processPixPayment(orderId, section) {
-            const order = window.ordersData.find(o => o.id === orderId);
-            if (!order) {
-                playTripleBeep(); // Som sonoro para pedido não encontrado
-                return;
-            }
-            
-            // Calculate commission for this table
-            const commission = calculateWaiterCommission(order.table, order.total);
-            let message = `Confirmar pagamento via PIX para o pedido ${orderId}?`;
-            message += `\nValor do pedido: R$ ${order.total.toFixed(2).replace('.', ',')}`;
-            if (commission > 0) {
-                
-                message += `\nComissão fixa do garçom: R$ ${commission.toFixed(2).replace('.', ',')}`;
-            }
-            
-            if (confirm(message)) {
-                updatePaymentStatus(orderId, 'completed', section);
-                
-                // O valor fixo de comissão permanece salvo para as próximas mesas as it can be reused for future orders
-            }
-        }
-        
-        // Processar pagamento por mesa (novidade)
-        function processTablePayment(table) {
-            // Find all orders for this table
-            const tableOrders = window.ordersData.filter(order => order.table === table);
-            
-            if (tableOrders.length === 0) {
-                playTripleBeep(); // Som sonoro para nenhum pedido na mesa
-                return;
-            }
-            
-            // Calculate total for the table
-            const total = tableOrders.reduce((sum, order) => sum + order.total, 0);
-            
-            // Calculate waiter commission for this table
-            const commission = calculateWaiterCommission(table, total);
-            const totalWithCommission = total + commission;
-            
-            let message = `Confirmar pagamento via PIX para a mesa ${table}?`;
-            message += `\nValor total dos pedidos: R$ ${total.toFixed(2).replace('.', ',')}`;
-            if (commission > 0) {
-                
-                message += `\nComissão fixa do garçom: R$ ${commission.toFixed(2).replace('.', ',')}`;
-                message += `\nTotal com comissão: R$ ${totalWithCommission.toFixed(2).replace('.', ',')}`;
-            }
-            
-            if (confirm(message)) {
-                // Update payment status for all orders in this table
+        // Update payment status for all orders in this table
                 tableOrders.forEach(order => {
                     updatePaymentStatus(order.id, 'completed', 'combined');
                 });
@@ -3131,27 +3021,9 @@
         
         // Update payment status
         function updatePaymentStatus(orderId, newPaymentStatus, section) {
-            // Send update to server
-            if (window.ws && window.ws.readyState === WebSocket.OPEN) {
-                window.ws.send(JSON.stringify({
-                    type: 'updatePaymentStatus',
-                    orderId: orderId,
-                    paymentStatus: newPaymentStatus
-                }));
-            }
-            
-            // Record action in history
-            const action = {
-                type: 'updatePaymentStatus',
-                orderId: orderId,
-                paymentStatus: newPaymentStatus,
-                sector: section,
-                timestamp: new Date().toISOString()
-            };
-            
-            saveOrderAction(action);
+            alert('O status financeiro não pode ser alterado pelo navegador. Aguarde a confirmação do provedor ou a validação autenticada do comerciante.');
         }
-        
+
         // Save order action to localStorage
         function saveOrderAction(action) {
             const orderActions = JSON.parse(localStorage.getItem('orderActions') || '[]');
