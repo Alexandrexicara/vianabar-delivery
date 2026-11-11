@@ -1,4 +1,5 @@
 'use strict';
+// Run as part of the cardapio payment implementation checks.
 const fs = require('fs');
 const vm = require('vm');
 const files = ['usuario.html','admin.html','cozinha.html','garcom.html','balcao.html','creator-woovi.html'];
