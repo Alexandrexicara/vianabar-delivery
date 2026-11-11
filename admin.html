@@ -1839,10 +1839,10 @@
                 window.ws.close();
             }
             
-            // Connect using dynamic URL
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            // Render termina TLS no proxy; o WebSocket usa a mesma origem, sem forçar a porta 3002.
-            const wsUrl = `${protocol}//${window.location.host}`;
+            // Frontend Netlify; WebSocket no backend Render.
+            const wsUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+                ? `ws://${window.location.hostname}:3002`
+                : 'wss://vianabar-delivery.onrender.com';
             
             const ws = new WebSocket(wsUrl);
             
