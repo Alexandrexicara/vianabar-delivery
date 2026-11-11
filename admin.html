@@ -2324,14 +2324,14 @@
                         <div class="order-card">
                             <div><strong>Clientes:</strong> ${combinedOrder.customerNames.join(', ')}</div>
                             
-                            <!-- Campo para definir porcentagem de comissão do garçom -->
+                            <!-- Campo para definir valor fixo da comissão do garçom -->
                             <div style="margin: 15px 0; padding: 10px; background-color: #f8f9fa; border-radius: 5px;">
-                                <label for="commission_${table}"><strong>Comissão para Garçom (%):</strong></label>
-                                <input type="number" id="commission_${table}" value="${getSavedCommissionPercentage(table)}" 
+                                <label for="commission_${table}"><strong>Comissão fixa do garçom (R$):</strong></label>
+                                <input type="number" id="commission_${table}" min="0" step="0.01" value="${getSavedCommissionAmount(table)}" 
                                        style="width: 100px; margin-left: 10px; padding: 5px; border: 1px solid #ddd; border-radius: 3px;"
-                                       onchange="saveWaiterCommissionPercentage('${table}', this.value)">
+                                       onchange="saveWaiterCommissionAmount('${table}', this.value)">
                                 <button class="btn btn-primary" style="margin-left: 10px; padding: 5px 10px;" 
-                                        onclick="saveWaiterCommissionPercentage('${table}', document.getElementById('commission_${table}').value)">Salvar</button>
+                                        onclick="saveWaiterCommissionAmount('${table}', document.getElementById('commission_${table}').value)">Salvar</button>
                             </div>
                             
                             <div style="margin: 15px 0;">
@@ -2373,7 +2373,7 @@
                             </div>
                             <div class="order-total">
                                 Total: R$ ${combinedOrder.totalPrice.toFixed(2).replace('.', ',')} 
-                                ${combinedOrder.waiterCommission > 0 ? `| Comissão (${getSavedCommissionPercentage(table)}%): R$ ${combinedOrder.waiterCommission.toFixed(2).replace('.', ',')}` : ''}
+                                ${combinedOrder.waiterCommission > 0 ? `| Comissão fixa: R$ ${combinedOrder.waiterCommission.toFixed(2).replace('.', ',')}` : ''}
                             </div>
                             <div class="order-actions">
                                 <button class="btn btn-success" onclick="processTablePayment('${table}')">Processar Pagamento</button>
@@ -2447,32 +2447,30 @@
             document.getElementById('combinedTotal').textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
         }
         
-        // Get saved commission percentage
-        function getSavedCommissionPercentage(table) {
-            const savedPercentage = localStorage.getItem(`commission_percentage_${table}`);
-            return savedPercentage ? parseFloat(savedPercentage) : 10; // Default to 10%
+        // Valor fixo de comissão do garçom por mesa, em reais.
+        function getSavedCommissionAmount(table) {
+            const savedAmount = localStorage.getItem(`commission_amount_${table}`);
+            return savedAmount !== null ? Math.max(0, Number(savedAmount) || 0) : 0;
         }
-        
-        // Save waiter commission percentage
-        function saveWaiterCommissionPercentage(table, percentage) {
-            // Save percentage to localStorage
-            localStorage.setItem(`commission_percentage_${table}`, percentage);
-            
-            // Update the display
-            playTripleBeep(); // Som sonoro para comissão salva
-            
-            // Optionally refresh the display to show the updated commission
+
+        function saveWaiterCommissionAmount(table, amount) {
+            const fixedAmount = Number(amount);
+            if (!Number.isFinite(fixedAmount) || fixedAmount < 0) {
+                alert('Informe um valor fixo válido para a comissão.');
+                return;
+            }
+            localStorage.setItem(`commission_amount_${table}`, fixedAmount.toFixed(2));
+            playTripleBeep();
             if (window.ordersData && document.getElementById('combined')?.classList.contains('active')) {
                 displayCombinedOrders(window.ordersData);
             }
         }
-        
-        // Calculate waiter commission based on percentage
+
         function calculateWaiterCommission(table, totalAmount) {
-            const percentage = getSavedCommissionPercentage(table);
-            return (totalAmount * percentage) / 100;
+            const fixedAmount = getSavedCommissionAmount(table);
+            return Math.min(fixedAmount, Math.max(0, Number(totalAmount) || 0));
         }
-        
+
         // Process all payments
         function processAllPayments() {
             if (!window.ordersData || window.ordersData.length === 0) {
@@ -2611,14 +2609,14 @@
             let message = `Confirmar pagamento via PIX para o pedido ${orderId}?`;
             message += `\nValor do pedido: R$ ${order.total.toFixed(2).replace('.', ',')}`;
             if (commission > 0) {
-                const percentage = getSavedCommissionPercentage(order.table);
+                
                 message += `\nComissão do garçom para mesa ${order.table} (${percentage}%): R$ ${commission.toFixed(2).replace('.', ',')}`;
             }
             
             if (confirm(message)) {
                 updatePaymentStatus(orderId, 'completed', section);
                 
-                // We don't need to clear the commission percentage as it can be reused for future orders
+                // O valor fixo de comissão permanece salvo para as próximas mesas as it can be reused for future orders
             }
         }
         
@@ -2642,7 +2640,7 @@
             let message = `Confirmar pagamento via PIX para a mesa ${table}?`;
             message += `\nValor total dos pedidos: R$ ${total.toFixed(2).replace('.', ',')}`;
             if (commission > 0) {
-                const percentage = getSavedCommissionPercentage(table);
+                
                 message += `\nComissão do garçom (${percentage}%): R$ ${commission.toFixed(2).replace('.', ',')}`;
                 message += `\nTotal com comissão: R$ ${totalWithCommission.toFixed(2).replace('.', ',')}`;
             }
@@ -2653,7 +2651,7 @@
                     updatePaymentStatus(order.id, 'completed', 'combined');
                 });
                 
-                // We don't need to clear the commission percentage as it can be reused for future orders
+                // O valor fixo de comissão permanece salvo para as próximas mesas as it can be reused for future orders
                 
                 playTripleBeep(); // Som sonoro para pagamento confirmado mesa
                 
@@ -2678,7 +2676,7 @@
             
             let promptMessage = `Valor total do pedido: R$ ${order.total.toFixed(2).replace('.', ',')}`;
             if (commission > 0) {
-                const percentage = getSavedCommissionPercentage(order.table);
+                
                 promptMessage += `\nComissão do garçom (${percentage}%): R$ ${commission.toFixed(2).replace('.', ',')}`;
                 promptMessage += `\nTotal com comissão: R$ ${totalWithCommission.toFixed(2).replace('.', ',')}`;
             }
@@ -2699,7 +2697,7 @@
                 if (confirmation) {
                     updatePaymentStatus(orderId, 'completed', section);
                     
-                    // We don't need to clear the commission percentage as it can be reused for future orders
+                    // O valor fixo de comissão permanece salvo para as próximas mesas as it can be reused for future orders
                     
                     playTripleBeep(); // Som sonoro para pagamento confirmado
                 } else {
@@ -2723,14 +2721,14 @@
                 let message = `Confirmar pagamento com cartão de ${cardType} para o pedido ${orderId}?`;
                 message += `\nValor do pedido: R$ ${order.total.toFixed(2).replace('.', ',')}`;
                 if (commission > 0) {
-                    const percentage = getSavedCommissionPercentage(order.table);
+                    
                     message += `\nComissão do garçom para mesa ${order.table} (${percentage}%): R$ ${commission.toFixed(2).replace('.', ',')}`;
                 }
                 
                 if (confirm(message)) {
                     updatePaymentStatus(orderId, 'completed', section);
                     
-                    // We don't need to clear the commission percentage as it can be reused for future orders
+                    // O valor fixo de comissão permanece salvo para as próximas mesas as it can be reused for future orders
                 }
             } else if (cardType !== null) {
                 playTripleBeep(); // Som sonoro para tipo de cartão inválido
