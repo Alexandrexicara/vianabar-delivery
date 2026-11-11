@@ -2,15 +2,14 @@ const { vendedores, motoboys, pedidos } = require("../db");
 const { v4: uuidv4 } = require("uuid");
 const { log, logError, logSuccess } = require("../utils/logs");
 
-const TAXA_PLATAFORMA = 1; // R$1
-const TAXA_MOTOBOY = 10; // R$10 (fixo exemplo)
-
 function criarPedido({ vendedorId, motoboyId, valor, metodo, merchantId, clientId }) {
   const id = uuidv4();
 
-  const comissao = TAXA_PLATAFORMA;
-  const valorMotoboy = TAXA_MOTOBOY;
-  const valorVendedor = valor - comissao - valorMotoboy;
+  const valorNumerico = Number(valor);
+  if (!Number.isFinite(valorNumerico) || valorNumerico <= 0) {
+    throw new Error("Valor do pedido inválido.");
+  }
+  const valorTotalCents = Math.round(valorNumerico * 100);
 
   const pedido = {
     id,
@@ -18,10 +17,13 @@ function criarPedido({ vendedorId, motoboyId, valor, metodo, merchantId, clientI
     motoboyId,
     merchantId,
     clientId,
-    valor,
-    comissao,
-    valorMotoboy,
-    valorVendedor,
+    valor: valorNumerico,
+    valorTotalCents,
+    comissao: null,
+    valorMotoboy: null,
+    valorVendedor: null,
+    splitConfigured: false,
+    splitStatus: "awaiting_fixed_amount_configuration",
     metodo,
     status: "criado",
     paymentStatus: "pending",
