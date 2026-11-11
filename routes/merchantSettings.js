@@ -2,6 +2,7 @@
 const express = require('express');
 const multer = require('multer');
 const { Pool } = require('pg');
+const { requireCreator } = require('./creatorAuth');
 
 const router = express.Router();
 const pool = new Pool({
@@ -53,12 +54,6 @@ function validStoreId(value) {
   return storeId && storeId.length <= 120 && /^[a-zA-Z0-9_-]+$/.test(storeId) ? storeId : null;
 }
 
-function requireAdmin(req, res, next) {
-  if (req.get('X-Admin-Access') !== 'true') {
-    return res.status(401).json({ success: false, error: 'Faça login no painel administrativo para alterar as configurações.' });
-  }
-  next();
-}
 
 router.get('/:storeId', async (req, res) => {
   try {
@@ -74,7 +69,7 @@ router.get('/:storeId', async (req, res) => {
   }
 });
 
-router.put('/:storeId', requireAdmin, async (req, res) => {
+router.put('/:storeId', requireCreator, async (req, res) => {
   try {
     const storeId = validStoreId(req.params.storeId);
     if (!storeId) return res.status(400).json({ success: false, error: 'Identificador de estabelecimento inválido.' });
@@ -111,7 +106,7 @@ router.put('/:storeId', requireAdmin, async (req, res) => {
   }
 });
 
-router.post('/:storeId/assets/:type', requireAdmin, (req, res, next) => {
+router.post('/:storeId/assets/:type', requireCreator, (req, res, next) => {
   upload.single('image')(req, res, error => error ? res.status(400).json({ success: false, error: error.message }) : next());
 }, async (req, res) => {
   try {
