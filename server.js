@@ -645,17 +645,22 @@ wss.on('connection', (ws) => {
         }
         
       } else if (data.type === 'updateMotoboyLocation') {
-        // Motoboy enviou atualização de localização
-        console.log('[DELIVERY] Atualização de localização do motoboy:', data);
+        // Somente uma conexão identificada como motoboy pode publicar posição GPS.
+        if (ws.role !== 'motoboy') {
+          ws.send(JSON.stringify({ type:'locationUpdateError', orderId:data.orderId, message:'Conexão não identificada como motoboy.' }));
+          return;
+        }
+        console.log('[DELIVERY] Atualização GPS recebida:', data.orderId);
+        const order = deliveryOrders.find(o => String(o.id) === String(data.orderId));
         
-        const order = deliveryOrders.find(o => o.id === data.orderId);
-        
-        if (order && Number.isFinite(Number(data.latitude)) && Number.isFinite(Number(data.longitude))) {
+        if (order && Number.isFinite(Number(data.latitude)) && Number.isFinite(Number(data.longitude)) &&
+            Math.abs(Number(data.latitude)) <= 90 && Math.abs(Number(data.longitude)) <= 180) {
           // Salvar localização no localStorage
           order.motoboyLocation = {
             latitude: Number(data.latitude),
             longitude: Number(data.longitude),
-            timestamp: new Date().toISOString()
+            timestamp: data.timestamp || new Date().toISOString(),
+            accuracy: Number.isFinite(Number(data.accuracy)) ? Number(data.accuracy) : null
           };
           order.motoboyName = data.motoboyName || order.motoboyName;
           order.motoboyPhone = data.motoboyPhone || order.motoboyPhone;
