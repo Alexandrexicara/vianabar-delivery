@@ -1883,31 +1883,26 @@
         function updateMotoboyPosition(order) {
             if (!trackingMap) return;
             
-            // Buscar localização real do motoboy no localStorage (atualizada via WebSocket)
+            // Nunca inventar posições: usar somente coordenadas GPS recebidas do motoboy.
             const locationData = JSON.parse(localStorage.getItem(`motoboyLocation_${order.id}`) || '{}');
-            
-            let motoboyLat, motoboyLng;
-            
-            if (locationData.latitude && locationData.longitude) {
-                // Usar localização REAL do GPS do motoboy
-                motoboyLat = locationData.latitude;
-                motoboyLng = locationData.longitude;
-                console.log('[DELIVERY] Usando localização REAL do motoboy:', motoboyLat, motoboyLng);
-            } else if (order.motoboyLocation) {
-                // Fallback: localização salva no pedido
-                motoboyLat = order.motoboyLocation.latitude;
-                motoboyLng = order.motoboyLocation.longitude;
-                console.log('[DELIVERY] Usando localização do pedido:', motoboyLat, motoboyLng);
-            } else {
-                // Último recurso: posição simulada (não deve acontecer em produção)
-                console.warn('[DELIVERY] Localização real não disponível, usando simulação');
-                motoboyLat = -21.4735 + (Math.random() - 0.5) * 0.01;
-                motoboyLng = -43.7722 + (Math.random() - 0.5) * 0.01;
+            const loc = (Number.isFinite(Number(locationData.latitude)) && Number.isFinite(Number(locationData.longitude)))
+                ? locationData
+                : order.motoboyLocation;
+            const motoboyLat = Number(loc && loc.latitude);
+            const motoboyLng = Number(loc && loc.longitude);
+            if (!Number.isFinite(motoboyLat) || !Number.isFinite(motoboyLng) ||
+                Math.abs(motoboyLat) > 90 || Math.abs(motoboyLng) > 180) {
+                document.getElementById('motoboy-distance').textContent = 'Aguardando GPS';
+                document.getElementById('motoboy-eta').textContent = '--';
+                console.info('[DELIVERY] Aguardando a primeira posição GPS real do motoboy.');
+                return;
             }
+
+            // O destino deve vir do endereço/coordenadas reais deste pedido; não usar coordenadas fixas.
+            const destination = order.customerLocation || order.deliveryLocation || order.coordinates || {};
+            const customerLat = Number(destination.latitude ?? destination.lat);
+            const customerLng = Number(destination.longitude ?? destination.lng);
             
-            // Coordenadas do cliente (restaurante)
-            const customerLat = -21.4735;
-            const customerLng = -43.7722;
             
             // Criar ou atualizar marcador do motoboy
             if (!motoboyMarker) {
@@ -1924,15 +1919,17 @@
                 motoboyMarker.setLatLng([motoboyLat, motoboyLng]);
             }
             
-            // Calcular distância e ETA (do motoboy até o cliente)
-            const distance = calculateDistance(motoboyLat, motoboyLng, customerLat, customerLng);
-            const eta = Math.round(distance * 2); // 2 minutos por km
-            
-            document.getElementById('motoboy-distance').textContent = `${distance.toFixed(1)} km`;
-            document.getElementById('motoboy-eta').textContent = `${eta} minutos`;
-            
-            // Atualizar rota no mapa
-            updateRoute(motoboyLat, motoboyLng, customerLat, customerLng);
+            // Calcular distância/rota somente se o pedido tiver destino geográfico válido.
+            if (Number.isFinite(customerLat) && Number.isFinite(customerLng) &&
+                Math.abs(customerLat) <= 90 && Math.abs(customerLng) <= 180) {
+                const distance = calculateDistance(motoboyLat, motoboyLng, customerLat, customerLng);
+                document.getElementById('motoboy-distance').textContent = `${distance.toFixed(1)} km em linha reta`;
+                document.getElementById('motoboy-eta').textContent = 'Estimativa indisponível';
+                updateRoute(motoboyLat, motoboyLng, customerLat, customerLng);
+            } else {
+                document.getElementById('motoboy-distance').textContent = 'GPS recebido; destino sem coordenadas';
+                document.getElementById('motoboy-eta').textContent = '--';
+            }
         }
 
         // Calcular distância entre dois pontos
