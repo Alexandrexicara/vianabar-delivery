@@ -129,7 +129,7 @@ async function autorizarLoteComerciante({ merchantId, batchId, authorizedBy }) {
     if (Number(uncovered.rows[0].count)) throw new Error('Existem outras entregas vencidas fora deste lote. Atualize o lote antes de autorizar.');
 
     const integrity = await client.query(
-      "SELECT COUNT(i.id)::int AS item_count,COALESCE(SUM(i.amount_cents),0)::bigint AS items_total,COUNT(*) FILTER (WHERE o.merchant_id<>$2 OR o.status<>'in_batch' OR o.payout_batch_id<>$1)::int AS invalid_items FROM merchant_delivery_payout_items i JOIN merchant_delivery_obligations o ON o.id=i.obligation_id WHERE i.batch_id=$1",
+      "SELECT COUNT(i.id)::int AS item_count,COALESCE(SUM(i.amount_cents),0)::bigint AS items_total,COUNT(*) FILTER (WHERE o.merchant_id<>$2 OR o.status<>'in_batch' OR o.payout_batch_id IS DISTINCT FROM $1)::int AS invalid_items FROM merchant_delivery_payout_items i JOIN merchant_delivery_obligations o ON o.id=i.obligation_id WHERE i.batch_id=$1",
       [batchIdNumber, merchant]
     );
     if (
