@@ -11,7 +11,7 @@ Os valores fixos de cada componente precisam vir da configuração comercial apr
 1. O servidor calcula e congela no pedido os valores: produtos, entrega, taxa fixa da plataforma e líquido do comerciante.
 2. O servidor cria a cobrança no provedor usando o valor total em centavos.
 3. Quando o provedor suportar split por valor fixo, o servidor envia os valores em centavos e confere que a soma dos repasses não ultrapassa o total.
-4. O pedido só muda para pago depois de confirmação autenticada do provedor e conciliação de identificador, valor e moeda.
+4. O pedido só muda para pago depois de confirmação autenticada do provedor e conciliação de identificador, valor e moeda. As rotas antigas de confirmação simulada foram bloqueadas enquanto o checkout real não estiver ligado ao banco e ao provedor.
 5. Webhooks repetidos não podem creditar saldos ou criar repasses duplicados.
 
 ### Provedores encontrados no repositório/documentação
