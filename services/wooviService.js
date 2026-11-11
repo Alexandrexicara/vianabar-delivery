@@ -91,6 +91,11 @@ async function registerMerchantAccount({ storeId, appId }) {
       `UPDATE merchant_woovi_accounts SET webhook_registered=TRUE,status='active',last_error=NULL,updated_at=NOW() WHERE store_id=$1`,
       [id]
     );
+    await pool.query(
+      `INSERT INTO merchant_settings(store_id,settings) VALUES($1,jsonb_build_object('paymentProvider','woovi'))
+       ON CONFLICT(store_id) DO UPDATE SET settings=merchant_settings.settings || EXCLUDED.settings,updated_at=NOW()`,
+      [id]
+    );
     return { storeId: id, provider: 'woovi', status: 'active', webhookRegistered: true };
   } catch (error) {
     const message = String(error.response?.data?.error || error.response?.data?.message || error.message || 'Falha ao registrar webhook').slice(0, 500);
@@ -252,6 +257,10 @@ async function handleWebhook({ payload, rawBody, headers }) {
         console.error('[WOOVI] Comissão requer revisão:', error.message);
         commissionStatus = 'needs_review';
       }
+      await pool.query(
+        `UPDATE cardapio_payment_transactions SET commission_status=$2,updated_at=NOW() WHERE order_id=$1`,
+        [row.order_id, commissionStatus]
+      );
     }
     return { accepted: true, paid: true, orderId: row.order_id, commissionStatus };
   }
