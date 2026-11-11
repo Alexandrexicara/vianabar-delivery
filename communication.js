@@ -27,18 +27,11 @@ const DeliveryCommunication = {
     
     // Conectar ao servidor WebSocket
     connectWebSocket() {
-        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        const hostname = (window.location.hostname || 'localhost').trim() || 'localhost';
-        // Primeiro tenta a mesma origem HTTPS/WSS (Render termina TLS no proxy).
-        // Portas locais ficam como fallback para desenvolvimento.
-        const portCandidates = [...new Set([
-            window.location.port || '',
-            '10000',
-            '3002',
-            '3001',
-            '3000'
-        ])];
-
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const protocol = isLocal ? 'ws' : 'wss';
+        const hostname = isLocal ? window.location.hostname : 'vianabar-delivery.onrender.com';
+        // Em produção, o frontend Netlify deve conectar diretamente ao backend Render.
+        const portCandidates = isLocal ? ['3002','3001','3000'] : [''];
         const buildUrl = (port) => port
             ? `${protocol}://${hostname}:${port}`
             : `${protocol}://${hostname}`;
