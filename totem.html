@@ -1407,21 +1407,7 @@
                 }
 
                 if (paymentMethod === 'pix') {
-                    if (myGateway && typeof myGateway.gerarQRCode === 'function') {
-                        const split = null;
-                        const pedido = {
-                            cliente: { nome, cpf, whatsapp },
-                            total: total,
-                            metodoPagamento: paymentMethod,
-                            motoboyId: myGateway?.motoboyId || null,
-                            numero: currentOrderNumber
-                        };
-                        const pixData = await myGateway.gerarQRCode(pedido);
-                        showPixScreenMyGateway(pixData, pedido, split);
-                        return;
-                    }
-                    const pixData = generatePixQrCode(total);
-                    showPixPaymentScreen(pixData, { nome, cpf, whatsapp }, total);
+                    alert('PIX temporariamente indisponível. O checkout ainda não está conectado ao provedor no servidor; nenhuma cobrança foi criada.');
                     return;
                 }
 
@@ -1558,48 +1544,12 @@
         }
         
         // Verificar Pagamento Manual
-        async function verificarPagamentoMyGateway(transactionId) {
-            try {
-                const status = await myGateway.verificarPagamento(transactionId);
-                console.log('[TOTEM] Status pagamento:', status);
-                
-                if (status.status === 'approved') {
-                    console.log('[TOTEM] Pagamento aprovado!');
-                    completePayment(
-                        document.getElementById('customerName').value,
-                        document.getElementById('customerCPF').value,
-                        document.getElementById('customerWhatsApp').value,
-                        parseFloat(document.getElementById('totalAmount').textContent),
-                        'pix'
-                    );
-                } else if (status.status === 'rejected') {
-                    alert('❌ Pagamento rejeitado. Tente novamente.');
-                    cancelPayment();
-                } else {
-                    alert('⏳ Pagamento ainda pendente. Aguarde...');
-                }
-            } catch (error) {
-                console.error('[TOTEM] Erro ao verificar pagamento:', error);
-                alert('Erro ao verificar pagamento');
-            }
+        async function verificarPagamentoMyGateway() {
+            alert('A consulta de pagamento está desativada até a integração autenticada do provedor.');
+            return false;
         }
 
-        // Dados reais para PIX (simulação de API)
-        function generatePixQrCode(total) {
-            const pixKey = 'celio-santos-silva@pix.com.br';
-            const merchantName = 'Celio Santos Silva';
-            const merchantCity = 'Januaria';
-            const transactionId = `PEDIDO${currentOrderNumber}${Date.now()}`;
-
-            return {
-                qrCode: `00020126360014BR.GOV.BCB.BRCODEB011${pixKey}520400005303986540${total.toFixed(2).replace('.', '')}5802BR5913${merchantName}6009${merchantCity}62070503***6304${transactionId}`,
-                pixKey: pixKey,
-                amount: total.toFixed(2),
-                merchantName: merchantName,
-                transactionId: transactionId
-            };
-        }
-
+        // QR PIX estático removido: não direcionar pagamentos para chave pessoal sem cobrança conciliada.
         // Mostrar Tela de Pagamento PIX
         function showPixPaymentScreen(pixData, customerData, total) {
             // Esconder formulário
