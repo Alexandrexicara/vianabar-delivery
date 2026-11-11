@@ -108,10 +108,6 @@ router.post('/', async (req, res) => {
       if (!account || account.status !== 'active' || !account.webhook_registered) {
         return res.status(409).json({ success: false, error: 'Este estabelecimento ainda não concluiu a conexão de recebimentos pela Ovi.' });
       }
-      const platformPix = await woovi.getPlatformPixConfig();
-      if (!platformPix) {
-        return res.status(503).json({ success: false, error: 'O recebimento PIX está aguardando a configuração segura da chave de repasse da plataforma.' });
-      }
     }
 
     await client.query('BEGIN');
