@@ -899,7 +899,8 @@
             const params = new URLSearchParams(window.location.search);
             deliveryStoreId = params.get('storeId') || 'main';
             try {
-                const response = await fetch('/api/merchant-settings/' + encodeURIComponent(deliveryStoreId), {cache:'no-store'});
+                const apiBase = location.hostname === 'vianabar-delivery.onrender.com' ? '' : 'https://vianabar-delivery.onrender.com';
+                const response = await fetch(apiBase + '/api/merchant-settings/' + encodeURIComponent(deliveryStoreId), {cache:'no-store'});
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Falha ao carregar dados do comércio.');
                 deliveryMerchantSettings = result.settings || {};
@@ -1417,6 +1418,21 @@
             }
             
             console.log('[DELIVERY] Validado! Criando pedido...');
+
+            // Solicita o GPS do cliente no próprio fluxo de confirmação, caso o endereço salvo ainda não tenha coordenadas.
+            if (deliveryAddress && deliveryAddress.type !== 'retirada' && !deliveryAddress.location) {
+                const customerLocation = await captureCustomerLocation();
+                if (customerLocation) {
+                    deliveryAddress.location = customerLocation;
+                    try {
+                        const saved = JSON.parse(localStorage.getItem('deliveryAddresses') || '[]');
+                        const index = saved.findIndex(item => String(item.id || '') === String(deliveryAddress.id || '') || (item.rua === deliveryAddress.rua && item.numero === deliveryAddress.numero && item.bairro === deliveryAddress.bairro));
+                        if (index >= 0) { saved[index].location = customerLocation; localStorage.setItem('deliveryAddresses', JSON.stringify(saved)); }
+                    } catch (_) {}
+                } else if (!confirm('Não foi possível obter seu GPS. Deseja continuar usando somente o endereço informado?')) {
+                    return;
+                }
+            }
 
             // Função para obter setor do item
             function getItemSector(itemName) {
