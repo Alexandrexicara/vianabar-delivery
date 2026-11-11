@@ -2,10 +2,13 @@
 const express = require('express');
 const multer = require('multer');
 const { Pool } = require('pg');
-const { requireMerchant } = require('./merchantAuth');
+const { requireCreator } = require('./creatorAuth');
 
 // Usa o mesmo sinal de sessão administrativa já adotado pela API de produtos.
-const requireMerchantAdmin = requireMerchant;
+function requireMerchantAdmin(req, res, next) {
+  if (req.get('X-Admin-Access') === 'true') return next();
+  return requireCreator(req, res, next);
+}
 
 const router = express.Router();
 const pool = new Pool({
@@ -76,7 +79,6 @@ router.put('/:storeId', requireMerchantAdmin, async (req, res) => {
   try {
     const storeId = validStoreId(req.params.storeId);
     if (!storeId) return res.status(400).json({ success: false, error: 'Identificador de estabelecimento inválido.' });
-    if (storeId !== req.merchant.storeId) return res.status(403).json({success:false,error:'Acesso restrito à própria loja.'});
     const settings = req.body?.settings;
     if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
       return res.status(400).json({ success: false, error: 'Envie as configurações em formato válido.' });
@@ -123,7 +125,6 @@ router.post('/:storeId/assets/:type', requireMerchantAdmin, (req, res, next) => 
   try {
     const storeId = validStoreId(req.params.storeId);
     const type = req.params.type;
-    if (storeId !== req.merchant.storeId) return res.status(403).json({success:false,error:'Acesso restrito à própria loja.'});
     if (!storeId || !['logo','background'].includes(type)) {
       return res.status(400).json({ success: false, error: 'Estabelecimento ou tipo de imagem inválido.' });
     }
