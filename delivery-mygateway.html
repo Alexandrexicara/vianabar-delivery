@@ -521,25 +521,9 @@
         }
 
         // Verificar pagamento MyGateway
-        async function verificarPagamentoMyGateway(transactionId) {
-            try {
-                const status = await myGateway.verificarPagamento(transactionId);
-                console.log('[DELIVERY] Status pagamento:', status);
-                
-                if (status.status === 'approved') {
-                    console.log('[DELIVERY] Pagamento aprovado!');
-                    alert('✅ Pagamento aprovado! Pedido confirmado.');
-                    fecharTelaPix();
-                } else if (status.status === 'rejected') {
-                    alert('❌ Pagamento rejeitado. Tente novamente.');
-                    fecharTelaPix();
-                } else {
-                    alert('⏳ Pagamento ainda pendente. Aguarde...');
-                }
-            } catch (error) {
-                console.error('[DELIVERY] Erro ao verificar pagamento:', error);
-                alert('Erro ao verificar pagamento');
-            }
+        async function verificarPagamentoMyGateway() {
+            alert('A consulta de pagamento está desativada até a integração autenticada do provedor.');
+            return false;
         }
 
         // Fechar tela PIX
