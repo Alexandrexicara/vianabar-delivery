@@ -170,7 +170,7 @@ const orderEvents = require('./services/orderEvents');
 const ordersReady = (async () => {
   try {
     const result = await cardapioDb.query(
-      "SELECT id,store_id,customer_name,customer_phone,table_number,observations,subtotal_cents,total_cents,status,payment_method,payment_status,created_at FROM cardapio_orders WHERE status NOT IN ('completed','cancelled') ORDER BY created_at DESC LIMIT 500"
+      "SELECT id,store_id,customer_name,customer_phone,table_number,order_type,observations,subtotal_cents,total_cents,status,payment_method,payment_status,created_at FROM cardapio_orders WHERE status NOT IN ('completed','cancelled') ORDER BY created_at DESC LIMIT 500"
     );
     if (!result.rowCount) return;
     const ids = result.rows.map(row => row.id);
@@ -189,7 +189,8 @@ const ordersReady = (async () => {
     const persistedOrders = result.rows.map(row => ({
       id: row.id, storeId: row.store_id,
       customer: { name: row.customer_name, phone: row.customer_phone, tableNumber: row.table_number },
-      table: 'Mesa ' + row.table_number, observations: row.observations,
+      table: row.order_type === 'totem' ? 'Totem' : row.order_type === 'counter' ? 'Balcão' : 'Mesa ' + row.table_number,
+      orderType: row.order_type || 'table', observations: row.observations,
       items: grouped.get(row.id) || [],
       subtotal: Number(row.subtotal_cents) / 100, total: Number(row.total_cents) / 100,
       status: row.status, paymentMethod: row.payment_method,
