@@ -43,9 +43,9 @@ Dinheiro e cartão presencial não são cobranças Pix Woovi. O pedido é regist
 
 ## 5. Proteção de credenciais e webhooks
 
-- AppID Woovi por comerciante é armazenado com AES-256-GCM no backend.
+- AppID Woovi por comerciante e a chave Pix da plataforma são armazenados com AES-256-GCM no Neon; a chave de criptografia fica somente no ambiente do backend.
 - Não enviar AppID, tokens ou chave Pix ao HTML, JavaScript público, localStorage ou logs.
-- Webhooks são autenticados e deduplicados por correlationID + evento.
+- Webhooks validam a assinatura RSA-SHA256 oficial da Woovi sobre o corpo bruto, conferem também o token de autorização configurado e são deduplicados por correlationID + evento.
 - Conferir valor recebido e o pedido antes de alterar estado financeiro.
 - O navegador não pode marcar PIX/cartão como pago.
 - As rotas legadas que simulavam confirmação permanecem desativadas.
@@ -53,13 +53,12 @@ Dinheiro e cartão presencial não são cobranças Pix Woovi. O pedido é regist
 ## 6. Configuração necessária antes de receber dinheiro real
 
 Variáveis do backend:
-- PAYMENT_CREDENTIALS_ENCRYPTION_KEY: chave AES de 32 bytes.
-- WOOVI_WEBHOOK_AUTH_TOKEN: token de autenticação dos webhooks.
-- WOOVI_PLATFORM_PIX_KEY: chave Pix da plataforma para receber a comissão.
+- PAYMENT_CREDENTIALS_ENCRYPTION_KEY: chave AES de 32 bytes, já provisionada no Render.
+- WOOVI_WEBHOOK_AUTH_TOKEN: token de autorização dos webhooks, já provisionado no Render.
 - WOOVI_API_BASE_URL: produção https://api.woovi.com.
 - WOOVI_WEBHOOK_URL: endpoint público HTTPS do Render.
 
-Além disso, cada comerciante precisa conectar o AppID de produção da própria conta Woovi. A conta precisa permitir cobrança Pix e Pix Out. Sem a chave Pix da plataforma e sem a conta do comerciante ativa, o checkout Pix fica bloqueado — não usar chave fictícia ou ambiente sandbox como se fosse produção.
+A chave Pix da plataforma é cadastrada na página restrita do criador (Configurar Ovi) e fica criptografada no Neon. Além disso, cada comerciante precisa conectar o AppID de produção da própria conta Woovi pela mesma página. A conta precisa permitir cobrança Pix e Pix Out. Sem esses dois cadastros ativos, o checkout Pix fica bloqueado — não usar chave fictícia ou ambiente sandbox como se fosse produção.
 
 ## 7. Estado do Cicobi/Sicoob
 
