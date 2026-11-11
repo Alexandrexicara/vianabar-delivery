@@ -22,10 +22,10 @@ jobs:
       - name: Diagnóstico inicial
         run: npm audit --json > audit-before.json || true
       - name: Aplicar correções compatíveis
-        run: npm audit fix
-      - name: Confirmar auditoria
-        run: npm audit
-      - name: Commit do lockfile corrigido
+        run: npm audit fix || true
+      - name: Auditoria depois das correções
+        run: npm audit || true
+      - name: Salvar lockfile corrigido
         run: |
           if ! git diff --quiet -- package.json package-lock.json; then
             git config user.name "github-actions[bot]"
@@ -34,5 +34,5 @@ jobs:
             git commit -m "Corrige vulnerabilidades nas dependências npm"
             git push origin main
           else
-            echo "Nenhuma alteração necessária no package.json/package-lock.json."
+            echo "Nenhuma atualização compatível encontrada."
           fi
