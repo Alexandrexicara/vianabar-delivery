@@ -37,99 +37,22 @@ function criarPedido({ vendedorId, motoboyId, valor, metodo, merchantId, clientI
   return pedido;
 }
 
-// PIX (você recebe)
+// Pagamentos só podem ser liquidados após confirmação autenticada do provedor.
 function pagarPix(pedidoId) {
   const pedido = pedidos[pedidoId];
-  
-  if (!pedido) {
-    logError(`Pedido não encontrado: ${pedidoId}`);
-    return { error: "Pedido não encontrado" };
-  }
-
-  pedido.status = "pago";
-  pedido.paidAt = new Date().toISOString();
-
-  if (!vendedores[pedido.vendedorId])
-    vendedores[pedido.vendedorId] = { saldo: 0, saldoNegativo: 0, pedidos: [] };
-
-  if (!motoboys[pedido.motoboyId])
-    motoboys[pedido.motoboyId] = { saldo: 0, pedidos: [] };
-
-  const vendedor = vendedores[pedido.vendedorId];
-  const motoboy = motoboys[pedido.motoboyId];
-
-  // Adiciona pedidos aos históricos
-  vendedor.pedidos.push(pedidoId);
-  motoboy.pedidos.push(pedidoId);
-
-  // paga motoboy direto
-  motoboy.saldo += pedido.valorMotoboy;
-
-  let valorFinal = pedido.valorVendedor;
-
-  // desconta dívida vendedor
-  if (vendedor.saldoNegativo < 0) {
-    const divida = Math.abs(vendedor.saldoNegativo);
-
-    if (valorFinal >= divida) {
-      valorFinal -= divida;
-      vendedor.saldoNegativo = 0;
-      log(`Dívida do vendedor ${pedido.vendedorId} quitada: R$${divida}`);
-    } else {
-      vendedor.saldoNegativo += valorFinal;
-      valorFinal = 0;
-      log(`Dívida do vendedor ${pedido.vendedorId} reduzida: R$${valorFinal}`);
-    }
-  }
-
-  vendedor.saldo += valorFinal;
-
-  logSuccess(`Pagamento PIX realizado - Pedido: ${pedidoId} - Vendedor recebe: R$${valorFinal} - Motoboy recebe: R$${pedido.valorMotoboy}`);
-
+  if (!pedido) return { error: "Pedido não encontrado" };
   return {
-    vendedorRecebe: valorFinal,
-    motoboyRecebe: pedido.valorMotoboy,
-    pedidoId: pedido.id
+    error: "Confirmação PIX direta desativada. Aguarde a confirmação autenticada do provedor.",
+    paymentStatus: pedido.paymentStatus || "pending"
   };
 }
 
-// CARTÃO
 function pagarCartao(pedidoId) {
   const pedido = pedidos[pedidoId];
-  
-  if (!pedido) {
-    logError(`Pedido não encontrado: ${pedidoId}`);
-    return { error: "Pedido não encontrado" };
-  }
-
-  pedido.status = "pago_cartao";
-  pedido.paidAt = new Date().toISOString();
-
-  if (!vendedores[pedido.vendedorId])
-    vendedores[pedido.vendedorId] = { saldo: 0, saldoNegativo: 0, pedidos: [] };
-
-  if (!motoboys[pedido.motoboyId])
-    motoboys[pedido.motoboyId] = { saldo: 0, pedidos: [] };
-
-  const vendedor = vendedores[pedido.vendedorId];
-  const motoboy = motoboys[pedido.motoboyId];
-
-  // Adiciona pedidos aos históricos
-  vendedor.pedidos.push(pedidoId);
-  motoboy.pedidos.push(pedidoId);
-
-  // motoboy ainda precisa receber
-  motoboy.saldo += pedido.valorMotoboy;
-
-  // comissão vira dívida
-  vendedor.saldoNegativo -= pedido.comissao;
-
-  log(`Pagamento CARTÃO registrado - Pedido: ${pedidoId} - Dívida vendedor: R$${vendedor.saldoNegativo}`);
-
+  if (!pedido) return { error: "Pedido não encontrado" };
   return {
-    mensagem: "Cartão registrado",
-    divida: vendedor.saldoNegativo,
-    pedidoId: pedido.id
+    error: "Confirmação de cartão direta desativada. O pagamento deve ser confirmado pelo provedor.",
+    paymentStatus: pedido.paymentStatus || "pending"
   };
 }
 
