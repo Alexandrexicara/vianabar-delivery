@@ -6,7 +6,7 @@
 
 Cada estabelecimento usa um único provedor de recebimento por vez. O pedido carrega o identificador da loja e o backend consulta a configuração daquela loja. Nunca misturar AppID, chave Pix, cobranças ou repasses de comerciantes diferentes.
 
-- **Ovi/Woovi:** foco da implementação atual do checkout do cardápio. Cada comerciante conecta seu próprio AppID Woovi. A cobrança Pix é criada no backend com o AppID daquele estabelecimento.
+- **Ovi/Woovi:** foco da implementação atual do checkout do cardápio. Cada estabelecimento tem seu próprio AppID Woovi. Nesta etapa, o administrador da plataforma registra esse AppID na área restrita do criador; o autoatendimento do comerciante depende de uma sessão de comerciante segura, que ainda precisa ser implementada. A cobrança Pix é criada no backend com o AppID daquele estabelecimento.
 - **Cicobi/Sicoob:** permanece como integração bancária separada. O checkout Ovi não pode ser usado quando a loja estiver marcada como Sicoob. A estrutura de conexões e pagamentos de motoboy existente não significa que o checkout de pedidos do cardápio Sicoob esteja concluído.
 
 ## 2. Checkout Ovi/Woovi
@@ -58,7 +58,7 @@ Variáveis do backend:
 - WOOVI_API_BASE_URL: produção https://api.woovi.com.
 - WOOVI_WEBHOOK_URL: endpoint público HTTPS do Render.
 
-A chave Pix da plataforma é cadastrada na página restrita do criador (Configurar Ovi) e fica criptografada no Neon. Além disso, cada comerciante precisa conectar o AppID de produção da própria conta Woovi pela mesma página. A conta precisa permitir cobrança Pix e Pix Out. Sem esses dois cadastros ativos, o checkout Pix fica bloqueado — não usar chave fictícia ou ambiente sandbox como se fosse produção.
+A chave Pix da plataforma é cadastrada na página restrita do criador (Configurar Ovi) e fica criptografada no Neon. Além disso, o AppID de produção da conta Woovi de cada comerciante precisa ser registrado pelo administrador da plataforma na mesma página. A conta precisa permitir cobrança Pix e Pix Out. Sem esses dois cadastros ativos, o checkout Pix fica bloqueado — não usar chave fictícia ou ambiente sandbox como se fosse produção.
 
 ## 7. Estado do Cicobi/Sicoob
 
