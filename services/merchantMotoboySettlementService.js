@@ -43,15 +43,17 @@ async function listarPendenciasComerciante(merchantId) {
   );
   const [obligations, totals, batches] = await Promise.all([
     pool.query("SELECT id,motoboy_id,order_id,amount_cents,earned_at,due_at,status,payout_batch_id FROM merchant_delivery_obligations WHERE merchant_id=$1 AND status IN ('pending','due','in_batch') ORDER BY due_at", [merchant]),
-    pool.query("SELECT COALESCE(SUM(amount_cents) FILTER (WHERE status='due'),0)::bigint AS overdue_cents,COUNT(*) FILTER (WHERE status='due')::int AS overdue_count FROM merchant_delivery_obligations WHERE merchant_id=$1", [merchant]),
+    pool.query("SELECT COALESCE(SUM(amount_cents) FILTER (WHERE status='due'),0)::bigint AS overdue_cents,COALESCE(SUM(amount_cents) FILTER (WHERE status='in_batch'),0)::bigint AS in_batch_cents,COALESCE(SUM(amount_cents) FILTER (WHERE status IN ('due','in_batch')),0)::bigint AS outstanding_cents,COUNT(*) FILTER (WHERE status='due')::int AS overdue_count FROM merchant_delivery_obligations WHERE merchant_id=$1", [merchant]),
     pool.query("SELECT id,total_cents,status,requested_at,authorized_at FROM merchant_delivery_payout_batches WHERE merchant_id=$1 AND status IN ('pending_authorization','authorized','processing') ORDER BY requested_at DESC", [merchant])
   ]);
   return {
     obligations: obligations.rows,
     overdueCents: Number(totals.rows[0].overdue_cents),
+    inBatchCents: Number(totals.rows[0].in_batch_cents),
+    outstandingCents: Number(totals.rows[0].outstanding_cents),
     overdueCount: Number(totals.rows[0].overdue_count),
     activeBatches: batches.rows,
-    blocked: Number(totals.rows[0].overdue_cents) > 0
+    blocked: Number(totals.rows[0].outstanding_cents) > 0
   };
 }
 
