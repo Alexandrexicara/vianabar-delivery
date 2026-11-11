@@ -2998,27 +2998,10 @@
         
         // Confirm payment for a single order
         function confirmPayment(orderId) {
-            // Send update to server
-            if (window.ws && window.ws.readyState === WebSocket.OPEN) {
-                window.ws.send(JSON.stringify({
-                    type: 'updatePaymentStatus',
-                    orderId: orderId,
-                    paymentStatus: 'completed'
-                }));
-            }
-            
-            // Record action in history
-            const action = {
-                type: 'updatePaymentStatus',
-                orderId: orderId,
-                paymentStatus: 'completed',
-                sector: 'admin',
-                timestamp: new Date().toISOString()
-            };
-            
-            saveOrderAction(action);
+            if (!orderId) return;
+            alert('A confirmação de pagamento deve ser feita pelo fluxo autenticado. Nenhum status foi alterado.');
         }
-        
+
         // Update payment status
         function updatePaymentStatus(orderId, newPaymentStatus, section) {
             alert('O status financeiro não pode ser alterado pelo navegador. Aguarde a confirmação do provedor ou a validação autenticada do comerciante.');
