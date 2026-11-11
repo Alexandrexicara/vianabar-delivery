@@ -145,21 +145,25 @@ router.post('/', async (req, res) => {
 
   let payment = null;
   if (paymentMethod === 'pix') {
+    const amountCents = Math.round(order.total * 100);
     try {
+      await pool.query(
+        `INSERT INTO cardapio_payment_transactions
+         (order_id,store_id,provider,correlation_id,amount_cents,status)
+         VALUES($1,$2,'woovi',$1,$3,'pending')`,
+        [orderId,storeId,amountCents]
+      );
       const charge = await woovi.createCharge({
-        storeId, orderId, amountCents: Math.round(order.total * 100),
+        storeId, orderId, amountCents,
         comment: 'Pedido da mesa ' + tableNumber
       });
       await pool.query(
-        `INSERT INTO cardapio_payment_transactions
-         (order_id,store_id,provider,correlation_id,provider_charge_id,amount_cents,status,br_code,qr_code_image,payment_link_url,provider_payload)
-         VALUES($1,$2,'woovi',$3,$4,$5,'active',$6,$7,$8,$9::jsonb)`,
-        [orderId,storeId,charge.correlationId,charge.providerChargeId,Math.round(order.total*100),
-          charge.brCode,charge.qrCodeImage,charge.paymentLinkUrl,JSON.stringify(charge.payload)]
-      );
-      await pool.query(
-        `UPDATE cardapio_orders SET payment_status='pending',updated_at=NOW() WHERE id=$1`,
-        [orderId]
+        `UPDATE cardapio_payment_transactions
+         SET provider_charge_id=$2,status='active',br_code=$3,qr_code_image=$4,
+             payment_link_url=$5,provider_payload=$6::jsonb,updated_at=NOW()
+         WHERE order_id=$1`,
+        [orderId,charge.providerChargeId,charge.brCode,charge.qrCodeImage,
+          charge.paymentLinkUrl,JSON.stringify(charge.payload)]
       );
       payment = {
         provider: 'woovi', status: charge.status, brCode: charge.brCode,
@@ -171,8 +175,12 @@ router.post('/', async (req, res) => {
         `UPDATE cardapio_orders SET payment_status='failed',updated_at=NOW() WHERE id=$1`,
         [orderId]
       );
+      await pool.query(
+        `UPDATE cardapio_payment_transactions SET status='failed',updated_at=NOW() WHERE order_id=$1 AND status<>'paid'`,
+        [orderId]
+      ).catch(() => {});
       console.error('[CARDAPIO-ORDERS] Falha ao criar cobrança Ovi:', error.message);
-      return res.status(502).json({ success: false, orderId, error: 'Pedido registrado, mas a Ovi não criou a cobrança. Não tente pagar por outra chave. Chame o garçom ou tente novamente com o estabelecimento.' });
+      return res.status(502).json({ success: false, orderId, error: 'Pedido registrado, mas a Ovi não concluiu a cobrança. Não tente pagar por outra chave. Chame o garçom ou tente novamente com o estabelecimento.' });
     }
   }
 
