@@ -872,44 +872,87 @@
         </div>
 
         <!-- Recebimentos e pagamentos do comerciante -->
-        <section class="section-card" id="recebimentos-pagamentos" style="margin-bottom: 30px;">
-            <div class="section-title">🏦 Recebimentos e pagamentos</div>
-            <p style="color:#5f6b76; line-height:1.6; margin-bottom:20px;">
-                Configure como seu estabelecimento vai receber dos clientes e como serão realizados os repasses da plataforma e dos motoboys. Esta configuração é feita aqui, depois do cadastro do estabelecimento.
+        <section class="section-card" id="recebimentos-pagamentos" style="margin-bottom:30px;">
+          <div class="section-title">🏦 Configuração bancária — recebimentos e pagamentos</div>
+          <p style="color:#5f6b76;line-height:1.65;margin-bottom:18px;">
+            Siga as etapas abaixo para solicitar acesso às APIs bancárias. O cadastro no Portal Developers é feito pelo próprio titular da conta. A liberação depende do banco e da cooperativa.
+          </p>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-bottom:22px;">
+            <a href="https://developers.sicoob.com.br/portal/cadastro" target="_blank" rel="noopener noreferrer" class="action-btn success" style="text-decoration:none;justify-content:center;">1. Cadastrar no Sicoob Developers</a>
+            <a href="https://developers.sicoob.com.br/portal/login" target="_blank" rel="noopener noreferrer" class="action-btn" style="text-decoration:none;justify-content:center;">2. Entrar no Portal Developers</a>
+            <a href="https://www.sicoob.com.br/web/sicoob/servicos-empresa/-/asset_publisher/lPNqdz0jZZX1/content/id/166036588" target="_blank" rel="noopener noreferrer" class="action-btn" style="text-decoration:none;justify-content:center;">3. Ver APIs disponíveis no Sicoob</a>
+          </div>
+
+          <div style="border:1px solid #dce5ee;border-radius:12px;padding:20px;margin-bottom:18px;">
+            <h3 style="color:#2c3e50;margin-bottom:12px;">A. Pessoa Jurídica (PJ) — empresa, MEI ou CNPJ</h3>
+            <ol style="padding-left:22px;line-height:1.75;color:#43505c;">
+              <li>Abra <a href="https://developers.sicoob.com.br/portal/cadastro" target="_blank" rel="noopener noreferrer">Portal Developers — Cadastro</a>.</li>
+              <li>Selecione <strong>Pessoa Jurídica</strong> e preencha os dados solicitados da empresa e do representante legal. Use um e-mail que você consiga acessar.</li>
+              <li>Abra o e-mail enviado pelo Sicoob e conclua a criação da senha. Se já possui cadastro, vá direto para <a href="https://developers.sicoob.com.br/portal/login" target="_blank" rel="noopener noreferrer">Entrar</a>.</li>
+              <li>Dentro do portal, abra <strong>Meus aplicativos</strong> e escolha <strong>Gerar aplicativo</strong>. Leia a mensagem de requisitos e continue.</li>
+              <li>Faça a autenticação solicitada pelo Sicoob como titular/representante autorizado da conta PJ. A confirmação pode exigir o aplicativo Sicoob ou o Sicoobnet Empresarial e segundo fator.</li>
+              <li>Na etapa de informações, dê um nome identificável ao aplicativo, por exemplo <strong>VianaBar Delivery</strong>, descreva que será usado para integração de recebimentos e pagamentos Pix e selecione a conta empresarial correta.</li>
+              <li>Na seleção de APIs, solicite <strong>Pix Recebimentos</strong> e <strong>Pix Pagamentos</strong>, se ambas aparecerem disponíveis para sua conta. Não selecione APIs diferentes como substitutas.</li>
+              <li>Revise os dados e conclua a criação. Anote o <strong>Client ID</strong> e baixe/guarde os certificados e demais credenciais que o próprio portal disponibilizar para a modalidade de integração aprovada.</li>
+              <li>Se o aplicativo aparecer como <strong>Pendente</strong>, o responsável pela conta deve autorizar o uso das APIs no canal bancário indicado pelo Sicoob. Em fluxos PJ documentados pelo Sicoob para parceiros, o caminho informado é App Sicoob/Sicoobnet Empresarial → pesquisa por <strong>Transações Pendentes / Detalhamento</strong> → <strong>Autorização para Uso de APIs</strong>. Confirme o caminho exibido para sua cooperativa.</li>
+              <li>Volte a <strong>Meus aplicativos</strong> e confira se a aplicação foi aprovada/ativada. Se a API não aparecer ou a autorização não chegar, fale com sua cooperativa antes de prosseguir.</li>
+            </ol>
+            <p style="margin-top:12px;padding:12px;background:#fff3cd;color:#765600;border-radius:8px;line-height:1.55;">
+              <strong>Atenção:</strong> o Sicoob informa que a disponibilidade dos produtos deve ser confirmada com a cooperativa. A existência de conta PJ ou de cadastro no portal não garante liberação automática de Pix Pagamentos.
             </p>
+          </div>
 
-            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:18px;">
-                <div style="border:1px solid #dce5ee; border-radius:12px; padding:20px;">
-                    <h3 style="color:#2c3e50; margin-bottom:10px;">Ovi (Woovi) — comerciante com CNPJ</h3>
-                    <p style="color:#5f6b76; line-height:1.6; margin-bottom:14px;">
-                        Selecione esta opção se sua empresa vai utilizar a Ovi para receber pagamentos via Pix. Faça o cadastro empresarial diretamente no ambiente oficial e conclua a validação solicitada pela Ovi.
-                    </p>
-                    <a href="https://woovi.com/" target="_blank" rel="noopener noreferrer" class="action-btn success" style="text-decoration:none; justify-content:center;">
-                        Acessar Ovi (Woovi)
-                    </a>
-                </div>
-
-                <div style="border:1px solid #dce5ee; border-radius:12px; padding:20px;">
-                    <h3 style="color:#2c3e50; margin-bottom:10px;">Sicoob — correntista pessoa jurídica</h3>
-                    <p style="color:#5f6b76; line-height:1.6; margin-bottom:14px;">
-                        Se sua empresa possui conta PJ no Sicoob, solicite ao Sicoob a habilitação das APIs de Pix Recebimentos e Pix Pagamentos e as credenciais/autorização para integração com a plataforma.
-                    </p>
-                    <p style="background:#fff3cd; color:#765600; padding:12px; border-radius:8px; line-height:1.5;">
-                        A ativação depende da aprovação e das condições do Sicoob. Ter uma conta corrente, por si só, não significa que o acesso às APIs esteja liberado.
-                    </p>
-                </div>
-
-                <div style="border:1px solid #dce5ee; border-radius:12px; padding:20px;">
-                    <h3 style="color:#2c3e50; margin-bottom:10px;">Comerciante sem CNPJ</h3>
-                    <p style="color:#5f6b76; line-height:1.6;">
-                        Antes de escolher uma instituição, confirme se ela aceita cadastro de pessoa física e se oferece os recursos necessários para recebimentos e pagamentos por integração. A disponibilidade das APIs do Sicoob para pessoa física ainda precisa ser confirmada diretamente com o banco.
-                    </p>
-                </div>
-            </div>
-
-            <p style="margin-top:18px; color:#687582; font-size:.92rem; line-height:1.5;">
-                <strong>Importante:</strong> esta área apresenta as orientações de cadastro. A conexão automática das contas, a autorização das APIs e a execução dos repasses ainda dependem da implementação técnica e da liberação de cada instituição. Não informe senhas bancárias ou códigos de acesso neste painel.
+          <div style="border:1px solid #dce5ee;border-radius:12px;padding:20px;margin-bottom:18px;">
+            <h3 style="color:#2c3e50;margin-bottom:12px;">B. Pessoa Física (PF) — comerciante sem CNPJ</h3>
+            <ol style="padding-left:22px;line-height:1.75;color:#43505c;">
+              <li>O cadastro de desenvolvedor usa o mesmo endereço: <a href="https://developers.sicoob.com.br/portal/cadastro" target="_blank" rel="noopener noreferrer">Portal Developers — Cadastro</a>.</li>
+              <li>Selecione <strong>Pessoa Física</strong>, preencha seus dados e confirme o e-mail para criar a senha.</li>
+              <li>Entre em <a href="https://developers.sicoob.com.br/portal/login" target="_blank" rel="noopener noreferrer">Portal Developers — Login</a> e verifique se o portal permite gerar aplicativo para sua conta PF.</li>
+              <li>Antes de solicitar ou inserir credenciais, confirme com sua cooperativa se sua conta PF pode usar especificamente as APIs <strong>Pix Recebimentos</strong> e <strong>Pix Pagamentos</strong> em integração direta com um sistema externo.</li>
+              <li>Se as APIs não forem exibidas, não tente contornar a restrição nem use credenciais de outra pessoa. Peça ao Sicoob a confirmação formal da elegibilidade PF e das condições de uso.</li>
+            </ol>
+            <p style="margin-top:12px;padding:12px;background:#fff3cd;color:#765600;border-radius:8px;line-height:1.55;">
+              <strong>Importante:</strong> alguns guias de empresas parceiras descrevem emissão de credencial PF em seus próprios fluxos. Isso não comprova que a integração direta do VianaBar tenha a mesma autorização. A liberação precisa ser confirmada para este projeto.
             </p>
+          </div>
+
+          <div style="border:1px solid #dce5ee;border-radius:12px;padding:20px;margin-bottom:18px;">
+            <h3 style="color:#2c3e50;margin-bottom:12px;">C. Quais dados serão solicitados para conectar a conta?</h3>
+            <p style="color:#5f6b76;line-height:1.6;">Quando a conexão segura estiver habilitada para o seu estabelecimento, os dados técnicos esperados são:</p>
+            <ul style="padding-left:22px;line-height:1.75;color:#43505c;">
+              <li><strong>Client ID:</strong> identificador da aplicação criada no Portal Developers.</li>
+              <li><strong>Client Secret:</strong> somente se o fluxo de autenticação aprovado pelo Sicoob fornecer esse segredo.</li>
+              <li><strong>Certificado digital de cliente:</strong> arquivo/cadeia de certificado exigido pela API, quando aplicável.</li>
+              <li><strong>Chave privada correspondente:</strong> arquivo protegido que acompanha o certificado, quando exigido.</li>
+              <li><strong>Conta/cooperativa vinculada:</strong> referência da conta empresarial autorizada, sem senha bancária.</li>
+              <li><strong>Permissões:</strong> Pix Recebimentos e Pix Pagamentos, com o status de aprovação de cada uma.</li>
+            </ul>
+            <p style="margin-top:12px;padding:12px;background:#f8f9fa;border-radius:8px;color:#43505c;line-height:1.6;">
+              <strong>Onde inserir?</strong> O formulário de credenciais ainda não está habilitado nesta tela. O projeto possui a estrutura de banco para armazenar segredos criptografados, mas ainda não possui autenticação individual de comerciante nem uma rota segura para gravar e recuperar essas credenciais. Não seria seguro exibir campos que enviem segredos sem essa proteção. Não cole aqui Client Secret, certificado, chave privada, senha bancária ou código de autenticação.
+            </p>
+          </div>
+
+          <div style="border:1px solid #dce5ee;border-radius:12px;padding:20px;margin-bottom:18px;">
+            <h3 style="color:#2c3e50;margin-bottom:12px;">D. O que acontece depois da conexão?</h3>
+            <ol style="padding-left:22px;line-height:1.75;color:#43505c;">
+              <li>O servidor valida e guarda as credenciais criptografadas vinculadas exclusivamente ao estabelecimento.</li>
+              <li>A integração solicita autorização/token ao Sicoob usando o mecanismo exigido (incluindo certificado/mTLS se exigido).</li>
+              <li>O sistema valida primeiro em homologação, quando o Sicoob disponibilizar esse ambiente.</li>
+              <li>Após aprovação e testes, a conta poderá ser marcada como ativa para os recursos efetivamente liberados.</li>
+              <li>Os repasses Pix de motoboys e da plataforma só serão habilitados após confirmação técnica da API Pix Pagamentos, autorização do titular e testes de segurança. Nenhum repasse será considerado pago sem confirmação bancária.</li>
+            </ol>
+          </div>
+
+          <div style="border:1px solid #dce5ee;border-radius:12px;padding:20px;margin-bottom:18px;">
+            <h3 style="color:#2c3e50;margin-bottom:12px;">E. Ovi (Woovi) — cadastro e acesso</h3>
+            <p style="color:#5f6b76;line-height:1.6;margin-bottom:12px;">Para quem optar pela Ovi/Woovi, o cadastro e a validação são feitos no ambiente oficial. A integração técnica com a plataforma precisa ser concluída separadamente; criar a conta não conecta automaticamente o gateway.</p>
+            <a href="https://woovi.com/" target="_blank" rel="noopener noreferrer" class="action-btn success" style="display:inline-flex;text-decoration:none;">Acessar Ovi (Woovi)</a>
+          </div>
+
+          <p style="color:#687582;font-size:.92rem;line-height:1.55;">
+            <strong>Segurança:</strong> nunca informe senha do Sicoobnet, senha do aplicativo, token de segundo fator ou código recebido por SMS/notificação. O VianaBar não deve pedir esses dados. As credenciais técnicas da aplicação devem ser enviadas somente por formulário autenticado e conexão segura, depois que a área de integração estiver habilitada.
+          </p>
         </section>
 
         <!-- Notificação -->
