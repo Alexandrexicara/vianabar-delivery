@@ -1996,6 +1996,15 @@
                     updateOrderItemsStatus(message.order.items || []);
                     if (message.order.paymentStatus === 'paid') {
                         document.getElementById('statusTitle').textContent = 'Pagamento confirmado!';
+                        document.getElementById('statusDescription').textContent = 'A Ovi confirmou o recebimento. Seu pedido foi liberado para preparo.';
+                        showSection('status');
+                    } else if (message.order.paymentStatus === 'expired') {
+                        document.getElementById('statusTitle').textContent = 'Cobrança Pix expirada';
+                        document.getElementById('statusDescription').textContent = 'A cobrança expirou sem confirmação. Solicite uma nova cobrança ao estabelecimento.';
+                        showSection('status');
+                    } else if (message.order.paymentStatus === 'needs_review') {
+                        document.getElementById('statusTitle').textContent = 'Pagamento em análise';
+                        document.getElementById('statusDescription').textContent = 'O estabelecimento fará a conferência. Não pague novamente.';
                         showSection('status');
                     }
                 }
