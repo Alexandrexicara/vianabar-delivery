@@ -214,6 +214,14 @@ wss.on('connection', (ws) => {
         // Set client role to admin
         ws.role = 'admin';
         ws.send(JSON.stringify({ type: 'adminLoginSuccess' }));
+        ws.send(JSON.stringify({
+          type: 'existingDeliveryOrders',
+          orders: deliveryOrders.filter(o => ['accepted', 'preparing', 'delivering', 'onroute'].includes(String(o.status || '').toLowerCase()))
+        }));
+        ws.send(JSON.stringify({
+          type: 'existingDeliveryOrders',
+          orders: deliveryOrders.filter(o => ['accepted', 'preparing', 'delivering', 'onroute'].includes(String(o.status || '').toLowerCase()))
+        }));
       } else if (data.type === 'kitchenLogin') {
         // Set client role to kitchen staff
         ws.role = 'kitchen';
@@ -226,6 +234,13 @@ wss.on('connection', (ws) => {
         // Set client role to waiter
         ws.role = 'waiter';
         ws.send(JSON.stringify({ type: 'waiterLoginSuccess' }));
+      } else if (data.type === 'getExistingDeliveryOrders') {
+        if (ws.role === 'admin') {
+          ws.send(JSON.stringify({
+            type: 'existingDeliveryOrders',
+            orders: deliveryOrders.filter(o => ['accepted', 'preparing', 'delivering', 'onroute'].includes(String(o.status || '').toLowerCase()))
+          }));
+        }
       } else if (data.type === 'getExistingOrders') {
         console.log('Sending existing orders to client');
         const userOrders = orders.filter(order => order.clientId === ws.clientId);
@@ -655,6 +670,16 @@ wss.on('connection', (ws) => {
             motoboyName: order.motoboyName,
             motoboyPhone: order.motoboyPhone,
             status: order.status
+          });
+          // Atualizar também os painéis administrativos conectados.
+          broadcastToAdmins({
+            type: 'deliveryMotoboyLocation',
+            orderId: data.orderId,
+            latitude: order.motoboyLocation.latitude,
+            longitude: order.motoboyLocation.longitude,
+            motoboyName: order.motoboyName,
+            status: order.status,
+            timestamp: order.motoboyLocation.timestamp
           });
         }
         
