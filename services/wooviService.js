@@ -116,9 +116,13 @@ async function savePlatformPixKey({ pixKey, pixKeyType }) {
   if (type === 'CPF' && digits.length !== 11) throw new Error('A chave selecionada como CPF precisa ter 11 dígitos.');
   if (type === 'CNPJ' && digits.length !== 14) throw new Error('A chave selecionada como CNPJ precisa ter 14 dígitos.');
   if (type === 'EMAIL' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(key)) throw new Error('Informe um e-mail válido para a chave Pix.');
-  if (type === 'PHONE' && !/^\+?\d{10,15}$/.test(key)) throw new Error('Informe o telefone Pix com DDD e código do país, se aplicável.');
-  if (type === 'RANDOM' && key.length < 20) throw new Error('A chave aleatória Pix parece incompleta.');
-  const encrypted = encryptSecret(key);
+  const normalizedKey = type === 'CPF' || type === 'CNPJ' ? digits
+    : type === 'EMAIL' ? key.toLowerCase()
+    : type === 'PHONE' ? key.replace(/[^\d+]/g, '')
+    : key;
+  if (type === 'PHONE' && !/^\+?\d{10,15}$/.test(normalizedKey)) throw new Error('Informe o telefone Pix com DDD e código do país, se aplicável.');
+  if (type === 'RANDOM' && normalizedKey.length < 20) throw new Error('A chave aleatória Pix parece incompleta.');
+  const encrypted = encryptSecret(normalizedKey);
   await pool.query(
     `INSERT INTO platform_payment_settings(setting_id,pix_key_ciphertext,pix_key_iv,pix_key_tag,pix_key_type)
      VALUES('default',$1,$2,$3,$4)
@@ -127,7 +131,7 @@ async function savePlatformPixKey({ pixKey, pixKeyType }) {
        pix_key_tag=EXCLUDED.pix_key_tag,pix_key_type=EXCLUDED.pix_key_type,updated_at=NOW()`,
     [encrypted.ciphertext,encrypted.iv,encrypted.tag,type]
   );
-  return { configured:true, type, masked:'••••' + key.slice(-4) };
+  return { configured:true, type, masked:'••••' + normalizedKey.slice(-4) };
 }
 
 async function getMerchantAccount(storeId) {
