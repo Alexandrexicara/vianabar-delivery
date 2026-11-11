@@ -912,7 +912,7 @@
                 <input type="text" id="observations" placeholder="Alguma observação sobre seu pedido?">
             </div>
             
-            <button class="btn" onclick="sendOrder()">Enviar Pedido</button>
+            <button class="btn" onclick="sendOrder()">Continuar para pagamento</button>
         </section>
 
         <!-- Payment Section -->
@@ -930,6 +930,11 @@
                     <h3>Pagamento via PIX</h3>
                     <p>Escaneie o QR Code ou copie a chave PIX.</p>
                     <button class="btn btn-pix" style="margin-top: 10px; width: 100%;">Pagar com PIX</button>
+                </div>
+                <div class="payment-option" onclick="selectPayment('card', event)">
+                    <h3>Pagamento com Cartão</h3>
+                    <p>O garçom levará a maquininha até sua mesa.</p>
+                    <button class="btn btn-card" style="margin-top: 10px; width: 100%;">Pagar com Cartão</button>
                 </div>
                 <div class="payment-option" onclick="selectPayment('cash', event)">
                     <h3>Pagamento em Dinheiro</h3>
@@ -953,7 +958,8 @@
                         <div class="form-group">
                             <label for="pixKey">Chave PIX para copiar:</label>
                             <input type="text" id="pixKey" value="" readonly class="pix-key-input">
-                            <button class="btn margin-top-10" onclick="copyPixKey()">Copiar Chave PIX</button>
+                            <button class="btn margin-top-10" onclick="copyPixKey()">Copiar código PIX</button>
+                            <button class="btn btn-success" style="margin-top:10px;width:100%;" onclick="confirmTableOrder('pix')">Gerar cobrança e confirmar pedido</button>
                         </div>
                     </div>
                     
@@ -972,7 +978,7 @@
                 <h3>Pagamento com Cartão</h3>
                 <p>O garçom virá até sua mesa com a maquininha.</p>
                 <div style="margin: 20px 0;">
-                    <button class="btn btn-card" onclick="callWaiterForPayment('cartão')" style="margin: 5px;">Chamar Garçom para Pagamento</button>
+                    <button class="btn btn-card" onclick="confirmTableOrder('card')" style="margin: 5px;">Confirmar pedido e chamar garçom</button>
                 </div>
                 <p><small>O pagamento será processado na sua mesa.</small></p>
             </div>
@@ -981,7 +987,7 @@
                 <h3>Pagamento em Dinheiro</h3>
                 <p>O garçom virá até sua mesa para receber o pagamento.</p>
                 <div style="margin: 20px 0;">
-                    <button class="btn btn-cash" onclick="callWaiterForPayment('dinheiro')" style="margin: 5px;">Chamar Garçom para Pagamento</button>
+                    <button class="btn btn-cash" onclick="confirmTableOrder('cash')" style="margin: 5px;">Confirmar pedido e chamar garçom</button>
                 </div>
                 <p><small>O pagamento será processado na sua mesa.</small></p>
             </div>
@@ -1122,12 +1128,20 @@
     <script>
     // Global WebSocket variable
     window.ws = null;
+    window.cardapioStoreId = (function(){
+        const params = new URLSearchParams(window.location.search);
+        const hostParts = window.location.hostname.split('.');
+        const subdomain = hostParts.length >= 3 && hostParts.slice(-2).join('.') === 'cardapiodigital.com.br' ? hostParts[0] : '';
+        return (params.get('loja') || subdomain || 'main').slice(0,120);
+    })();
+    window.selectedCardapioPayment = null;
 
     async function loadMerchantMenuSettings() {
         const params = new URLSearchParams(window.location.search);
         const hostParts = window.location.hostname.split('.');
         const subdomain = hostParts.length >= 3 && hostParts.slice(-2).join('.') === 'cardapiodigital.com.br' ? hostParts[0] : '';
         const storeId = (params.get('loja') || subdomain || 'main').slice(0,120);
+        window.cardapioStoreId = storeId;
         try {
             const response = await fetch('/api/merchant-settings/' + encodeURIComponent(storeId), { cache: 'no-store' });
             const result = await response.json();
@@ -1382,25 +1396,92 @@
     }
 
     function selectPayment(method, event) {
-        console.log('[DEBUG] Selecionando método de pagamento:', method);
+        if (!['pix','card','cash'].includes(method)) return;
+        window.selectedCardapioPayment = method;
         document.querySelectorAll('.payment-option').forEach(option => option.classList.remove('selected'));
-        if (event && event.currentTarget) {
-            event.currentTarget.classList.add('selected');
-        }
-        ['pixPayment', 'cardPayment', 'cashPayment'].forEach(id => document.getElementById(id).style.display = 'none');
+        if (event && event.currentTarget) event.currentTarget.classList.add('selected');
+        ['pixPayment','cardPayment','cashPayment'].forEach(id => {
+            const element = document.getElementById(id);
+            if (element) element.style.display = 'none';
+        });
+        const target = document.getElementById(method === 'pix' ? 'pixPayment' : method === 'card' ? 'cardPayment' : 'cashPayment');
+        if (target) target.style.display = 'block';
+        if (method === 'pix') updatePixAmount();
+    }
 
-        if (method === 'pix') {
-            document.getElementById('pixPayment').style.display = 'block';
-            updatePixAmount();
-            processarPixMyGateway();
-        } else if (method === 'card') {
-            document.getElementById('cardPayment').style.display = 'block';
-            callWaiterForPayment('cartão');
-            processarCartaoMyGateway();
-        } else if (method === 'cash') {
-            document.getElementById('cashPayment').style.display = 'block';
-            callWaiterForPayment('dinheiro');
-            processarDinheiroMyGateway();
+    async function confirmTableOrder(method) {
+        if (!['pix','card','cash'].includes(method)) return;
+        const customerData = normalizeCustomerData(JSON.parse(localStorage.getItem('customerData') || 'null'));
+        const { cartItems } = calculateCartTotal();
+        if (!customerData || !customerData.tableNumber || !cartItems.length) {
+            alert('Confira seu cadastro e o carrinho antes de confirmar.');
+            return;
+        }
+        const storeId = window.cardapioStoreId || 'main';
+        const button = document.querySelector(method === 'pix' ? '#pixPayment button.btn-success' : method === 'card' ? '#cardPayment button' : '#cashPayment button');
+        if (button) { button.disabled = true; button.textContent = 'Enviando pedido...'; }
+        try {
+            const response = await fetch('/api/cardapio/orders', {
+                method: 'POST',
+                headers: { 'Content-Type':'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    storeId,
+                    customer: customerData,
+                    items: cartItems.map(item => ({ id:item.id || item.productId, quantity:item.quantity })),
+                    observations: document.getElementById('observations')?.value || '',
+                    paymentMethod: method
+                })
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.error || 'Não foi possível registrar o pedido.');
+            const order = result.order;
+            localStorage.setItem('currentCardapioOrderId', order.id);
+            saveUserOrder(order);
+            document.getElementById('orderIdDisplay').textContent = order.id;
+            updateOrderItemsStatus(order.items || []);
+            if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+                window.ws.send(JSON.stringify({ type:'trackCardapioOrder', orderId:order.id }));
+            }
+            if (method === 'pix') {
+                const payment = result.payment || {};
+                document.getElementById('pixAmount').textContent = 'R$ ' + Number(payment.amount || order.total).toFixed(2).replace('.', ',');
+                document.getElementById('pixKey').value = payment.brCode || '';
+                const qr = document.getElementById('pixQrCode');
+                qr.innerHTML = '';
+                if (payment.qrCodeImage && /^https:\/\//i.test(payment.qrCodeImage)) {
+                    const image = document.createElement('img');
+                    image.src = payment.qrCodeImage;
+                    image.alt = 'QR Code Pix Ovi';
+                    image.style.maxWidth = '220px';
+                    image.style.width = '100%';
+                    qr.appendChild(image);
+                }
+                const waiting = document.createElement('p');
+                waiting.textContent = 'Aguardando confirmação automática da Ovi. Não envie comprovante como confirmação.';
+                qr.appendChild(waiting);
+                if (payment.paymentLinkUrl && /^https:\/\//i.test(payment.paymentLinkUrl)) {
+                    const link = document.createElement('a');
+                    link.href = payment.paymentLinkUrl;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.textContent = 'Abrir pagamento';
+                    qr.appendChild(link);
+                }
+                document.getElementById('statusTitle').textContent = 'Aguardando pagamento';
+                document.getElementById('statusDescription').textContent = 'Pague pelo QR Code ou Pix Copia e Cola. O pedido será liberado após a confirmação da Ovi.';
+                showSection('payment');
+            } else {
+                document.getElementById('statusTitle').textContent = 'Pedido enviado ao estabelecimento';
+                document.getElementById('statusDescription').textContent = 'O garçom foi avisado para receber seu pagamento na mesa.';
+                showSection('status');
+                if (typeof callWaiterForPayment === 'function') callWaiterForPayment(method === 'card' ? 'cartão' : 'dinheiro');
+            }
+            playTripleBeep();
+        } catch (error) {
+            alert(error.message);
+        } finally {
+            if (button) { button.disabled = false; button.textContent = method === 'pix' ? 'Gerar cobrança e confirmar pedido' : 'Confirmar pedido e chamar garçom'; }
         }
     }
     
@@ -1645,42 +1726,19 @@
     }
 
     function sendOrder() {
-        const rawCustomerData = JSON.parse(localStorage.getItem('customerData') || 'null');
-        const customerData = normalizeCustomerData(rawCustomerData);
+        const customerData = normalizeCustomerData(JSON.parse(localStorage.getItem('customerData') || 'null'));
+        const { cartItems } = calculateCartTotal();
         if (!customerData || !customerData.tableNumber) {
-            playTripleBeep(); // Som sonoro para cadastro incompleto
+            playTripleBeep();
             showSection('registration');
             return;
         }
-        const { subtotal, serviceFee, total, cartItems } = calculateCartTotal();
-        if (cartItems.length === 0) {
-            playTripleBeep(); // Som sonoro para carrinho vazio
+        if (!cartItems.length) {
+            playTripleBeep();
+            alert('Seu carrinho está vazio.');
             return;
         }
-        const order = {
-            id: `#${Math.floor(Math.random() * 90) + 10}-${Date.now()}`,
-            customer: customerData,
-            items: cartItems,
-            observations: document.getElementById('observations').value,
-            subtotal: subtotal,
-            serviceFee: 0,
-            total: total,
-            table: `Mesa ${customerData.tableNumber}`,
-            status: 'pending',
-            paymentStatus: 'pending',
-            timestamp: new Date().toISOString()
-        };
-
-        if (window.ws && window.ws.readyState === WebSocket.OPEN) {
-            window.ws.send(JSON.stringify({ type: 'submitOrder', order }));
-            saveUserOrder(order);
-            playTripleBeep(); // Som sonoro para pedido enviado
-            showSection('status');
-            document.getElementById('orderIdDisplay').textContent = order.id;
-            updateOrderItemsStatus(order.items);
-        } else {
-            playTripleBeep(); // Som sonoro para erro de conexão
-        }
+        showPayment();
     }
 
     function updateOrderStatusDisplay(status) {
@@ -1883,8 +1941,10 @@
 
             // Send user login message to identify this connection as user
             window.ws.send(JSON.stringify({
-                type: 'userLogin'
+                type: 'userLogin', storeId: window.cardapioStoreId || 'main'
             }));
+            const savedOrderId = localStorage.getItem('currentCardapioOrderId');
+            if (savedOrderId) window.ws.send(JSON.stringify({ type:'trackCardapioOrder', orderId:savedOrderId }));
         };
         window.ws.onclose = () => setTimeout(connectWebSocket, 5000);
         window.ws.onerror = (error) => console.error('WebSocket Error:', error);
@@ -1901,6 +1961,25 @@
                 location.reload();
             } else if (message.type === 'userLoginSuccess') {
                 console.log('User login successful');
+            } else if (message.type === 'paymentStatusUpdate') {
+                const currentOrderId = localStorage.getItem('currentCardapioOrderId') || document.getElementById('orderIdDisplay').textContent;
+                if (String(message.orderId) === String(currentOrderId) && message.paymentStatus === 'completed') {
+                    const title = document.getElementById('statusTitle');
+                    const description = document.getElementById('statusDescription');
+                    if (title) title.textContent = 'Pagamento confirmado!';
+                    if (description) description.textContent = 'A Ovi confirmou o recebimento. Seu pedido foi liberado para preparo.';
+                    playTripleBeep();
+                }
+            } else if (message.type === 'cardapioOrderSnapshot') {
+                if (message.order) {
+                    document.getElementById('orderIdDisplay').textContent = message.order.id;
+                    updateOrderItemsStatus(message.order.items || []);
+                    if (message.order.paymentStatus === 'paid') {
+                        document.getElementById('statusTitle').textContent = 'Pagamento confirmado!';
+                    }
+                }
+            } else if (message.type === 'orderRejected') {
+                alert(message.message || 'Não foi possível enviar o pedido.');
             } else if (message.type === 'orderConfirmation') {
                 console.log('Order confirmed:', message.orderId);
             } else if (message.type === 'callWaiterConfirmation') {
