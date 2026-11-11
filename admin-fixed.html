@@ -2443,22 +2443,11 @@
             alert('A confirmação de pagamento deve ser feita pelo fluxo autenticado do provedor. Nenhum status foi alterado.');
         }
 
-        // Update payment status for all orders in this table
-                tableOrders.forEach(order => {
-                    updatePaymentStatus(order.id, 'completed', 'combined');
-                });
-                
-                // O valor fixo de comissão permanece salvo para as próximas mesas as it can be reused for future orders
-                
-                playTripleBeep(); // Som sonoro para pagamento confirmado mesa
-                
-                // Refresh the display
-                if (window.ordersData && document.getElementById('combined').classList.contains('active')) {
-                    displayCombinedOrders(window.ordersData);
-                }
-            }
+        // Pagamento combinado por mesa permanece pendente até confirmação autenticada.
+        function processTablePayment(table) {
+            alert('O pagamento da mesa não pode ser confirmado pelo navegador. Aguarde a confirmação autenticada do provedor ou do comerciante.');
         }
-        
+
         // Processar pagamento em dinheiro
         function processCashPayment(orderId, section) {
             const order = window.ordersData.find(o => o.id === orderId);
