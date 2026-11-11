@@ -121,7 +121,7 @@ async function savePlatformPixKey({ pixKey, pixKeyType }) {
     : type === 'PHONE' ? key.replace(/[^\d+]/g, '')
     : key;
   if (type === 'PHONE' && !/^\+?\d{10,15}$/.test(normalizedKey)) throw new Error('Informe o telefone Pix com DDD e código do país, se aplicável.');
-  if (type === 'RANDOM' && normalizedKey.length < 20) throw new Error('A chave aleatória Pix parece incompleta.');
+  if (type === 'RANDOM' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalizedKey)) throw new Error('A chave aleatória Pix precisa estar no formato UUID de 36 caracteres.');
   const encrypted = encryptSecret(normalizedKey);
   await pool.query(
     `INSERT INTO platform_payment_settings(setting_id,pix_key_ciphertext,pix_key_iv,pix_key_tag,pix_key_type)
