@@ -13,7 +13,7 @@ const pool = new Pool({
 });
 
 const API_BASE = String(process.env.WOOVI_API_BASE_URL || 'https://api.woovi.com').replace(/\/$/, '');
-const WEBHOOK_URL = process.env.WOOVI_WEBHOOK_URL || 'https://vianabar-delivery.onrender.com/webhooks/woovi';
+const WEBHOOK_URL = process.env.WOOVI_WEBHOOK_URL || 'https://vianabar-delivery.onrender.com/woovi/webhook';
 const COMMISSION_PERCENT = 15;
 
 function encryptionKey() {
@@ -138,7 +138,7 @@ async function createCharge({ storeId, orderId, amountCents, comment }) {
 async function transferPlatformCommission({ orderId, storeId, amountCents }) {
   const correlationId = 'vianabar-comissao-' + String(orderId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 100);
   const existing = await pool.query('SELECT status FROM woovi_commission_transfers WHERE order_id=$1', [String(orderId)]);
-  if (existing.rowCount && ['processing','paid'].includes(existing.rows[0].status)) return existing.rows[0].status;
+  if (existing.rowCount) return existing.rows[0].status;
   if (!process.env.WOOVI_PLATFORM_PIX_KEY) {
     await pool.query(
       `INSERT INTO woovi_commission_transfers(order_id,correlation_id,amount_cents,status,failure_reason)
@@ -178,10 +178,11 @@ async function transferPlatformCommission({ orderId, storeId, amountCents }) {
   }
 }
 async function handleWebhook({ payload, rawBody, headers }) {
-  const event = String(payload.event || payload.type || '');
+  const event = String(payload.event || payload.eventType || payload.type || '');
   const charge = payload.charge || payload.data?.charge || {};
   const payment = payload.payment || payload.data?.payment || {};
-  const correlationId = String(charge.correlationID || payment.correlationID || payload.correlationID || '');
+  const movement = payload.movement || payload.data?.movement || {};
+  const correlationId = String(charge.correlationID || payment.correlationID || movement.correlationID || payload.correlationID || '');
   if (!correlationId) throw new Error('Webhook sem correlationID.');
   const authToken = process.env.WOOVI_WEBHOOK_AUTH_TOKEN || '';
   const receivedAuth = headers.authorization || headers['x-openpix-authorization'] || '';
@@ -229,15 +230,17 @@ async function handleWebhook({ payload, rawBody, headers }) {
       await pool.query("UPDATE cardapio_orders SET payment_status='needs_review',updated_at=NOW() WHERE id=$1", [row.order_id]);
       return { accepted: true, needsReview: true, reason: 'Valor do webhook diferente do valor do pedido.' };
     }
-    await pool.query('BEGIN');
+    const client = await pool.connect();
     try {
-      await pool.query(
+      await client.query('BEGIN');
+      await client.query(
         `UPDATE cardapio_payment_transactions SET status='paid',paid_at=NOW(),provider_payload=$2::jsonb,updated_at=NOW() WHERE id=$1 AND status<>'paid'`,
         [row.id, JSON.stringify(payload)]
       );
-      await pool.query("UPDATE cardapio_orders SET payment_status='paid',updated_at=NOW() WHERE id=$1", [row.order_id]);
-      await pool.query('COMMIT');
-    } catch (error) { await pool.query('ROLLBACK'); throw error; }
+      await client.query("UPDATE cardapio_orders SET payment_status='paid',updated_at=NOW() WHERE id=$1", [row.order_id]);
+      await client.query('COMMIT');
+    } catch (error) { await client.query('ROLLBACK'); throw error; }
+    finally { client.release(); }
     const commissionCents = Math.round(Number(row.amount_cents) * COMMISSION_PERCENT / 100);
     await pool.query("UPDATE cardapio_payment_transactions SET commission_amount_cents=$2,commission_status='pending' WHERE id=$1",
       [row.id, commissionCents]);
