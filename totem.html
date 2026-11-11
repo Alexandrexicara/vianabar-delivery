@@ -1516,33 +1516,10 @@
         }
         
         // Verificar Pagamento Automático
-        function verificarPagamentoAutomatico(transactionId) {
-            const interval = setInterval(async () => {
-                try {
-                    const status = await myGateway.verificarPagamento(transactionId);
-                    console.log('[TOTEM] Status pagamento:', status);
-                    
-                    if (status.status === 'approved') {
-                        clearInterval(interval);
-                        console.log('[TOTEM] PIX aprovado!');
-                        completePayment(
-                            document.getElementById('customerName').value,
-                            document.getElementById('customerCPF').value,
-                            document.getElementById('customerWhatsApp').value,
-                            parseFloat(document.getElementById('totalAmount').textContent),
-                            'pix'
-                        );
-                    } else if (status.status === 'rejected') {
-                        clearInterval(interval);
-                        alert('❌ Pagamento rejeitado. Tente novamente.');
-                        cancelPayment();
-                    }
-                } catch (error) {
-                    console.error('[TOTEM] Erro ao verificar pagamento:', error);
-                }
-            }, 3000); // Verificar a cada 3 segundos
+        function verificarPagamentoAutomatico() {
+            return false;
         }
-        
+
         // Verificar Pagamento Manual
         async function verificarPagamentoMyGateway() {
             alert('A consulta de pagamento está desativada até a integração autenticada do provedor.');
@@ -1585,7 +1562,7 @@
                                 Cancelar
                             </button>
                             <button onclick="confirmPixPayment('${customerData.nome}', '${customerData.cpf}', '${customerData.whatsapp}', ${total})" style="flex: 1; padding: 15px; background: #27ae60; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold;">
-                                Paguei ✓
+                                Informar pagamento
                             </button>
                         </div>
                     </div>
@@ -1596,13 +1573,11 @@
         }
         
         // Processar Pagamento Cartão
-        function processCardPayment(customerData, total) {
-            console.log('[TOTEM] Iniciando pagamento com cartão...');
-            
-            // Mostrar tela de pagamento com cartão
-            showCardPaymentScreen(customerData, total);
+        function processCardPayment() {
+            alert('Pagamento com cartão temporariamente indisponível. O terminal ainda não está integrado a um adquirente no servidor.');
+            return false;
         }
-        
+
         // Mostrar Tela de Pagamento Cartão
         function showCardPaymentScreen(customerData, total) {
             // Esconder formulário
@@ -1999,88 +1974,19 @@
         }
         
         // Processar Pagamento Cartão REAL
-        function processCardPaymentReal(nome, cpf, whatsapp, total) {
-            console.log('[TOTEM] Processando pagamento com cartão REAL...');
-            
-            // Mostrar tela de processamento
-            const cardScreen = document.getElementById('cardPaymentScreen');
-            cardScreen.innerHTML = `
-                <div style="background: white; color: #333; padding: 40px; border-radius: 20px; max-width: 500px; width: 90%; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
-                    <h2 style="font-size: 2rem; margin-bottom: 20px; color: #2196f3;">💳 Processando...</h2>
-                    <div style="width: 60px; height: 60px; margin: 20px auto; border: 3px solid #2196f3; border-radius: 50%; display: flex; align-items: center; justify-content: center; animation: spin 1s linear infinite;">
-                        <div style="width: 20px; height: 20px; background: #2196f3; border-radius: 50%;"></div>
-                    </div>
-                    <p style="font-size: 1.1rem; color: #666;">Aguarde, processando pagamento...</p>
-                    <p style="font-size: 0.9rem; color: #999; margin-top: 10px;">Conectando com a operadora...</p>
-                </div>
-                <style>
-                    @keyframes spin {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
-                    }
-                </style>
-            `;
-            
-            // Simular processamento real com gateway
-            setTimeout(() => {
-                console.log('[TOTEM] Pagamento com cartão aprovado');
-                completePayment(nome, cpf, whatsapp, total, 'card');
-            }, 3000);
+        function processCardPaymentReal() {
+            alert('Pagamento com cartão não foi processado: não existe conexão com adquirente.');
+            cancelPayment();
+            return false;
         }
-        
+
         // Processar Pagamento Google Pay
-        function processGooglePayPayment(customerData, total) {
-            console.log('[TOTEM] Iniciando pagamento Google Pay...');
-            
-            // Esperar Google Pay carregar
-            if (typeof google === 'undefined' || typeof google.payments === 'undefined') {
-                console.log('[TOTEM] Aguardando Google Pay API...');
-                setTimeout(() => {
-                    processGooglePayPayment(customerData, total);
-                }, 1000);
-                return;
-            }
-            
-            // Configuração Google Pay REAL (corrigida 100%)
-            const googlePayConfig = {
-                environment: 'TEST',
-                apiVersion: 2,
-                apiVersionMinor: 0,
-                allowedPaymentMethods: [
-                    {
-                        type: 'CARD',
-                        parameters: {
-                            allowedAuthMethods: ['PAN_ONLY', 'CRYPTOGRAM_3DS'],
-                            allowedCardNetworks: ['VISA', 'MASTERCARD', 'ELO', 'AMEX'],
-                            billingAddressRequired: false,
-                            billingAddressParameters: {
-                                format: 'FULL',
-                                phoneNumberRequired: false
-                            }
-                        },
-                        tokenizationSpecification: {
-                            type: 'PAYMENT_GATEWAY',
-                            parameters: {
-                                gateway: 'mercadopago',
-                                gatewayMerchantId: 'YOUR_MERCHANT_ID'
-                            }
-                        }
-                    }
-                ],
-                merchantInfo: {
-                    merchantId: 'BCR2DN4T7X5L2ZXL',
-                    merchantName: 'Celio Santos Silva'
-                },
-                transactionInfo: {
-                    totalPriceStatus: 'FINAL',
-                    totalPriceLabel: 'Total',
-                    totalPrice: total.toFixed(2),
-                    currencyCode: 'BRL',
-                    countryCode: 'BR'
-                }
-            };
-            
-            // Iniciar Google Pay REAL
+        function processGooglePayPayment() {
+            alert('Google Pay temporariamente indisponível. O provedor não está configurado no servidor.');
+            return false;
+        }
+
+        // Iniciar Google Pay REAL
             initGooglePay(googlePayConfig, customerData, total);
         }
         
@@ -2168,58 +2074,12 @@
         }
         
         // Processar Google Pay REAL
-        function processGooglePayReal(nome, cpf, whatsapp, total) {
-            console.log('[TOTEM] Processando Google Pay REAL...');
-            
-            const paymentsClient = new google.payments.api.PaymentsClient({
-                environment: 'TEST'
-            });
-            
-            // CORREÇÃO: Estrutura correta do paymentDataRequest
-            const paymentDataRequest = {
-                apiVersion: 2,
-                apiVersionMinor: 0,
-                allowedPaymentMethods: [
-                    {
-                        type: 'CARD',
-                        parameters: {
-                            allowedAuthMethods: ['PAN_ONLY', 'CRYPTOGRAM_3DS'],
-                            allowedCardNetworks: ['VISA', 'MASTERCARD', 'ELO', 'AMEX'],
-                            billingAddressRequired: false
-                        },
-                        tokenizationSpecification: {
-                            type: 'PAYMENT_GATEWAY',
-                            parameters: {
-                                gateway: 'mercadopago',
-                                gatewayMerchantId: 'YOUR_MERCHANT_ID'
-                            }
-                        }
-                    }
-                ],
-                merchantInfo: {
-                    merchantId: 'BCR2DN4T7X5L2ZXL',
-                    merchantName: 'Celio Santos Silva'
-                },
-                transactionInfo: {
-                    totalPriceStatus: 'FINAL',
-                    totalPrice: total.toFixed(2),
-                    currencyCode: 'BRL',
-                    countryCode: 'BR'
-                }
-            };
-            
-            paymentsClient.loadPaymentData(paymentDataRequest)
-                .then(paymentData => {
-                    console.log('[TOTEM] Google Pay sucesso:', paymentData);
-                    completePayment(nome, cpf, whatsapp, total, 'googlepay');
-                })
-                .catch(error => {
-                    console.error('[TOTEM] Google Pay erro:', error);
-                    alert('Erro no pagamento Google Pay');
-                    cancelPayment();
-                });
+        function processGooglePayReal() {
+            alert('Google Pay não foi processado. Nenhuma cobrança foi criada.');
+            cancelPayment();
+            return false;
         }
-        
+
         // Processar Pagamento Dinheiro
         function processMoneyPayment(customerData, total) {
             console.log('[TOTEM] Iniciando pagamento em dinheiro...');
@@ -2280,68 +2140,26 @@
         }
         
         // Confirmar Pagamento PIX
-        function confirmPixPayment(nome, cpf, whatsapp, total) {
-            console.log('[TOTEM] Pagamento PIX confirmado');
-            completePayment(nome, cpf, whatsapp, total, 'pix');
+        function confirmPixPayment() {
+            alert('PIX não pode ser confirmado manualmente. Aguarde o checkout integrado ao provedor.');
+            return false;
         }
-        
+
         // Simular Processamento Cartão
-        function simulateCardProcessing(nome, cpf, whatsapp, total) {
-            console.log('[TOTEM] Processando pagamento com cartão...');
-            
-            // Mostrar tela de processamento
-            const cardScreen = document.getElementById('cardPaymentScreen');
-            cardScreen.innerHTML = `
-                <div style="background: white; color: #333; padding: 40px; border-radius: 20px; max-width: 500px; width: 90%; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
-                    <h2 style="font-size: 2rem; margin-bottom: 20px; color: #2196f3;">💳 Processando...</h2>
-                    <div style="width: 60px; height: 60px; margin: 20px auto; border: 3px solid #2196f3; border-radius: 50%; display: flex; align-items: center; justify-content: center; animation: spin 1s linear infinite;">
-                        <div style="width: 20px; height: 20px; background: #2196f3; border-radius: 50%;"></div>
-                    </div>
-                    <p style="font-size: 1.1rem; color: #666;">Aguarde, processando pagamento...</p>
-                </div>
-                <style>
-                    @keyframes spin {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
-                    }
-                </style>
-            `;
-            
-            // Simular processamento de 3 segundos
-            setTimeout(() => {
-                completePayment(nome, cpf, whatsapp, total, 'card');
-            }, 3000);
+        function simulateCardProcessing() {
+            alert('Processamento simulado de cartão desativado. Nenhum pagamento foi realizado.');
+            return false;
         }
-        
+
         // Simular Google Pay
-        function simulateGooglePayPayment(nome, cpf, whatsapp, total) {
-            console.log('[TOTEM] Simulando Google Pay...');
-            
-            const googlePayScreen = document.getElementById('googlePayScreen');
-            googlePayScreen.innerHTML = `
-                <div style="background: white; color: #333; padding: 40px; border-radius: 20px; max-width: 500px; width: 90%; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
-                    <h2 style="font-size: 2rem; margin-bottom: 20px; color: #4285f4;">🟢 Autenticando...</h2>
-                    <div style="width: 60px; height: 60px; margin: 20px auto; border: 3px solid #4285f4; border-radius: 50%; display: flex; align-items: center; justify-content: center; animation: spin 1s linear infinite;">
-                        <div style="width: 20px; height: 20px; background: #4285f4; border-radius: 50%;"></div>
-                    </div>
-                    <p style="font-size: 1.1rem; color: #666;">Aguarde autenticação Google Pay...</p>
-                </div>
-                <style>
-                    @keyframes spin {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
-                    }
-                </style>
-            `;
-            
-            setTimeout(() => {
-                completePayment(nome, cpf, whatsapp, total, 'googlepay');
-            }, 2000);
+        function simulateGooglePayPayment() {
+            alert('Processamento simulado de Google Pay desativado. Nenhum pagamento foi realizado.');
+            return false;
         }
-        
+
         // Confirmar Pagamento Dinheiro
         function confirmMoneyPayment(nome, cpf, whatsapp, total, changeValue) {
-            console.log('[TOTEM] Pagamento em dinheiro confirmado');
+            console.log('[TOTEM] Cliente informou pagamento em dinheiro; aguardando confirmação do caixa.');
             completePayment(nome, cpf, whatsapp, total, 'money', changeValue);
         }
         
@@ -2383,7 +2201,7 @@
         
         // Completar Pagamento
         function completePayment(nome, cpf, whatsapp, total, paymentMethod, changeValue = 0) {
-            console.log('[TOTEM] Pagamento completado:', paymentMethod);
+            console.log('[TOTEM] Pedido registrado; pagamento aguardando confirmação:', paymentMethod);
             
             // Remover tela de pagamento
             const screens = ['pixPaymentScreen', 'cardPaymentScreen', 'googlePayScreen', 'moneyPaymentScreen'];
