@@ -120,7 +120,7 @@ async function registrarFalhaLote({ batchId, reason, retrySafe = false }) {
     if (retrySafe) await client.query('UPDATE sicoob_daily_payout_batches SET status=\'pending\',provider_reference=NULL,failure_reason=NULL,updated_at=NOW() WHERE id=$1', [id]);
     await client.query('INSERT INTO sicoob_payout_events(batch_id,event_type,details) VALUES ($1,$2,$3::jsonb)', [id,'provider_failed',JSON.stringify({reason:detail,retrySafe})]);
     await client.query('COMMIT');
-    return result.rows[0];
+    return retrySafe ? { ...result.rows[0], status: 'pending', provider_reference: null, failure_reason: null } : result.rows[0];
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
     throw error;
