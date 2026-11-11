@@ -1866,6 +1866,15 @@
                 }
             };
             
+            ws.onerror = function() {
+                const status = document.getElementById('deliveryMapRefreshStatus');
+                if (status) status.textContent = '❌ Falha na conexão com o servidor de entregas.';
+            };
+            ws.onclose = function() {
+                const status = document.getElementById('deliveryMapRefreshStatus');
+                if (status) status.textContent = '⚠️ Conexão perdida. O painel tentará reconectar ao recarregar.';
+            };
+
             ws.onmessage = function(event) {
                 let data;
                 try {
