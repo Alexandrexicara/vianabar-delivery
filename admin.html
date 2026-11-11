@@ -4218,7 +4218,7 @@
             navigator.geolocation.getCurrentPosition(async position => {
                 const locationData = { latitude:Number(position.coords.latitude), longitude:Number(position.coords.longitude), accuracy:Number(position.coords.accuracy)||null, updatedAt:new Date(position.timestamp||Date.now()).toISOString() };
                 try {
-                    const response = await fetch(merchantSettingsApi(), { method:'PUT', headers:{'Content-Type':'application/json','X-Admin-Access':localStorage.getItem('adminAccess') === 'true' ? 'true' : 'false'}, body:JSON.stringify({settings:{establishmentLocation:locationData}}), cache:'no-store' });
+                    const response = await fetch(merchantSettingsApi(), { method:'PUT', credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify({settings:{establishmentLocation:locationData}}), cache:'no-store' });
                     const result = await response.json();
                     if (!response.ok) throw new Error(result.error || 'Não foi possível gravar o GPS no cadastro do comércio.');
                     merchantMapLocation = locationData;
@@ -4243,7 +4243,7 @@
             if (merchantLocationCheckStarted) return;
             merchantLocationCheckStarted = true;
             try {
-                const response = await fetch(merchantSettingsApi(), {headers:{'X-Admin-Access':localStorage.getItem('adminAccess') === 'true' ? 'true' : 'false'},cache:'no-store'});
+                const response = await fetch(merchantSettingsApi(), {credentials:'include',cache:'no-store'});
                 const result = await response.json();
                 merchantMapLocation = result.settings?.establishmentLocation || null;
                 if (merchantMapLocation) { renderDeliveryMapMarkers(); return; }
