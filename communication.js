@@ -6,6 +6,8 @@
 const DeliveryCommunication = {
     ws: null,
     clientId: null,
+    loginMessage: null,
+    pendingMessages: [],
     reconnectAttempts: 0,
     maxReconnectAttempts: 5,
     reconnectDelay: 3000,
@@ -55,6 +57,10 @@ const DeliveryCommunication = {
                 this.ws.onopen = () => {
                     console.log('✅ [COMMUNICATION] WebSocket conectado!');
                     this.reconnectAttempts = 0;
+                    // Reidentifica a conexão após conectar/reconectar.
+                    if (this.loginMessage) this.ws.send(JSON.stringify(this.loginMessage));
+                    const queued = this.pendingMessages.splice(0);
+                    queued.forEach(message => this.ws && this.ws.readyState === WebSocket.OPEN && this.ws.send(JSON.stringify(message)));
                     this.sendHeartbeat();
                 };
 
@@ -175,11 +181,15 @@ const DeliveryCommunication = {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify(message));
             return true;
-        } else {
-            console.warn('[COMMUNICATION] WebSocket não disponível, usando fallback');
-            this.fallbackSend(message);
-            return false;
         }
+        if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
+            this.pendingMessages.push(message);
+            console.log('[COMMUNICATION] Mensagem enfileirada até o WebSocket conectar:', message.type);
+            return true;
+        }
+        console.warn('[COMMUNICATION] WebSocket não disponível, usando fallback');
+        this.fallbackSend(message);
+        return false;
     },
     
     // Fallback usando localStorage quando WebSocket falhar
@@ -486,18 +496,14 @@ const DeliveryCommunication = {
     
     // Registrar login do usuário
     registerUserLogin(userInfo) {
-        this.send({
-            type: 'userLogin',
-            userInfo: userInfo
-        });
+        this.loginMessage = { type:'userLogin', userInfo };
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(this.loginMessage));
     },
     
-    // Registrar login do motoboy
+    // Registrar login do motoboy; a identificação será enviada ao conectar e em cada reconexão.
     registerMotoboyLogin(motoboyInfo) {
-        this.send({
-            type: 'motoboyLogin',
-            motoboyInfo: motoboyInfo
-        });
+        this.loginMessage = { type:'motoboyLogin', motoboyInfo };
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(this.loginMessage));
     }
 };
 
