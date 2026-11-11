@@ -1,76 +1,70 @@
-# Arquitetura de pagamentos e entregas
+# Arquitetura atual de pedidos e pagamentos — VianaBar
 
-## Regra principal
+Última revisão: 11/11/2026.
 
-O sistema trabalha com valores fixos em reais, armazenados em centavos no banco. Não usar percentuais para calcular repasses, taxas ou entregas.
+## 1. Provedores por comerciante
 
-Os valores fixos de cada componente precisam vir da configuração comercial aprovada. Não criar valores padrão novos nem assumir que valores de demonstração sejam valores de produção.
+Cada estabelecimento usa um único provedor de recebimento por vez. O pedido carrega o identificador da loja e o backend consulta a configuração daquela loja. Nunca misturar AppID, chave Pix, cobranças ou repasses de comerciantes diferentes.
 
-## Fluxo A — pagamento do pedido com split automático
+- **Ovi/Woovi:** foco da implementação atual do checkout do cardápio. Cada comerciante conecta seu próprio AppID Woovi. A cobrança Pix é criada no backend com o AppID daquele estabelecimento.
+- **Cicobi/Sicoob:** permanece como integração bancária separada. O checkout Ovi não pode ser usado quando a loja estiver marcada como Sicoob. A estrutura de conexões e pagamentos de motoboy existente não significa que o checkout de pedidos do cardápio Sicoob esteja concluído.
 
-1. O servidor calcula e congela no pedido os valores: produtos, entrega, taxa fixa da plataforma e líquido do comerciante.
-2. O servidor cria a cobrança no provedor usando o valor total em centavos.
-3. Quando o provedor suportar split por valor fixo, o servidor envia os valores em centavos e confere que a soma dos repasses não ultrapassa o total.
-4. O pedido só muda para pago depois de confirmação autenticada do provedor e conciliação de identificador, valor e moeda. As rotas antigas de confirmação simulada foram bloqueadas enquanto o checkout real não estiver ligado ao banco e ao provedor.
-5. Webhooks repetidos não podem creditar saldos ou criar repasses duplicados.
+## 2. Checkout Ovi/Woovi
 
-### Provedores encontrados no repositório/documentação
+1. O cliente envia o carrinho e o storeId; o backend busca os produtos ativos no Neon e recalcula preço e total. Valores enviados pelo navegador nunca são autoridade.
+2. O pedido e os itens são persistidos no PostgreSQL/Neon antes da chamada ao provedor.
+3. O backend usa o AppID Woovi criptografado e vinculado ao storeId para criar a cobrança em centavos.
+4. O pedido permanece pendente. A página mostra QR Code / Pix Copia e Cola devolvido pela Woovi.
+5. O webhook autenticado e idempotente confirma o pagamento somente após conciliar correlationID e valor em centavos.
+6. Após o pagamento, o evento libera o pedido para cozinha e atualiza comerciante, garçom e cliente.
 
-- **Woovi:** a documentação oficial oferece cobrança PIX com correlationID e splits em valores fixos (centavos). O split para subcontas acumula saldo na subconta; o saque é uma operação separada. A conta precisa ter os recursos e permissões habilitados.
-- **My Gateway:** a documentação pública consultada descreve criação de PIX, cartão com 3DS e consulta do pagamento. Ela orienta confirmar somente quando a situação chegar a Paid. A documentação pública consultada não descreve split entre recebedores. Portanto, não enviar campos de split inventados para essa API.
+### Comissão da plataforma na Ovi
 
-A seleção do provedor de cobrança e a disponibilidade de split devem ser confirmadas pelas credenciais/conta de produção. Não misturar contratos de APIs diferentes.
+A regra comercial aceita para a Ovi é **15% do valor de cada venda**, transferidos por Pix Out da conta Woovi do próprio comerciante para a chave Pix da plataforma. Não é um split enviado pelo navegador e não é uma tarifa por item.
 
-## Fluxo B — comerciante paga motoboys contratados por ele
+- A cobrança entra na conta Woovi do comerciante.
+- Após o webhook confirmar o pagamento, o backend cria e aprova um Pix Out de 15% usando a conta do comerciante.
+- A transferência só aparece como concluída depois do evento de confirmação da Woovi.
+- A conta do comerciante precisa ter Pix Out habilitado.
+- Se a transferência tiver resultado incerto ou falhar, o sistema registra needs_review; nunca repete uma transferência às cegas.
+- A chave Pix de destino da plataforma é configurada somente no backend.
 
-Este fluxo é separado do split automático do pedido:
+## 3. Dinheiro e cartão na mesa
 
-1. Cada entrega concluída gera uma obrigação de pagamento com valor fixo em centavos, vinculada ao comerciante, motoboy e pedido.
-2. A obrigação vence 48 horas depois do momento em que foi gerada.
-3. O painel do comerciante apresenta as obrigações vencidas e o total devido.
-4. O comerciante autoriza um lote de pagamento; a autorização fica registrada com data e identificador do responsável.
-5. O lote só pode ser marcado como pago após confirmação verificável do provedor de transferência.
-6. Atraso deve bloquear novos saques/repasses ao comerciante apenas sobre valores que a plataforma ou o provedor efetivamente controla, conforme contrato e regras aplicáveis.
+Dinheiro e cartão presencial não são cobranças Pix Woovi. O pedido é registrado com estado awaiting_in_person, aparece para o comerciante e chama o garçom. O sistema não pode marcar como pago apenas porque o cliente clicou no botão. A confirmação manual segura pelo comerciante/garçom deve ser registrada separadamente da confirmação automática da Woovi.
 
-A migration migrations/20261111_create_merchant_motoboy_settlement.sql cria a estrutura persistente de obrigações, lotes, itens e eventos de auditoria. Ela não escolhe conta bancária, carteira ou instituição para custodiar/reservar os recursos. Essa decisão foi deixada deliberadamente em aberto.
+## 4. Persistência e isolamento
 
-## Segurança obrigatória
+- Pedidos do cardápio, itens, transações, webhooks e repasses da comissão ficam no Neon.
+- Todo pedido está vinculado a store_id.
+- Os produtos são consultados por store_id; preço e setor são lidos do banco.
+- WebSocket entrega pedidos e avisos somente às telas identificadas com o mesmo estabelecimento.
+- Pedidos ativos são recuperados do Neon quando o backend reinicia.
 
-- Nunca aceitar do navegador o valor final do pedido ou o valor de split como autoridade. O servidor deve recalcular com dados persistidos.
-- Nunca marcar PIX/cartão como pago por chamada direta do cliente.
-- Não armazenar chaves de API em JavaScript público, HTML ou localStorage.
-- Validar autenticação do webhook e conferir identificador, valor e estado na fonte do provedor.
-- Usar transações SQL e idempotência para evitar duplicidade.
-- Não afirmar que houve transferência bancária quando só foi criada uma obrigação ou autorização.
+## 5. Proteção de credenciais e webhooks
 
-## Situação encontrada no código legado
+- AppID Woovi por comerciante é armazenado com AES-256-GCM no backend.
+- Não enviar AppID, tokens ou chave Pix ao HTML, JavaScript público, localStorage ou logs.
+- Webhooks são autenticados e deduplicados por correlationID + evento.
+- Conferir valor recebido e o pedido antes de alterar estado financeiro.
+- O navegador não pode marcar PIX/cartão como pago.
+- As rotas legadas que simulavam confirmação permanecem desativadas.
 
-As rotas antigas POST /pagamento/pix/:id e POST /pagamento/cartao/:id alteram o estado para pago sem confirmação de um provedor. O fluxo legado usa objetos em memória, que se perdem quando o processo reinicia. O módulo MyGateway antigo contém endpoint e campos de split incompatíveis com a documentação pública consultada.
+## 6. Configuração necessária antes de receber dinheiro real
 
-Esses módulos não devem ser tratados como integração financeira pronta para produção. A substituição exige ligar o fluxo ao banco persistente, ao provedor efetivamente contratado e à autenticação dos painéis.
+Variáveis do backend:
+- PAYMENT_CREDENTIALS_ENCRYPTION_KEY: chave AES de 32 bytes.
+- WOOVI_WEBHOOK_AUTH_TOKEN: token de autenticação dos webhooks.
+- WOOVI_PLATFORM_PIX_KEY: chave Pix da plataforma para receber a comissão.
+- WOOVI_API_BASE_URL: produção https://api.woovi.com.
+- WOOVI_WEBHOOK_URL: endpoint público HTTPS do Render.
 
-## Bloqueios de segurança já aplicados no código
+Além disso, cada comerciante precisa conectar o AppID de produção da própria conta Woovi. A conta precisa permitir cobrança Pix e Pix Out. Sem a chave Pix da plataforma e sem a conta do comerciante ativa, o checkout Pix fica bloqueado — não usar chave fictícia ou ambiente sandbox como se fosse produção.
 
-- As rotas antigas de PIX/cartão não marcam mais pedidos como pagos.
-- A rota antiga de criação de cobrança Woovi não aceita mais valores ou splits enviados pelo navegador.
-- As rotas antigas de Google Pay e anti-chargeback não simulam captura nem estorno.
-- Mensagens WebSocket do cliente não podem atualizar pagamento nem apagar histórico como se o pagamento tivesse sido confirmado.
-- Pedidos recebidos por WebSocket são forçados para status de pagamento pendente.
-- Saques instantâneos em memória do motoboy foram bloqueados até existir o fluxo persistente de 48 horas.
-- O módulo antigo MyGateway no navegador foi substituído por adaptador desativado, sem chave de API e sem percentuais.
-- Dados bancários/PIX não são mais solicitados no cadastro antigo de motoboy nem armazenados pelo módulo legado no navegador.
-- Comissões de garçom nas telas administrativas passaram a usar valor fixo em reais, com padrão zero, em vez de percentual.
+## 7. Estado do Cicobi/Sicoob
 
-Esses bloqueios evitam confirmações financeiras falsas. Eles também significam que o checkout e a liquidação reais ainda precisam ser integrados antes de aceitar pagamentos em produção.
+A integração Sicoob continua isolada do checkout Ovi. As tabelas de conexão e repasses de motoboy são uma base para esse fluxo, mas não há evidência de que o checkout de pedidos do cardápio esteja integrado e validado em produção. Não marcar Cicobi como concluído antes de conferir credenciais de produção, APIs liberadas, webhooks/consultas e teste real.
 
+## 8. Motoboys
 
-## Bloqueios identificados antes de ativar o fluxo real
-
-- O banco Neon de produção consultado contém as tabelas de configuração/itens do cardápio, mas não possui tabelas persistentes de pedidos, comerciantes ou cobranças.
-- A migration legada de cobranças referencia tabelas pedidos e merchants que não existem no schema de produção consultado.
-- O fluxo de pedidos usado pelo WebSocket ainda mantém pedidos em memória; isso não serve como fonte financeira persistente.
-- O projeto não tem, na branch main, uma sessão autenticada de comerciante pronta para autorizar lotes. Não expor as novas operações de autorização sem autenticação.
-- Os valores fixos de entrega e taxa da plataforma não estão definidos em configuração de produção consultada. Os antigos R$ 1 e R$ 10 eram exemplos e foram removidos.
-- O serviço de 48 horas ainda não foi ligado ao evento confiável de entrega concluída, porque o pedido atual não fornece valores fixos persistidos e autenticados.
-
-Esses pontos precisam ser resolvidos para ativar o checkout e a autorização de pagamentos sem simulação. A escolha de onde manter os recursos continua separada e em aberto.
+O pagamento do motoboy é outro fluxo: obrigação fixa por entrega, vinculada a comerciante, motoboy e pedido. Não calcular o valor do motoboy como percentual da venda. A transferência só pode ser marcada como paga após confirmação do provedor. Não misturar esse pagamento com a comissão Ovi da plataforma.
