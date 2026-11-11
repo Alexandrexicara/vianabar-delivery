@@ -1434,6 +1434,9 @@
                 return 'kitchen'; // Restante vai para cozinha
             }
 
+            // Garante que o endereço e o GPS do estabelecimento estejam carregados antes de registrar o pedido.
+            await loadDeliveryMerchantSettings();
+
             // Criar objeto do pedido COM SETORES
             const order = {
                 id: `DEL_${Date.now()}`,
