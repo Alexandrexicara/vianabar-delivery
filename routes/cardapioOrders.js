@@ -4,6 +4,7 @@ const express = require('express');
 const crypto = require('crypto');
 const woovi = require('../services/wooviService');
 const orderEvents = require('../services/orderEvents');
+const { requireMerchant } = require('./merchantAuth');
 
 const router = express.Router();
 const pool = woovi.pool;
@@ -176,8 +177,57 @@ router.post('/', async (req, res) => {
     }
   }
 
-  orderEvents.emit('order.created', { order, notifyKitchen: paymentMethod !== 'pix' });
+  orderEvents.emit('order.created', { order, notifyKitchen: false });
   return res.status(201).json({ success: true, order, payment });
+});
+
+router.post('/:orderId/confirm-in-person', requireMerchant, async (req, res) => {
+  const orderId = String(req.params.orderId || '').trim();
+  const storeId = req.merchant.storeId;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const updated = await client.query(
+      `UPDATE cardapio_orders
+       SET payment_status='paid', updated_at=NOW()
+       WHERE id=$1 AND store_id=$2 AND payment_status='awaiting_in_person'
+         AND payment_method IN ('cash','card')
+       RETURNING id,store_id,order_type,customer_name,customer_phone,table_number,observations,
+                 subtotal_cents,total_cents,status,payment_method,payment_status,created_at`,
+      [orderId, storeId]
+    );
+    if (!updated.rowCount) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({success:false,error:'Pedido não encontrado nesta loja ou o pagamento já foi tratado.'});
+    }
+    const row = updated.rows[0];
+    const itemRows = await client.query(
+      'SELECT product_id,product_name,quantity,unit_price_cents,sector FROM cardapio_order_items WHERE order_id=$1',
+      [orderId]
+    );
+    await client.query('COMMIT');
+    const order = {
+      id: row.id, storeId: row.store_id, orderType: row.order_type,
+      customer: {name:row.customer_name,fullName:row.customer_name,phone:row.customer_phone,tableNumber:row.table_number},
+      table: row.order_type === 'totem' ? 'Totem' : row.order_type === 'counter' ? 'Balcão' : 'Mesa ' + row.table_number,
+      observations: row.observations || '',
+      items: itemRows.rows.map(item => ({
+        id:String(item.product_id),name:item.product_name,quantity:Number(item.quantity),
+        price:Number(item.unit_price_cents)/100,sector:item.sector
+      })),
+      subtotal:Number(row.subtotal_cents)/100,total:Number(row.total_cents)/100,
+      status:row.status,paymentStatus:'paid',paymentMethod:row.payment_method,
+      timestamp:row.created_at
+    };
+    orderEvents.emit('order.paid', order);
+    return res.json({success:true,order});
+  } catch (error) {
+    await client.query('ROLLBACK').catch(()=>{});
+    console.error('[CARDAPIO-ORDERS] Confirmação presencial:', error.message);
+    return res.status(500).json({success:false,error:'Não foi possível confirmar o recebimento. Tente novamente.'});
+  } finally {
+    client.release();
+  }
 });
 
 router.get('/:orderId', async (req, res) => {

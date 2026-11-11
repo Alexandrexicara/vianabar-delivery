@@ -1533,14 +1533,16 @@
         }
 
         // Check if user is authenticated
-        function checkAuthentication() {
-            const adminAccess = localStorage.getItem('adminAccess');
-            const establishmentData = localStorage.getItem('establishmentData');
-            
-            if (!adminAccess || !establishmentData) {
-                playTripleBeep(); // Som sonoro para acesso não autorizado
-                window.location.href = 'index.html';
-                return;
+        async function checkAuthentication() {
+            try {
+                const response = await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/session', { credentials:'include', cache:'no-store' });
+                if (!response.ok) throw new Error('Sessão ausente');
+                const result = await response.json();
+                window.merchantSession = result.merchant;
+                if (result.merchant?.storeId) window.merchantStoreIdAuthenticated = result.merchant.storeId;
+            } catch (_) {
+                playTripleBeep();
+                window.location.href = 'login.html';
             }
         }
 
@@ -1552,41 +1554,24 @@
         }
 
         // Logout
-        function logout() {
+        async function logout() {
             if (confirm('Tem certeza que deseja sair?')) {
+                try { await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/logout', { method:'POST', credentials:'include' }); } catch (_) {}
                 localStorage.removeItem('adminAccess');
-                localStorage.removeItem('establishmentData');
-                window.location.href = 'index.html';
+                window.location.href = 'login.html';
             }
         }
 
         // Abrir QR Management com autenticação
-        function openQrManagementWithAuth() {
-            // Verificar se está autenticado
-            const adminAccess = localStorage.getItem('adminAccess');
-            const establishmentData = localStorage.getItem('establishmentData');
-            
-            if (!adminAccess || !establishmentData) {
-                alert('⚠️ Você precisa estar logado para acessar a personalização!');
-                return;
+        async function openQrManagementWithAuth() {
+            try {
+                const response = await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/session', {credentials:'include',cache:'no-store'});
+                if (!response.ok) throw new Error('Sessão expirada');
+                window.open('qr-management.html', '_blank');
+            } catch (_) {
+                alert('Entre novamente para acessar a personalização.');
+                window.location.href = 'login.html';
             }
-            
-            // Abrir em nova aba passando os dados de autenticação via localStorage
-            const newWindow = window.open('qr-management.html', '_blank');
-            
-            // Aguardar a nova janela carregar e passar os dados
-            setTimeout(() => {
-                if (newWindow && !newWindow.closed) {
-                    // Passar dados de autenticação para a nova janela
-                    newWindow.localStorage.setItem('adminAccess', adminAccess);
-                    newWindow.localStorage.setItem('establishmentData', establishmentData);
-                    
-                    // Recarregar a página para aplicar a autenticação
-                    newWindow.location.reload();
-                    
-                    console.log('🔐 Autenticação passada para qr-management.html');
-                }
-            }, 1000);
         }
 
         // View menu as customer
@@ -1922,8 +1907,10 @@
                                         
                         // Add to other sections
                         addNewOrderToOrdersSection(order);
-                        addNewOrderToKitchenSection(order);
-                        addNewOrderToCounterSection(order);
+                        if (['paid','completed'].includes(String(order.paymentStatus || '').toLowerCase())) {
+                            addNewOrderToKitchenSection(order);
+                            addNewOrderToCounterSection(order);
+                        }
                                         
                         // Add to payments section if payment is pending
                         if (['pending','awaiting_in_person'].includes(order.paymentStatus)) {
@@ -2030,8 +2017,10 @@
                     // Add new order to all relevant sections
                     if (data.order) {
                         addNewOrderToOrdersSection(data.order);
-                        addNewOrderToKitchenSection(data.order);
-                        addNewOrderToCounterSection(data.order);
+                        if (['paid','completed'].includes(String(data.order.paymentStatus || '').toLowerCase())) {
+                            addNewOrderToKitchenSection(data.order);
+                            addNewOrderToCounterSection(data.order);
+                        }
                         // Add to payments section if payment is pending
                         if (['pending','awaiting_in_person'].includes(data.order.paymentStatus)) {
                             addOrderToPaymentsSection(data.order);
@@ -2941,71 +2930,54 @@
         // Add order to payments section
         function addOrderToPaymentsSection(order) {
             const paymentsList = document.getElementById('paymentsList');
-            if (paymentsList.querySelector('p')) {
-                paymentsList.innerHTML = '';
-            }
-            
-            // Group orders by table and sum the values
-            const existingOrders = Array.from(paymentsList.querySelectorAll('.order-card'));
-            
-            // Check if there's already an order from the same table
-            let existingTableOrder = null;
-            
-            for (const element of existingOrders) {
-                const tableElement = element.querySelector('.order-table');
-                if (tableElement && tableElement.textContent === order.table) {
-                    existingTableOrder = element;
-                    break;
+            if (!paymentsList) return;
+            if (paymentsList.querySelector('p')) paymentsList.innerHTML = '';
+            if (document.getElementById('payment-' + CSS.escape(String(order.id)))) return;
+            const paymentCard = document.createElement('div');
+            paymentCard.className = 'order-card';
+            paymentCard.id = 'payment-' + String(order.id);
+            paymentCard.setAttribute('data-order-id', String(order.id));
+            const amount = Number(order.total || 0).toFixed(2).replace('.', ',');
+            const inPerson = order.paymentStatus === 'awaiting_in_person' && ['cash','card'].includes(String(order.paymentMethod).toLowerCase());
+            paymentCard.innerHTML = `
+                <div class="order-header">
+                    <div class="order-id">Pedido ${String(order.id).slice(0,8).toUpperCase()}</div>
+                    <div class="order-table">${String(order.table || 'Pedido')}</div>
+                </div>
+                <div class="order-total">Total: R$ ${amount}</div>
+                <div class="payment-status payment-${String(order.paymentStatus || 'pending')}">Pagamento: ${getPaymentStatusText(order.paymentStatus)}</div>
+                <div class="order-actions">
+                    ${inPerson ? '<button type="button" class="btn btn-cash" onclick="confirmInPersonPayment(\'' + String(order.id) + '\')">Confirmar recebimento no caixa</button>' : '<span class="payment-note">Aguardando confirmação automática do provedor</span>'}
+                </div>`;
+            paymentsList.appendChild(paymentCard);
+        }
+
+        async function confirmInPersonPayment(orderId) {
+            if (!orderId || !confirm('Confirma que o dinheiro foi recebido ou que a transação do cartão foi aprovada na maquininha?')) return;
+            const button = document.querySelector('[data-order-id="' + CSS.escape(String(orderId)) + '"] button');
+            if (button) { button.disabled = true; button.textContent = 'Confirmando...'; }
+            try {
+                const response = await fetch('https://vianabar-delivery.onrender.com/api/cardapio/orders/' + encodeURIComponent(orderId) + '/confirm-in-person', {
+                    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: '{}'
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.error || 'Não foi possível confirmar o recebimento.');
+                const card = document.getElementById('payment-' + String(orderId));
+                if (card) {
+                    const status = card.querySelector('.payment-status');
+                    if (status) { status.textContent = 'Pagamento: Recebido'; status.className = 'payment-status payment-completed'; }
+                    const actions = card.querySelector('.order-actions');
+                    if (actions) actions.textContent = 'Recebimento confirmado pelo caixa.';
                 }
-            }
-            
-            if (existingTableOrder) {
-                // Update existing table order
-                const totalElement = existingTableOrder.querySelector('.order-total');
-                if (totalElement) {
-                    // Extract current total from the element
-                    const currentTotalText = totalElement.textContent;
-                    const currentTotalMatch = currentTotalText.match(/R\$\s([\d,]+\.\d{2})/);
-                    let currentTotal = 0;
-                    if (currentTotalMatch) {
-                        currentTotal = parseFloat(currentTotalMatch[1].replace(',', '.'));
-                    }
-                    
-                    // Calculate new total
-                    const newTotal = currentTotal + order.total;
-                    
-                    // Update the total display
-                    totalElement.innerHTML = `Total: R$ ${newTotal.toFixed(2).replace('.', ',')}`;
-                    
-                    // Add the new order ID to the list
-                    const orderIdsElement = existingTableOrder.querySelector('.order-id');
-                    if (orderIdsElement) {
-                        orderIdsElement.innerHTML += ` | ${order.id}`;
-                    }
-                    
-                    // A confirmação financeira não é feita pelo navegador; aguardar provedor ou recebimento presencial.
-                }
-            } else {
-                // Create new table order element
-                const paymentCard = document.createElement('div');
-                paymentCard.className = 'order-card';
-                paymentCard.id = `payment-${order.id}`;
-                paymentCard.setAttribute('data-order-id', order.id); // Add data attribute for easy selection
-                paymentCard.innerHTML = `
-                    <div class="order-header">
-                        <div class="order-id">${order.id}</div>
-                        <div class="order-table">${order.table}</div>
-                    </div>
-                    <div class="order-total">Total: R$ ${order.total.toFixed(2).replace('.', ',')}</div>
-                    <div class="payment-status payment-${order.paymentStatus}">Pagamento: ${getPaymentStatusText(order.paymentStatus)}</div>
-                    <div class="order-actions">
-                         <span class="payment-note">${order.paymentMethod === 'pix' ? 'Aguardando confirmação automática da Ovi' : 'Aguardando recebimento presencial pelo garçom'}</span>
-                    </div>
-                `;
-                paymentsList.appendChild(paymentCard);
+                addNewOrderToKitchenSection(result.order);
+                addNewOrderToCounterSection(result.order);
+                alert('Recebimento confirmado. O pedido foi liberado para preparo.');
+            } catch (error) {
+                alert(error.message || 'Falha ao confirmar o recebimento.');
+                if (button) { button.disabled = false; button.textContent = 'Confirmar recebimento no caixa'; }
             }
         }
-        
+
         // Create order card HTML
         function createOrderCardHTML(order, isCombined = false) {
             let itemsHTML = '';
@@ -4235,7 +4207,7 @@
             navigator.geolocation.getCurrentPosition(async position => {
                 const locationData = { latitude:Number(position.coords.latitude), longitude:Number(position.coords.longitude), accuracy:Number(position.coords.accuracy)||null, updatedAt:new Date(position.timestamp||Date.now()).toISOString() };
                 try {
-                    const response = await fetch(merchantSettingsApi(), { method:'PUT', headers:{'Content-Type':'application/json','X-Admin-Access':localStorage.getItem('adminAccess') === 'true' ? 'true' : 'false'}, body:JSON.stringify({settings:{establishmentLocation:locationData}}), cache:'no-store' });
+                    const response = await fetch(merchantSettingsApi(), { method:'PUT', credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify({settings:{establishmentLocation:locationData}}), cache:'no-store' });
                     const result = await response.json();
                     if (!response.ok) throw new Error(result.error || 'Não foi possível gravar o GPS no cadastro do comércio.');
                     merchantMapLocation = locationData;
@@ -4260,7 +4232,7 @@
             if (merchantLocationCheckStarted) return;
             merchantLocationCheckStarted = true;
             try {
-                const response = await fetch(merchantSettingsApi(), {headers:{'X-Admin-Access':localStorage.getItem('adminAccess') === 'true' ? 'true' : 'false'},cache:'no-store'});
+                const response = await fetch(merchantSettingsApi(), {credentials:'include',cache:'no-store'});
                 const result = await response.json();
                 merchantMapLocation = result.settings?.establishmentLocation || null;
                 if (merchantMapLocation) { renderDeliveryMapMarkers(); return; }
