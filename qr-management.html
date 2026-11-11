@@ -341,6 +341,15 @@
                 <button class="btn btn-warning" onclick="printQRCode()">Imprimir plaquinha 15 × 10 cm</button>
             </div>
             <p style="text-align:center;color:#667085;font-size:13px;">Formato horizontal • QR Code com aproximadamente 4 cm • Fundo branco para facilitar a leitura.</p>
+            <div style="max-width:650px;margin:22px auto;padding:18px;border:1px solid #d8e7df;border-radius:14px;background:#f7fcf9;text-align:center;">
+                <h3 style="margin:0 0 8px;color:#075c43;">Totem de autoatendimento</h3>
+                <p style="margin:0 0 14px;color:#526273;">Abra o totem já vinculado ao estabelecimento. Os produtos e as configurações serão carregados do mesmo cadastro usado no cardápio digital.</p>
+                <div id="totem-url" style="font-size:12px;color:#527265;overflow-wrap:anywhere;margin-bottom:12px;"></div>
+                <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;">
+                    <button class="btn" type="button" onclick="openMerchantTotem()">Abrir Totem desta loja</button>
+                    <button class="btn btn-warning" type="button" onclick="copyMerchantTotemUrl()">Copiar endereço do Totem</button>
+                </div>
+            </div>
             
             <div style="background-color: #fff5f5; padding: 20px; border-radius: 10px; border-left: 4px solid #e74c3c; margin: 30px 0;">
                 <h3>Importante</h3>
@@ -1400,6 +1409,27 @@
             localStorage.setItem('productShowcase', JSON.stringify(vitrineProducts));
         }
 
+        function getMerchantTotemUrl() {
+            const url = new URL('/totem.html', 'https://delivery-day.netlify.app');
+            url.searchParams.set('loja', getMerchantStoreId());
+            return url.toString();
+        }
+
+        function openMerchantTotem() {
+            const url = getMerchantTotemUrl();
+            window.open(url, '_blank', 'noopener');
+        }
+
+        async function copyMerchantTotemUrl() {
+            const url = getMerchantTotemUrl();
+            try {
+                await navigator.clipboard.writeText(url);
+                alert('Endereço do totem copiado.');
+            } catch (_) {
+                prompt('Copie o endereço do totem:', url);
+            }
+        }
+
         // Endereço oficial do cardápio: cada comerciante usa seu identificador exclusivo.
         function updateMenuUrl() {
             let establishment = {};
@@ -1408,6 +1438,8 @@
             const menuUrl = new URL('/usuario.html', 'https://delivery-day.netlify.app');
             menuUrl.searchParams.set('loja', storeId);
             const url = menuUrl.toString();
+            const totemUrlElement = document.getElementById('totem-url');
+            if (totemUrlElement) totemUrlElement.textContent = getMerchantTotemUrl();
             const currentUrlElement = document.getElementById('current-url');
             if (currentUrlElement) currentUrlElement.textContent = url;
             const nameElement = document.getElementById('plaque-establishment-name');
