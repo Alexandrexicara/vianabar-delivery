@@ -6,6 +6,34 @@ const woovi = require('../services/wooviService');
 const orderEvents = require('../services/orderEvents');
 const router = express.Router();
 
+router.get('/platform-key', requireCreator, async (_req, res) => {
+  try {
+    const config = await woovi.getPlatformPixConfig();
+    res.set('Cache-Control','no-store');
+    res.json({
+      success:true, configured:Boolean(config),
+      masked:config ? '••••' + config.key.slice(-4) : null,
+      type:config?.type || null
+    });
+  } catch (error) {
+    console.error('[WOOVI] Erro ao consultar chave da plataforma:', error.message);
+    res.status(500).json({success:false,error:'Não foi possível consultar a chave Pix da plataforma.'});
+  }
+});
+
+router.put('/platform-key', requireCreator, async (req, res) => {
+  try {
+    const result = await woovi.savePlatformPixKey({
+      pixKey:req.body?.pixKey,
+      pixKeyType:req.body?.pixKeyType
+    });
+    res.set('Cache-Control','no-store');
+    res.json({success:true,...result});
+  } catch (error) {
+    res.status(400).json({success:false,error:error.message});
+  }
+});
+
 router.get('/merchant/:storeId', requireCreator, async (req, res) => {
   try {
     const storeId = String(req.params.storeId || '');
