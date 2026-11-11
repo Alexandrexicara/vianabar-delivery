@@ -48,3 +48,17 @@ A migration migrations/20261111_create_merchant_motoboy_settlement.sql cria a es
 As rotas antigas POST /pagamento/pix/:id e POST /pagamento/cartao/:id alteram o estado para pago sem confirmação de um provedor. O fluxo legado usa objetos em memória, que se perdem quando o processo reinicia. O módulo MyGateway antigo contém endpoint e campos de split incompatíveis com a documentação pública consultada.
 
 Esses módulos não devem ser tratados como integração financeira pronta para produção. A substituição exige ligar o fluxo ao banco persistente, ao provedor efetivamente contratado e à autenticação dos painéis.
+
+## Bloqueios de segurança já aplicados no código
+
+- As rotas antigas de PIX/cartão não marcam mais pedidos como pagos.
+- A rota antiga de criação de cobrança Woovi não aceita mais valores ou splits enviados pelo navegador.
+- As rotas antigas de Google Pay e anti-chargeback não simulam captura nem estorno.
+- Mensagens WebSocket do cliente não podem atualizar pagamento nem apagar histórico como se o pagamento tivesse sido confirmado.
+- Pedidos recebidos por WebSocket são forçados para status de pagamento pendente.
+- Saques instantâneos em memória do motoboy foram bloqueados até existir o fluxo persistente de 48 horas.
+- O módulo antigo MyGateway no navegador foi substituído por adaptador desativado, sem chave de API e sem percentuais.
+- Dados bancários/PIX não são mais solicitados no cadastro antigo de motoboy nem armazenados pelo módulo legado no navegador.
+- Comissões de garçom nas telas administrativas passaram a usar valor fixo em reais, com padrão zero, em vez de percentual.
+
+Esses bloqueios evitam confirmações financeiras falsas. Eles também significam que o checkout e a liquidação reais ainda precisam ser integrados antes de aceitar pagamentos em produção.
