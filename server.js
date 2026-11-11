@@ -414,7 +414,7 @@ wss.on('connection', async (ws, req) => {
         // Update order status
         console.log('[DEBUG] Servidor: Recebida solicitação de atualização de status', data);
         const order = orders.find(o => o.id === data.orderId);
-        if (ws.merchantSession && ['admin','kitchen','counter','waiter'].includes(ws.role) && order && order.storeId === ws.storeId) {
+        if (ws.merchantSession && ['admin','kitchen','counter','waiter'].includes(ws.role) && order && order.storeId === ws.storeId && (ws.role === 'admin' || ['paid','completed'].includes(String(order.paymentStatus || '').toLowerCase()))) {
           if (order.storeId) cardapioDb.query('UPDATE cardapio_orders SET status=$2,updated_at=NOW() WHERE id=$1 AND store_id=$3', [String(order.id), String(data.status), order.storeId]).catch(error => console.error('[CARDAPIO] Falha ao persistir status:', error.message));
           console.log('[DEBUG] Servidor: Pedido encontrado, atualizando status de', order.status, 'para', data.status);
           order.status = data.status;
