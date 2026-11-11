@@ -7,6 +7,7 @@ const DeliveryCommunication = {
     ws: null,
     clientId: null,
     loginMessage: null,
+    trackingOrderId: localStorage.getItem('deliveryTrackingOrderId') || null,
     pendingMessages: [],
     reconnectAttempts: 0,
     maxReconnectAttempts: 5,
@@ -59,6 +60,7 @@ const DeliveryCommunication = {
                     this.reconnectAttempts = 0;
                     // Reidentifica a conexão após conectar/reconectar.
                     if (this.loginMessage) this.ws.send(JSON.stringify(this.loginMessage));
+                    if (this.trackingOrderId) this.ws.send(JSON.stringify({type:'trackDeliveryOrder',orderId:this.trackingOrderId}));
                     const queued = this.pendingMessages.splice(0);
                     queued.forEach(message => this.ws && this.ws.readyState === WebSocket.OPEN && this.ws.send(JSON.stringify(message)));
                     this.sendHeartbeat();
@@ -74,6 +76,9 @@ const DeliveryCommunication = {
                         const message = JSON.parse(event.data);
                         console.log('[COMMUNICATION] Mensagem recebida:', message);
                         this.handleMessage(message);
+                        if (message && (message.orderId || message.order)) {
+                            window.dispatchEvent(new CustomEvent('deliveryOrderUpdate', {detail:message}));
+                        }
                     } catch (error) {
                         console.warn('[COMMUNICATION] Erro ao processar mensagem (pode ser texto):', error.message);
                     }
@@ -306,6 +311,8 @@ const DeliveryCommunication = {
         console.log('[COMMUNICATION] Broadcast de novo pedido:', order.id);
         
         const normalizedOrder = { ...order, status: order.status || 'pending' };
+        this.trackingOrderId = String(normalizedOrder.id);
+        localStorage.setItem('deliveryTrackingOrderId', this.trackingOrderId);
 
         // Via WebSocket
         const sent = this.send({
@@ -494,6 +501,13 @@ const DeliveryCommunication = {
         return order ? order.status : null;
     },
     
+    trackDeliveryOrder(orderId) {
+        if (!orderId) return false;
+        this.trackingOrderId = String(orderId);
+        localStorage.setItem('deliveryTrackingOrderId', this.trackingOrderId);
+        return this.send({type:'trackDeliveryOrder',orderId:this.trackingOrderId});
+    },
+
     // Registrar login do usuário
     registerUserLogin(userInfo) {
         this.loginMessage = { type:'userLogin', userInfo };
