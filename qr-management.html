@@ -830,35 +830,29 @@
         }
         
         // Load establishment data on page load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             console.log('[DEBUG] Iniciando carregamento da página');
-            // Check if admin has proper access
-            const adminAccess = localStorage.getItem('adminAccess');
-            const establishmentData = localStorage.getItem('establishmentData');
-            
-            console.log('[DEBUG] adminAccess:', adminAccess);
-            console.log('[DEBUG] establishmentData:', establishmentData);
-            
-            // Aceita admin OU creator (isAuthenticated)
-            let hasAuth = false;
-            if (adminAccess && establishmentData) {
-                hasAuth = true;
-            } else if (establishmentData) {
-                try {
-                    const data = JSON.parse(establishmentData);
-                    hasAuth = data && data.isAuthenticated;
-                } catch(e) {}
-            }
-            
-            if (!hasAuth) {
-                alert('⚠️ É necessário fazer login!');
+            let session;
+            try {
+                const authResponse = await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/session', {credentials:'include',cache:'no-store'});
+                if (!authResponse.ok) throw new Error('Sessão ausente');
+                session = (await authResponse.json()).merchant;
+            } catch (_) {
+                alert('⚠️ É necessário entrar com o acesso seguro do comerciante.');
                 window.location.href = 'login.html';
                 return;
             }
-            
-            const data = JSON.parse(establishmentData);
-            console.log('[DEBUG] Dados do estabelecimento:', data);
-            if (data && (data.isAuthenticated || adminAccess === 'true')) {
+            localStorage.removeItem('adminAccess');
+            let establishment = {};
+            try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
+            establishment.uniqueId = session.storeId;
+            establishment.storeId = session.storeId;
+            establishment.email = session.email;
+            localStorage.setItem('establishmentData', JSON.stringify(establishment));
+            const establishmentData = JSON.stringify(establishment);
+            const data = establishment;
+            console.log('[DEBUG] Sessão autenticada para loja:', session.storeId);
+            {
                 const adminNameElement = document.getElementById('adminName');
                 if (adminNameElement) {
                     adminNameElement.textContent = 'Administrador - ' + data.establishmentName;
