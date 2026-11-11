@@ -1924,8 +1924,10 @@
                                         
                         // Add to other sections
                         addNewOrderToOrdersSection(order);
-                        addNewOrderToKitchenSection(order);
-                        addNewOrderToCounterSection(order);
+                        if (['paid','completed'].includes(String(order.paymentStatus || '').toLowerCase())) {
+                            addNewOrderToKitchenSection(order);
+                            addNewOrderToCounterSection(order);
+                        }
                                         
                         // Add to payments section if payment is pending
                         if (['pending','awaiting_in_person'].includes(order.paymentStatus)) {
@@ -2032,8 +2034,10 @@
                     // Add new order to all relevant sections
                     if (data.order) {
                         addNewOrderToOrdersSection(data.order);
-                        addNewOrderToKitchenSection(data.order);
-                        addNewOrderToCounterSection(data.order);
+                        if (['paid','completed'].includes(String(data.order.paymentStatus || '').toLowerCase())) {
+                            addNewOrderToKitchenSection(data.order);
+                            addNewOrderToCounterSection(data.order);
+                        }
                         // Add to payments section if payment is pending
                         if (['pending','awaiting_in_person'].includes(data.order.paymentStatus)) {
                             addOrderToPaymentsSection(data.order);
@@ -2982,6 +2986,8 @@
                     const actions = card.querySelector('.order-actions');
                     if (actions) actions.textContent = 'Recebimento confirmado pelo caixa.';
                 }
+                addNewOrderToKitchenSection(result.order);
+                addNewOrderToCounterSection(result.order);
                 alert('Recebimento confirmado. O pedido foi liberado para preparo.');
             } catch (error) {
                 alert(error.message || 'Falha ao confirmar o recebimento.');
