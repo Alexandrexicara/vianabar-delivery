@@ -1395,7 +1395,7 @@
         }
 
         // Finalizar pedido e enviar para motoboy
-        window.finalizeOrder = function() {
+        window.finalizeOrder = async function() {
             console.log('[DELIVERY] finalizeOrder() chamado');
             console.log('[DELIVERY] Carrinho:', cart);
             console.log('[DELIVERY] Endereço:', deliveryAddress);
@@ -1427,7 +1427,7 @@
                     return menuItem.sector;
                 }
                 // Fallback automático baseado na categoria
-                const category = item.category || 'all';
+                const category = menuItem?.category || 'all';
                 if (category === 'drink' || category === 'dessert') {
                     return 'counter'; // Bebidas e sobremesas vão para balcão
                 }
