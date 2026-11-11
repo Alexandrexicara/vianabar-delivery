@@ -176,7 +176,8 @@ router.post('/', async (req, res) => {
     }
   }
 
-  orderEvents.emit('order.created', { order, notifyKitchen: paymentMethod !== 'pix' });
+  // O pedido aparece primeiro no administrador/caixa. Cozinha e balcão só recebem após pagamento confirmado.
+  orderEvents.emit('order.created', { order, notifyKitchen: false });
   return res.status(201).json({ success: true, order, payment });
 });
 
