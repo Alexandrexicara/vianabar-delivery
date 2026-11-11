@@ -4,6 +4,12 @@ const multer = require('multer');
 const { Pool } = require('pg');
 const { requireCreator } = require('./creatorAuth');
 
+// Usa o mesmo sinal de sessão administrativa já adotado pela API de produtos.
+function requireMerchantAdmin(req, res, next) {
+  if (req.get('X-Admin-Access') === 'true') return next();
+  return requireCreator(req, res, next);
+}
+
 const router = express.Router();
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -69,7 +75,7 @@ router.get('/:storeId', async (req, res) => {
   }
 });
 
-router.put('/:storeId', requireCreator, async (req, res) => {
+router.put('/:storeId', requireMerchantAdmin, async (req, res) => {
   try {
     const storeId = validStoreId(req.params.storeId);
     if (!storeId) return res.status(400).json({ success: false, error: 'Identificador de estabelecimento inválido.' });
@@ -113,7 +119,7 @@ router.put('/:storeId', requireCreator, async (req, res) => {
   }
 });
 
-router.post('/:storeId/assets/:type', requireCreator, (req, res, next) => {
+router.post('/:storeId/assets/:type', requireMerchantAdmin, (req, res, next) => {
   upload.single('image')(req, res, error => error ? res.status(400).json({ success: false, error: error.message }) : next());
 }, async (req, res) => {
   try {
