@@ -350,7 +350,7 @@ wss.on('connection', async (ws, req) => {
         ws.send(JSON.stringify({ type: 'adminLoginSuccess' }));
         ws.send(JSON.stringify({
           type: 'existingDeliveryOrders',
-          orders: deliveryOrders.filter(o => ['pending', 'accepted', 'preparing', 'delivering', 'onroute'].includes(String(o.status || '').toLowerCase()))
+          orders: deliveryOrders.filter(o => o.storeId === ws.storeId && ['pending', 'accepted', 'preparing', 'delivering', 'onroute'].includes(String(o.status || '').toLowerCase()))
         }));
       } else if (data.type === 'kitchenLogin') {
         if (!ws.merchantSession) { ws.send(JSON.stringify({type:'authRequired'})); ws.close(4401, 'Authentication required'); return; }
@@ -369,7 +369,7 @@ wss.on('connection', async (ws, req) => {
         ws.send(JSON.stringify({ type: 'waiterLoginSuccess' }));
       } else if (data.type === 'getExistingDeliveryOrders') {
         if (ws.role === 'admin') {
-          const activeOrders = deliveryOrders.filter(o => ['accepted', 'preparing', 'delivering', 'onroute'].includes(String(o.status || '').toLowerCase()));
+          const activeOrders = deliveryOrders.filter(o => o.storeId === ws.storeId && ['accepted', 'preparing', 'delivering', 'onroute'].includes(String(o.status || '').toLowerCase()));
           ws.send(JSON.stringify({
             type: 'existingDeliveryOrders',
             requestId: data.requestId || null,
