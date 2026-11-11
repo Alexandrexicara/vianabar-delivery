@@ -120,7 +120,7 @@ async function savePlatformPixKey({ pixKey, pixKeyType }) {
     : type === 'EMAIL' ? key.toLowerCase()
     : type === 'PHONE' ? key.replace(/[^\d+]/g, '')
     : key;
-  if (type === 'PHONE' && !/^\+?\d{10,15}$/.test(normalizedKey)) throw new Error('Informe o telefone Pix com DDD e código do país, se aplicável.');
+  if (type === 'PHONE' && !/^\+\d{10,15}$/.test(normalizedKey)) throw new Error('Informe o telefone Pix em formato internacional E.164, começando com + e o código do país (ex.: +5511999999999).');
   if (type === 'RANDOM' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalizedKey)) throw new Error('A chave aleatória Pix precisa estar no formato UUID de 36 caracteres.');
   const encrypted = encryptSecret(normalizedKey);
   await pool.query(
