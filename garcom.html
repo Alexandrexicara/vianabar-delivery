@@ -1432,7 +1432,14 @@
                             
                             // APENAS som sonoro EM LOOP - 30 segundos
                             if (data.paymentStatus === 'completed') {
-                                playLoopingNotification(); // Som sonoro para pagamento confirmado
+                                playLoopingNotification();
+                                showNotification('Pagamento confirmado para o pedido ' + data.orderId);
+                            } else if (data.paymentStatus === 'expired') {
+                                playLoopingNotification();
+                                showNotification('Cobrança Pix expirada no pedido ' + data.orderId + '. Verifique com o cliente.');
+                            } else if (data.paymentStatus === 'needs_review') {
+                                playLoopingNotification();
+                                showNotification('Pagamento do pedido ' + data.orderId + ' precisa de conferência.');
                             }
                         }
                     }
