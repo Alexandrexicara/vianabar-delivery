@@ -80,6 +80,56 @@ function extractCharge(response) {
   const value = response?.data || response;
   return value.charge || value;
 }
+function inferPixKeyType(value, explicitType) {
+  const key = String(value || '').trim();
+  const explicit = String(explicitType || process.env.WOOVI_PLATFORM_PIX_KEY_TYPE || '').toUpperCase();
+  if (['CPF','CNPJ','EMAIL','PHONE','RANDOM'].includes(explicit)) return explicit;
+  if (/^\d{11}$/.test(key)) return 'CPF';
+  if (/^\d{14}$/.test(key)) return 'CNPJ';
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(key)) return 'EMAIL';
+  if (/^\+?\d{10,15}$/.test(key)) return 'PHONE';
+  return 'RANDOM';
+}
+
+async function getPlatformPixConfig() {
+  const result = await pool.query(
+    "SELECT pix_key_ciphertext,pix_key_iv,pix_key_tag,pix_key_type FROM platform_payment_settings WHERE setting_id='default'"
+  );
+  if (result.rowCount) {
+    const row = result.rows[0];
+    return {
+      key: decryptSecret({ app_id_ciphertext: row.pix_key_ciphertext, app_id_iv: row.pix_key_iv, app_id_tag: row.pix_key_tag }),
+      type: row.pix_key_type
+    };
+  }
+  if (process.env.WOOVI_PLATFORM_PIX_KEY) {
+    return { key: String(process.env.WOOVI_PLATFORM_PIX_KEY).trim(), type: inferPixKeyType(process.env.WOOVI_PLATFORM_PIX_KEY) };
+  }
+  return null;
+}
+
+async function savePlatformPixKey({ pixKey, pixKeyType }) {
+  const key = String(pixKey || '').trim();
+  if (key.length < 8 || key.length > 200) throw new Error('Chave Pix da plataforma inválida.');
+  const type = inferPixKeyType(key, pixKeyType);
+  const digits = key.replace(/\D/g, '');
+  if (type === 'CPF' && digits.length !== 11) throw new Error('A chave selecionada como CPF precisa ter 11 dígitos.');
+  if (type === 'CNPJ' && digits.length !== 14) throw new Error('A chave selecionada como CNPJ precisa ter 14 dígitos.');
+  if (type === 'EMAIL' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(key)) throw new Error('Informe um e-mail válido para a chave Pix.');
+  if (type === 'PHONE' && !/^\+?\d{10,15}$/.test(key)) throw new Error('Informe o telefone Pix com DDD e código do país, se aplicável.');
+  if (type === 'RANDOM' && key.length < 20) throw new Error('A chave aleatória Pix parece incompleta.');
+  const encrypted = encryptSecret(key);
+  await pool.query(
+    \`INSERT INTO platform_payment_settings(setting_id,pix_key_ciphertext,pix_key_iv,pix_key_tag,pix_key_type)
+     VALUES('default',$1,$2,$3,$4)
+     ON CONFLICT(setting_id) DO UPDATE SET
+       pix_key_ciphertext=EXCLUDED.pix_key_ciphertext,pix_key_iv=EXCLUDED.pix_key_iv,
+       pix_key_tag=EXCLUDED.pix_key_tag,pix_key_type=EXCLUDED.pix_key_type,updated_at=NOW()\`,
+    [encrypted.ciphertext,encrypted.iv,encrypted.tag,type]
+  );
+  return { configured:true, type, masked:'••••' + key.slice(-4) };
+}
+
 async function getMerchantAccount(storeId) {
   const result = await pool.query(
     'SELECT store_id, app_id_ciphertext, app_id_iv, app_id_tag, status, webhook_registered FROM merchant_woovi_accounts WHERE store_id=$1',
@@ -137,24 +187,14 @@ async function registerMerchantAccount({ storeId, appId }) {
     throw new Error('A conta foi protegida no banco, mas o webhook Woovi não foi confirmado: ' + message);
   }
 }
-function pixKeyType(value) {
-  const key = String(value || '').trim();
-  const explicit = String(process.env.WOOVI_PLATFORM_PIX_KEY_TYPE || '').toUpperCase();
-  if (['CPF','CNPJ','EMAIL','PHONE','RANDOM'].includes(explicit)) return explicit;
-  if (/^\d{11}$/.test(key)) return 'CPF';
-  if (/^\d{14}$/.test(key)) return 'CNPJ';
-  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(key)) return 'EMAIL';
-  if (/^\+?\d{10,15}$/.test(key)) return 'PHONE';
-  return 'RANDOM';
-}
+const pixKeyType = inferPixKeyType;
 async function createCharge({ storeId, orderId, amountCents, comment }) {
   const account = await getMerchantAccount(storeId);
   if (!account || account.status !== 'active' || !account.webhook_registered) {
     throw new Error('O recebimento pela Ovi ainda não está conectado para este estabelecimento.');
   }
-  if (!process.env.WOOVI_PLATFORM_PIX_KEY) {
-    throw new Error('A chave Pix da plataforma ainda não foi configurada para o repasse automático da comissão.');
-  }
+  const platformPix = await getPlatformPixConfig();
+  if (!platformPix) throw new Error('A chave Pix da plataforma ainda não foi configurada para o repasse automático da comissão.');
   if (!Number.isSafeInteger(Number(amountCents)) || Number(amountCents) <= 0) throw new Error('Valor da cobrança inválido.');
   const appId = decryptSecret(account);
   const response = await apiRequest(appId, 'POST', '/api/v1/charge?return_existing=true', {
@@ -175,7 +215,8 @@ async function transferPlatformCommission({ orderId, storeId, amountCents }) {
   const correlationId = 'vianabar-comissao-' + String(orderId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 100);
   const existing = await pool.query('SELECT status FROM woovi_commission_transfers WHERE order_id=$1', [String(orderId)]);
   if (existing.rowCount) return existing.rows[0].status;
-  if (!process.env.WOOVI_PLATFORM_PIX_KEY) {
+  const platformPix = await getPlatformPixConfig();
+  if (!platformPix) {
     await pool.query(
       `INSERT INTO woovi_commission_transfers(order_id,correlation_id,amount_cents,status,failure_reason)
        VALUES($1,$2,$3,'needs_review','Chave Pix da plataforma não configurada')
@@ -194,8 +235,8 @@ async function transferPlatformCommission({ orderId, storeId, amountCents }) {
   );
   try {
     const request = await apiRequest(appId, 'POST', '/api/v1/payment', {
-      correlationID: correlationId, destinationAlias: process.env.WOOVI_PLATFORM_PIX_KEY,
-      destinationAliasType: pixKeyType(process.env.WOOVI_PLATFORM_PIX_KEY), type: 'PIX_KEY',
+      correlationID: correlationId, destinationAlias: platformPix.key,
+      destinationAliasType: platformPix.type, type: 'PIX_KEY',
       value: Number(amountCents), comment: 'Comissão VianaBar - pedido ' + orderId
     });
     await pool.query(
@@ -299,4 +340,4 @@ async function handleWebhook({ payload, rawBody, headers }) {
   return { accepted: true, event };
 }
 
-module.exports = { getMerchantAccount, registerMerchantAccount, createCharge, handleWebhook, pool };
+module.exports = { getMerchantAccount, registerMerchantAccount, getPlatformPixConfig, savePlatformPixKey, createCharge, handleWebhook, pool };
