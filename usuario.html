@@ -1446,18 +1446,17 @@
     }
 
     function submitPayment() {
-        if (!document.getElementById('receipt').value) {
-            playTripleBeep(); // Som sonoro para comprovante necessário
+        const receipt = document.getElementById('receipt');
+        if (!receipt || !receipt.value.trim()) {
+            playTripleBeep();
+            alert('Informe o comprovante para enviar à análise.');
             return;
         }
-        const orderId = document.getElementById('orderIdDisplay').textContent;
-        if (window.ws && window.ws.readyState === WebSocket.OPEN && orderId) {
-            window.ws.send(JSON.stringify({ type: 'updatePaymentStatus', orderId, paymentStatus: 'completed', updatedBy: 'customer' }));
-        }
-        playTripleBeep(); // Som sonoro para pagamento enviado
+        playTripleBeep();
+        alert('Comprovante informado. O pedido continua pendente até a validação do comerciante ou do provedor de pagamento.');
         showSection('status');
     }
-    
+
     // Nova função: Chamar garçom diretamente
     function callWaiterDirectly() {
         console.log('[DEBUG] Chamando garçom diretamente');
@@ -2488,34 +2487,11 @@
     
     // Confirmar Pagamento do Cliente
     function confirmarPagamentoCliente() {
-        // Enviar confirmação para o garçom/cozinha
-        const customerData = JSON.parse(localStorage.getItem('customerData') || '{}');
-        const orderId = document.getElementById('orderIdDisplay').textContent;
-        
-        if (window.ws && window.ws.readyState === WebSocket.OPEN) {
-            window.ws.send(JSON.stringify({
-                type: 'updatePaymentStatus',
-                orderId: orderId,
-                paymentStatus: 'completed',
-                updatedBy: 'customer'
-            }));
-            window.ws.send(JSON.stringify({
-                type: 'paymentConfirmed',
-                orderId: orderId,
-                table: customerData.tableNumber,
-                message: 'Cliente confirmou pagamento'
-            }));
-        }
-        
-        // Mostrar mensagem de sucesso
-        alert('✅ Pagamento confirmado! Obrigado pela preferência!');
-        
-        // Opcional: Redirecionar para tela inicial
-        setTimeout(() => {
-            location.reload();
-        }, 3000);
+        // A declaração do cliente não é prova de liquidação bancária.
+        alert('Pagamento informado. O pedido permanece pendente até a confirmação do comerciante ou do provedor.');
+        showSection('status');
     }
-    
+
     // Inicializar MyGateway ao carregar a página
     document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => {
