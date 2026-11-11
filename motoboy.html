@@ -2399,54 +2399,65 @@ function completeDelivery(orderId) {
         let locationTrackingInterval = null;
         let realTimeTrackingInterval = null;
         
+        let locationWatchId = null;
+        let activeLocationOrderId = null;
+
         function startLocationTracking(orderId) {
-            console.log('[MOTOBOY] Iniciando rastreamento para pedido:', orderId);
-            
-            // Em implementação real, usar GPS a cada 30 segundos
-            locationTrackingInterval = setInterval(() => {
-                if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(
-                        (position) => {
-                            const lat = position.coords.latitude;
-                            const lng = position.coords.longitude;
-                            
-                            // Atualizar localização do motoboy
-                            motoboyData.location = { lat, lng };
-                            
-                            // Atualizar marcador no mapa
-                            if (motoboyMarker && map) {
-                                motoboyMarker.setLatLng([lat, lng]);
-                            }
-                            
-                            // Salvar localização no pedido
-                            const order = orders.find(o => o.id === orderId);
-                            if (order) {
-                                order.currentLocation = { lat, lng, timestamp: new Date().toISOString() };
-                                saveOrders();
-                            }
-                            
-                            // 🔵 Enviar localização para o cliente via WebSocket
-                            if (window.DeliveryCommunication && window.DeliveryCommunication.ws) {
-                                window.DeliveryCommunication.send({
-                                    type: 'updateMotoboyLocation',
-                                    orderId: orderId,
-                                    latitude: lat,
-                                    longitude: lng,
-                                    motoboyName: motoboyData.name,
-                                    motoboyPhone: motoboyData.phone,
-                                    status: 'delivering'
-                                });
-                                console.log('[MOTOBOY] 📍 Localização enviada para cliente:', lat, lng);
-                            }
-                            
-                            console.log('[MOTOBOY] Localização atualizada:', { lat, lng });
-                        },
-                        (error) => {
-                            console.warn('[MOTOBOY] Erro ao obter localização:', error);
-                        }
-                    );
+            console.log('[MOTOBOY] Solicitando GPS para o pedido:', orderId);
+            stopLocationTracking();
+            activeLocationOrderId = orderId;
+
+            if (!navigator.geolocation) {
+                showNotification('Este aparelho/navegador não oferece localização GPS.', 'error');
+                return;
+            }
+
+            if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+                showNotification('O GPS exige uma página HTTPS. Abra o painel seguro para permitir a localização.', 'error');
+                return;
+            }
+
+            // watchPosition solicita permissão ao motoboy e envia a primeira posição assim que disponível.
+            locationWatchId = navigator.geolocation.watchPosition(position => {
+                const lat = Number(position.coords.latitude);
+                const lng = Number(position.coords.longitude);
+                if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+                const timestamp = new Date(position.timestamp || Date.now()).toISOString();
+                motoboyData.location = { lat, lng, timestamp };
+                const order = orders.find(item => String(item.id) === String(activeLocationOrderId));
+                if (order) {
+                    order.currentLocation = { lat, lng, timestamp };
+                    saveOrders();
                 }
-            }, 30000); // A cada 30 segundos
+                if (motoboyMarker && map) motoboyMarker.setLatLng([lat, lng]);
+
+                const sent = window.DeliveryCommunication && window.DeliveryCommunication.send({
+                    type: 'updateMotoboyLocation',
+                    orderId: activeLocationOrderId,
+                    latitude: lat,
+                    longitude: lng,
+                    motoboyName: motoboyData.name,
+                    motoboyPhone: motoboyData.phone,
+                    status: 'delivering',
+                    accuracy: Number(position.coords.accuracy) || null,
+                    timestamp
+                });
+                if (!sent) console.warn('[MOTOBOY] GPS obtido, mas WebSocket ainda não confirmou envio.');
+                console.log('[MOTOBOY] GPS recebido:', { orderId: activeLocationOrderId, lat, lng, timestamp });
+            }, error => {
+                console.error('[MOTOBOY] Falha no GPS:', error);
+                const messages = {
+                    1: 'Permissão de localização negada. Libere o GPS nas permissões do navegador.',
+                    2: 'Localização indisponível. Ative o GPS do aparelho e tente novamente.',
+                    3: 'O GPS demorou demais para responder. Tente novamente em área aberta.'
+                };
+                showNotification(messages[error.code] || 'Não foi possível obter a localização GPS.', 'error');
+            }, {
+                enableHighAccuracy: true,
+                timeout: 15000,
+                maximumAge: 5000
+            });
         }
 
         // Iniciar rastreamento em tempo real (função nova)
@@ -2599,13 +2610,14 @@ function completeDelivery(orderId) {
             if (locationTrackingInterval) {
                 clearInterval(locationTrackingInterval);
                 locationTrackingInterval = null;
-                console.log('[MOTOBOY] Rastreamento de localização parado');
             }
-            
-            // Parar também rastreamento em tempo real
+            if (locationWatchId !== null && navigator.geolocation) {
+                navigator.geolocation.clearWatch(locationWatchId);
+                locationWatchId = null;
+            }
+            activeLocationOrderId = null;
+            console.log('[MOTOBOY] Rastreamento de localização parado');
             stopRealTimeTracking();
-            
-            // Parar navegação por voz
             stopVoiceNavigation();
         }
 
