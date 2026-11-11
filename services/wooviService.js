@@ -15,6 +15,33 @@ const pool = new Pool({
 const API_BASE = String(process.env.WOOVI_API_BASE_URL || 'https://api.woovi.com').replace(/\/$/, '');
 const WEBHOOK_URL = process.env.WOOVI_WEBHOOK_URL || 'https://vianabar-delivery.onrender.com/woovi/webhook';
 const COMMISSION_PERCENT = 15;
+let webhookPublicKeysCache = [];
+let webhookPublicKeysCachedAt = 0;
+
+async function getWebhookPublicKeys() {
+  if (webhookPublicKeysCache.length && Date.now() - webhookPublicKeysCachedAt < 60 * 60 * 1000) return webhookPublicKeysCache;
+  const response = await axios.get(API_BASE + '/api/v1/webhook/public-keys', {
+    timeout: 12000, headers: { Accept: 'application/json' }
+  });
+  const keys = response.data?.public_keys || [];
+  webhookPublicKeysCache = keys.map(item => item.key).filter(key => typeof key === 'string' && key.includes('BEGIN PUBLIC KEY'));
+  webhookPublicKeysCachedAt = Date.now();
+  if (!webhookPublicKeysCache.length) throw new Error('A Woovi não retornou chaves públicas válidas para validar o webhook.');
+  return webhookPublicKeysCache;
+}
+
+async function verifyWebhookSignature(rawBody, signature) {
+  if (!Buffer.isBuffer(rawBody) || !rawBody.length) throw new Error('Corpo bruto do webhook indisponível para validação.');
+  if (!signature) throw new Error('Assinatura RSA do webhook ausente.');
+  const signatureBytes = Buffer.from(String(signature), 'base64');
+  const keys = await getWebhookPublicKeys();
+  for (const publicKey of keys) {
+    try {
+      if (crypto.verify('RSA-SHA256', rawBody, publicKey, signatureBytes)) return true;
+    } catch (_) {}
+  }
+  throw new Error('Assinatura RSA do webhook não confere com as chaves públicas da Woovi.');
+}
 
 function encryptionKey() {
   const raw = String(process.env.PAYMENT_CREDENTIALS_ENCRYPTION_KEY || '');
@@ -189,17 +216,13 @@ async function handleWebhook({ payload, rawBody, headers }) {
   const movement = payload.movement || payload.data?.movement || {};
   const correlationId = String(charge.correlationID || payment.correlationID || movement.correlationID || payload.correlationID || '');
   if (!correlationId) throw new Error('Webhook sem correlationID.');
+  await verifyWebhookSignature(rawBody, headers['x-webhook-signature']);
   const authToken = process.env.WOOVI_WEBHOOK_AUTH_TOKEN || '';
   const receivedAuth = headers.authorization || headers['x-openpix-authorization'] || '';
-  const normalizedAuth = String(receivedAuth).replace(/^Bearer\s+/i, '').trim();
-  const signature = String(headers['x-webhook-signature'] || '');
-  const hmacSecret = String(process.env.WOOVI_WEBHOOK_HMAC_SECRET || '');
-  let authenticated = Boolean(authToken && constantTimeEqual(normalizedAuth, authToken));
-  if (hmacSecret && signature) {
-    const expected = crypto.createHmac('sha256', hmacSecret).update(rawBody || Buffer.from(JSON.stringify(payload))).digest('base64');
-    authenticated = authenticated || constantTimeEqual(signature, expected);
+  const normalizedAuth = String(receivedAuth).replace(/^Bearer\\s+/i, '').trim();
+  if (authToken && !constantTimeEqual(normalizedAuth, authToken)) {
+    throw new Error('Token de autorização do webhook inválido.');
   }
-  if (!authenticated) throw new Error('Assinatura/autorização do webhook inválida.');
 
   if (event === 'OPENPIX:MOVEMENT_CONFIRMED' || event === 'OPENPIX:MOVEMENT_FAILED') {
     const transfer = await pool.query('SELECT order_id FROM woovi_commission_transfers WHERE correlation_id=$1', [correlationId]);
