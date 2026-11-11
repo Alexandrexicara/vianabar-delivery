@@ -4242,7 +4242,7 @@
         async function drawDeliveryRoadRoute(origin, destination, orderId) {
             if (!origin || !destination || !deliveryLeafletMap) return;
             const key = String(orderId)+'|'+origin.join(',')+'|'+destination.join(',');
-            if (Date.now()-deliveryMapRouteAt < 12000 && deliveryMapRouteLayer) return;
+            if (Date.now()-deliveryMapRouteAt < 12000) return;
             deliveryMapRouteKey = key; deliveryMapRouteAt = Date.now();
             try {
                 const url='https://router.project-osrm.org/route/v1/driving/'+origin[1]+','+origin[0]+';'+destination[1]+','+destination[0]+'?overview=full&geometries=geojson';
