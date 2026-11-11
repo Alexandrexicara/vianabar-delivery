@@ -57,6 +57,26 @@ async function listarPendenciasComerciante(merchantId) {
   };
 }
 
+
+async function verificarBloqueioRepasseComerciante(merchantId) {
+  const merchant = id(merchantId, 'Comerciante');
+  await pool.query(
+    "UPDATE merchant_delivery_obligations SET status='due',updated_at=NOW() WHERE merchant_id=$1 AND status='pending' AND due_at<=NOW()",
+    [merchant]
+  );
+  const result = await pool.query(
+    "SELECT COALESCE(SUM(amount_cents),0)::bigint AS outstanding_cents,COUNT(*)::int AS outstanding_count FROM merchant_delivery_obligations WHERE merchant_id=$1 AND status IN ('due','in_batch')",
+    [merchant]
+  );
+  const outstandingCents = Number(result.rows[0].outstanding_cents);
+  return {
+    merchantId: merchant,
+    blocked: outstandingCents > 0,
+    outstandingCents,
+    outstandingCount: Number(result.rows[0].outstanding_count)
+  };
+}
+
 async function criarLotePagamento({ merchantId, idempotencyKey }) {
   const merchant = id(merchantId, 'Comerciante');
   const key = idempotencyKey, client = await pool.connect();
@@ -187,4 +207,4 @@ async function registrarFalhaLote({ batchId, provider, reason }) {
   } finally { client.release(); }
 }
 
-module.exports = { registrarObrigacaoEntrega, listarPendenciasComerciante, criarLotePagamento, autorizarLoteComerciante, marcarLoteEmProcessamento, confirmarLotePago, registrarFalhaLote };
+module.exports = { registrarObrigacaoEntrega, listarPendenciasComerciante, verificarBloqueioRepasseComerciante, criarLotePagamento, autorizarLoteComerciante, marcarLoteEmProcessamento, confirmarLotePago, registrarFalhaLote };
