@@ -127,6 +127,19 @@ async function autorizarLoteComerciante({ merchantId, batchId, authorizedBy }) {
     await client.query("UPDATE merchant_delivery_obligations SET status='due',updated_at=NOW() WHERE merchant_id=$1 AND status='pending' AND due_at<=NOW()", [merchant]);
     const uncovered = await client.query("SELECT COUNT(*)::int AS count FROM merchant_delivery_obligations WHERE merchant_id=$1 AND status='due'", [merchant]);
     if (Number(uncovered.rows[0].count)) throw new Error('Existem outras entregas vencidas fora deste lote. Atualize o lote antes de autorizar.');
+
+    const integrity = await client.query(
+      "SELECT COUNT(i.id)::int AS item_count,COALESCE(SUM(i.amount_cents),0)::bigint AS items_total,COUNT(*) FILTER (WHERE o.merchant_id<>$2 OR o.status<>'in_batch' OR o.payout_batch_id<>$1)::int AS invalid_items FROM merchant_delivery_payout_items i JOIN merchant_delivery_obligations o ON o.id=i.obligation_id WHERE i.batch_id=$1",
+      [batchIdNumber, merchant]
+    );
+    if (
+      Number(integrity.rows[0].item_count) === 0 ||
+      Number(integrity.rows[0].items_total) !== Number(batch.rows[0].total_cents) ||
+      Number(integrity.rows[0].invalid_items) > 0
+    ) {
+      throw new Error('A composição financeira do lote não confere. A autorização foi bloqueada.');
+    }
+
     const result = await client.query("UPDATE merchant_delivery_payout_batches SET status='authorized',authorized_at=NOW(),authorized_by=$3,updated_at=NOW() WHERE id=$1 AND merchant_id=$2 AND status='pending_authorization' RETURNING *", [batchIdNumber,merchant,actor]);
     await client.query("INSERT INTO merchant_delivery_payout_events (batch_id,event_type,actor_id) VALUES ($1,'merchant_authorized',$2)", [batchIdNumber,actor]);
     await client.query('COMMIT');
