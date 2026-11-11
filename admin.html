@@ -704,6 +704,62 @@
     </style>
 
 <script src="/delivery-day-ui.js" defer></script>
+
+    <link id="leaflet-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" crossorigin="" onerror="this.onerror=null;this.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';">
+    <style>
+        #deliveryMap {
+            position: relative;
+            width: 100%;
+            height: 460px;
+            min-height: 360px;
+            overflow: hidden;
+            border-radius: 10px;
+            background: #e8edf0;
+            z-index: 1;
+        }
+        #deliveryMap .leaflet-container { width:100%; height:100%; font-family:inherit; }
+        .delivery-map-empty {
+            position:absolute;
+            z-index:1000;
+            top:12px;
+            left:50%;
+            transform:translateX(-50%);
+            max-width:calc(100% - 30px);
+            padding:9px 13px;
+            border-radius:8px;
+            background:rgba(255,255,255,.94);
+            color:#34495e;
+            box-shadow:0 2px 10px rgba(0,0,0,.18);
+            font-size:13px;
+            text-align:center;
+            pointer-events:none;
+        }
+        .delivery-live-marker { background:transparent; border:0; }
+        .delivery-map-column.is-map-fullscreen {
+            position:fixed !important;
+            inset:0 !important;
+            z-index:99999 !important;
+            width:100vw !important;
+            height:100dvh !important;
+            margin:0 !important;
+            padding:12px !important;
+            border-radius:0 !important;
+            background:#fff !important;
+            display:flex !important;
+            flex-direction:column !important;
+            box-sizing:border-box !important;
+        }
+        .delivery-map-column.is-map-fullscreen #deliveryMap {
+            flex:1 1 auto;
+            height:auto !important;
+            min-height:0;
+        }
+        @media(max-width:768px) {
+            #deliveryMap { height:400px; min-height:320px; }
+            .delivery-map-column.is-map-fullscreen { padding:8px !important; }
+        }
+    </style>
+
 </head>
 <body>
     <!-- Header Banner Space -->
@@ -1205,6 +1261,28 @@
     <!-- Sistema de Customizações -->
     <script src="customizations.js"></script>
     <script src="fix-ws-json-error.js"></script>
+
+
+    <script>
+    // Carrega Leaflet com CDN principal e alternativa, antes de inicializar o mapa.
+    window.deliveryLeafletReady = new Promise(resolve => {
+        const sources = [
+            'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js',
+            'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+        ];
+        const loadSource = index => {
+            if (window.L) { resolve(true); return; }
+            if (index >= sources.length) { resolve(false); return; }
+            const script = document.createElement('script');
+            script.src = sources[index];
+            script.crossOrigin = '';
+            script.onload = () => resolve(!!window.L);
+            script.onerror = () => { script.remove(); loadSource(index + 1); };
+            document.head.appendChild(script);
+        };
+        loadSource(0);
+    });
+    </script>
 
     <script>
         // Funções para gerenciamento de blocos de mesas
@@ -4101,15 +4179,35 @@
         let deliveryMapOrders = [];
         let deliveryMapFullscreen = false;
 
-        function initializeDeliveryMap() {
+        async function initializeDeliveryMap() {
             const element = document.getElementById('deliveryMap');
-            if (!element || typeof L === 'undefined') return false;
+            if (!element) return false;
+            if (typeof L === 'undefined') {
+                const loaded = await (window.deliveryLeafletReady || Promise.resolve(false));
+                if (!loaded || typeof L === 'undefined') {
+                    const empty = document.getElementById('deliveryMapEmpty');
+                    if (empty) empty.textContent = 'A biblioteca do mapa não respondeu. Verifique o acesso à internet e tente atualizar.';
+                    console.error('[DeliveryMap] Leaflet não carregou pelos CDNs disponíveis.');
+                    return false;
+                }
+            }
             if (!deliveryLeafletMap) {
                 deliveryLeafletMap = L.map(element, { zoomControl: true }).setView([-16.735, -43.861], 12);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     maxZoom: 19,
                     attribution: '&copy; OpenStreetMap contributors'
                 }).addTo(deliveryLeafletMap);
+                let tileErrors = 0;
+                tiles.on('tileerror', () => {
+                    tileErrors++;
+                    const empty = document.getElementById('deliveryMapEmpty');
+                    if (empty && tileErrors >= 3) empty.textContent = 'O mapa foi iniciado, mas os blocos do OpenStreetMap não responderam. Verifique a conexão ou bloqueios de rede.';
+                });
+                tiles.on('tileload', () => {
+                    tileErrors = Math.max(0, tileErrors - 1);
+                    const empty = document.getElementById('deliveryMapEmpty');
+                    if (empty && tileErrors < 3 && !deliveryMapMarkers.size) empty.textContent = 'Mapa ativo. Nenhuma localização de motoboy recebida ainda. O motoboy precisa iniciar uma entrega e permitir o acesso ao GPS.';
+                });
                 L.control.scale().addTo(deliveryLeafletMap);
             }
             setTimeout(() => deliveryLeafletMap && deliveryLeafletMap.invalidateSize(), 120);
@@ -4168,12 +4266,9 @@
             renderDeliveryMapMarkers();
         }
 
-        function refreshDeliveryMap() {
-            if (!initializeDeliveryMap()) {
-                const empty = document.getElementById('deliveryMapEmpty');
-                if (empty) empty.textContent = 'Não foi possível carregar o mapa. Verifique sua conexão e tente novamente.';
-                return;
-            }
+        async function refreshDeliveryMap() {
+            const ready = await initializeDeliveryMap();
+            if (!ready) return;
             if (window.ws && window.ws.readyState === WebSocket.OPEN) {
                 window.ws.send(JSON.stringify({ type:'getExistingDeliveryOrders' }));
             }
