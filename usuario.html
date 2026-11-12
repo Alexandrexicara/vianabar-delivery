@@ -1143,12 +1143,25 @@
         const storeId = (params.get('loja') || subdomain || 'main').slice(0,120);
         window.cardapioStoreId = storeId;
         try {
-            const response = await fetch('/api/merchant-settings/' + encodeURIComponent(storeId), { cache: 'no-store' });
+            // As personalizações são globais: sempre buscar no PostgreSQL do backend,
+            // nunca depender do localStorage do celular que abriu o QR Code.
+            const apiBase = 'https://vianabar-delivery.onrender.com';
+            const response = await fetch(apiBase + '/api/merchant-settings/' + encodeURIComponent(storeId), {
+                cache: 'no-store',
+                headers: { 'Accept': 'application/json' }
+            });
             const result = await response.json();
             if (!response.ok) throw new Error(result.error || 'Falha ao carregar personalização da loja.');
             const settings = result.settings || {};
+            // Os arquivos de logo/fundo também ficam no backend; use URL absoluta
+            // para funcionar quando o cardápio abrir por domínio próprio ou QR Code.
+            ['logo', 'background'].forEach(key => {
+                if (typeof settings[key] === 'string' && settings[key].startsWith('/')) {
+                    settings[key] = apiBase + settings[key];
+                }
+            });
             localStorage.setItem('establishmentCustomizations', JSON.stringify(settings));
-            console.log('[MERCHANT-SETTINGS] Personalização carregada do Neon para:', storeId);
+            console.log('[MERCHANT-SETTINGS] Personalização global carregada do Neon para:', storeId);
             return settings;
         } catch (error) {
             console.error('[MERCHANT-SETTINGS] Não foi possível carregar a personalização:', error);
@@ -2098,11 +2111,13 @@
     }
     
     document.addEventListener('DOMContentLoaded', async function() {
-        // O acesso não depende de assinatura ou renovação de domínio.
+        // Primeiro carrega a personalização global da loja pelo storeId do QR Code.
+        // Só depois aplica logo, fundo, cores e textos na tela do cliente.
+        await loadMerchantMenuSettings();
         applyCustomizationsToMenu();
-        
+
         // Carregar itens do menu
-        loadMenuItems();
+        await loadMenuItems();
 
         if (!localStorage.getItem('customerData')) {
             console.log('[DEBUG] Sem dados do cliente, mostrando registro');
