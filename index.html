@@ -507,13 +507,12 @@
             if (!response.ok) throw new Error(result.error || 'Falha ao carregar vitrine');
             const vitrineProducts = result.products || [];
             localStorage.setItem('vitrineProducts', JSON.stringify(vitrineProducts));
-            localStorage.setItem('menuItems', JSON.stringify(result.products || []));
             localStorage.setItem('productShowcase', JSON.stringify(vitrineProducts.map(product => ({
                 ...product, productName: product.name, storeId: product.storeId || 'main',
                 storeName: product.storeName || 'Cardápio Principal'
             }))));
             vitrineContainer.innerHTML = '';
-            vitrineProducts.slice(0, 8).forEach(product => {
+            vitrineProducts.forEach(product => {
                 vitrineContainer.innerHTML += createProductCard(product);
             });
             if (!vitrineProducts.length) {
@@ -525,7 +524,7 @@
             const cached = JSON.parse(localStorage.getItem('vitrineProducts') || '[]');
             if (cached.length) {
                 vitrineContainer.innerHTML = '';
-                cached.slice(0, 8).forEach(product => vitrineContainer.innerHTML += createProductCard(product));
+                cached.forEach(product => vitrineContainer.innerHTML += createProductCard(product));
             }
         }
     }
