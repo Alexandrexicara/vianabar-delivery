@@ -837,6 +837,8 @@
                 const authResponse = await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/session', {credentials:'include',cache:'no-store'});
                 if (!authResponse.ok) throw new Error('Sessão ausente');
                 session = (await authResponse.json()).merchant;
+                window.merchantSession = session;
+                window.merchantStoreIdAuthenticated = session?.storeId || '';
             } catch (_) {
                 alert('⚠️ É necessário entrar com o acesso seguro do comerciante.');
                 const loginUrl = new URL('/login.html', 'https://delivery-day.netlify.app');
@@ -1134,7 +1136,11 @@
         function getMerchantStoreId() {
             let establishment = {};
             try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
-            if (establishment.uniqueId) return String(establishment.uniqueId).slice(0, 120);
+            // ID oficial retornado pela sessão do backend tem prioridade sobre
+            // qualquer identificador antigo que tenha ficado salvo no navegador.
+            const authenticatedStoreId = window.merchantStoreIdAuthenticated || window.merchantSession?.storeId;
+            const storeId = authenticatedStoreId || establishment.storeId || establishment.uniqueId;
+            if (storeId) return String(storeId).trim().slice(0, 120);
             const name = establishment.establishmentName || 'estabelecimento';
             return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 100) || 'estabelecimento';
         }
