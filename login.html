@@ -299,7 +299,7 @@
             try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
             const storeInput = document.getElementById('storeId');
             if (storeInput) {
-                storeInput.value = establishment.uniqueId || establishment.storeId || 'estabelecimento';
+                storeInput.value = new URLSearchParams(location.search).get('storeId') || establishment.uniqueId || establishment.storeId || 'estabelecimento';
             }
             try {
                 const response = await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/session', { credentials:'include', cache:'no-store' });
