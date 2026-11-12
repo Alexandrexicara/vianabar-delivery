@@ -999,8 +999,17 @@
         let activeTotemOrderId = null;
         let totemTrackingTimer = null;
         let activePixOrderId = null;
+        const TOTEM_API_BASE_URL = 'https://vianabar-delivery.onrender.com';
         const totemParams = new URLSearchParams(window.location.search);
         const totemStoreId = String(totemParams.get('loja') || totemParams.get('storeId') || '').trim().slice(0,120);
+        function totemApiUrl(path) {
+            return TOTEM_API_BASE_URL + (String(path).startsWith('/') ? path : '/' + path);
+        }
+        function totemAssetUrl(path) {
+            if (!path) return '';
+            try { return new URL(String(path), TOTEM_API_BASE_URL).toString(); }
+            catch (_) { return String(path); }
+        }
         const totemTableNumber = String(totemParams.get('mesa') || 'Totem').trim().slice(0,40) || 'Totem';
         
         // O totem usa o checkout oficial do servidor. Nenhum ID ou gateway de demonstração é aceito.
@@ -1123,12 +1132,38 @@
             if (settings.secondaryColor && /^#[0-9a-f]{6}$/i.test(settings.secondaryColor)) {
                 document.documentElement.style.setProperty('--secondary-color', settings.secondaryColor);
             }
-            if (settings.background && /^https?:\/\//i.test(settings.background)) {
-                document.body.style.backgroundImage = 'url("' + settings.background.replace(/["\\]/g, '') + '")';
+            const backgroundUrl = totemAssetUrl(settings.background);
+            if (backgroundUrl) {
+                const safeBackgroundUrl = backgroundUrl.replace(/["\\]/g, '');
+                document.body.style.backgroundImage = 'url("' + safeBackgroundUrl + '")';
                 document.body.style.backgroundSize = 'cover';
                 document.body.style.backgroundAttachment = 'fixed';
                 document.body.style.backgroundRepeat = 'no-repeat';
+                const welcome = document.getElementById('welcomeScreen');
+                if (welcome) {
+                    welcome.style.backgroundImage = 'url("' + safeBackgroundUrl + '")';
+                    welcome.style.backgroundSize = 'cover';
+                    welcome.style.backgroundPosition = 'center';
+                }
             }
+            const primary = settings.primaryColor && /^#[0-9a-f]{6}$/i.test(settings.primaryColor) ? settings.primaryColor : '#667eea';
+            const secondary = settings.secondaryColor && /^#[0-9a-f]{6}$/i.test(settings.secondaryColor) ? settings.secondaryColor : '#764ba2';
+            document.documentElement.style.setProperty('--primary-color', primary);
+            document.documentElement.style.setProperty('--secondary-color', secondary);
+            let themeStyle = document.getElementById('totem-merchant-theme');
+            if (!themeStyle) {
+                themeStyle = document.createElement('style');
+                themeStyle.id = 'totem-merchant-theme';
+                document.head.appendChild(themeStyle);
+            }
+            themeStyle.textContent = [
+                '.header{background:linear-gradient(135deg,' + primary + ', ' + secondary + ') !important;}',
+                '#welcomeScreen{background-color:' + primary + ' !important;background-image:' + (backgroundUrl ? 'url("' + backgroundUrl.replace(/["\\]/g, '') + '")' : 'none') + ' !important;background-size:cover;background-position:center;}',
+                '.category-btn{border-color:' + primary + ' !important;color:' + primary + ' !important;}',
+                '.category-btn:hover,.category-btn.active,.add-to-cart{background:' + primary + ' !important;border-color:' + secondary + ' !important;color:#fff !important;}',
+                '.item-price{color:' + primary + ' !important;}',
+                '.start-button{background:' + primary + ' !important;}'
+            ].join('\n');
             const socialContainer = document.getElementById('socialMediaLinks');
             if (socialContainer) {
                 socialContainer.innerHTML = '';
@@ -1152,8 +1187,10 @@
                     logo.style.cssText = 'max-height:54px;max-width:110px;object-fit:contain;margin-right:12px;';
                     logoContainer.insertBefore(logo, logoContainer.firstChild);
                 }
-                logo.src = settings.logo;
+                logo.src = totemAssetUrl(settings.logo);
                 logo.alt = 'Logo ' + name;
+                const placeholder = logoContainer.querySelector('.brand-mark');
+                if (placeholder) placeholder.style.display = 'none';
             }
         }
 
@@ -1170,8 +1207,8 @@
             }
             try {
                 const [settingsResponse, productsResponse] = await Promise.all([
-                    fetch('/api/merchant-settings/' + encodeURIComponent(totemStoreId), { cache: 'no-store' }),
-                    fetch('/api/products?storeId=' + encodeURIComponent(totemStoreId), { cache: 'no-store' })
+                    fetch(totemApiUrl('/api/merchant-settings/' + encodeURIComponent(totemStoreId)), { cache: 'no-store' }),
+                    fetch(totemApiUrl('/api/products?storeId=' + encodeURIComponent(totemStoreId)), { cache: 'no-store' })
                 ]);
                 const settingsResult = await settingsResponse.json();
                 const productsResult = await productsResponse.json();
@@ -1237,7 +1274,7 @@
             
             const safeName = escapeTotemHtml(item.name);
             const safeDescription = escapeTotemHtml(item.description || '');
-            const safeImage = item.image ? escapeTotemHtml(item.image) : '';
+            const safeImage = item.image ? escapeTotemHtml(totemAssetUrl(item.image)) : '';
             return `
                 <div class="menu-item" data-product-id="${escapeTotemHtml(item.id)}">
                     <div class="item-image">
@@ -1429,7 +1466,7 @@
             const submitButton = document.querySelector('#customerFormElement .btn-submit');
             if (submitButton) { submitButton.disabled = true; submitButton.textContent = 'Registrando pedido...'; }
             try {
-                const response = await fetch('/api/cardapio/orders', {
+                const response = await fetch(totemApiUrl('/api/cardapio/orders'), {
                     method: 'POST',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
@@ -1534,7 +1571,7 @@
             pixStatusTimer = setInterval(async () => {
                 checks++;
                 try {
-                    const response = await fetch('/api/cardapio/orders/' + encodeURIComponent(orderId), { cache:'no-store' });
+                    const response = await fetch(totemApiUrl('/api/cardapio/orders/' + encodeURIComponent(orderId)), { cache:'no-store' });
                     const result = await response.json();
                     if (!response.ok || !result.success) throw new Error(result.error || 'Consulta indisponível');
                     const paymentStatus = String(result.order.paymentStatus || '').toLowerCase();
