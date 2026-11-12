@@ -108,7 +108,7 @@
     '🔒':'lock','🚀':'rocket','📡':'tower-broadcast','🧪':'flask','🧭':'compass','🧑':'user',
     '👋':'hand','💬':'comments','📦':'box','🛍':'bag-shopping','🧾':'receipt'
   };
-  const pattern = /[\\u{1F300}-\\u{1FAFF}\\u{2600}-\\u{27BF}]/gu;
+  const pattern = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu;
   const style = document.createElement('link');
   style.rel = 'stylesheet';
   style.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css';
