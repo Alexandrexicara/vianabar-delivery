@@ -167,3 +167,32 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, { once: true });
   else run();
 })();
+
+/* Identidade visual global gerenciada pelo Painel do Criador. */
+(() => {
+  const endpoint = '/api/platform-branding';
+  fetch(endpoint, { credentials:'same-origin', cache:'no-store' })
+    .then(response => response.ok ? response.json() : null)
+    .then(data => {
+      if (!data?.images) return;
+      const logo = data.images.logo;
+      if (logo) {
+        document.querySelectorAll('img.dd-brand-mark, .dd-install-banner img, img[data-platform-logo]').forEach(img => {
+          img.src = logo + '?v=' + Date.now();
+        });
+      }
+      const icon = data.images.appIcon || '/api/platform-branding/assets/appIcon';
+      ['icon','shortcut icon','apple-touch-icon'].forEach(rel => {
+        let link = document.querySelector('link[rel="' + rel + '"]');
+        if (!link) { link = document.createElement('link'); link.rel = rel; document.head.appendChild(link); }
+        link.href = icon;
+      });
+      const splash = data.images.splash;
+      if (splash) document.documentElement.style.setProperty('--dd-platform-splash-image', 'url("' + splash + '")');
+      const login = data.images.loginBackground;
+      if (login) document.documentElement.style.setProperty('--dd-platform-login-image', 'url("' + login + '")');
+      const banner = data.images.banner;
+      if (banner) document.documentElement.style.setProperty('--dd-platform-banner-image', 'url("' + banner + '")');
+    })
+    .catch(error => console.warn('[DELIVERY DAY] Identidade visual não carregada:', error));
+})();
