@@ -839,7 +839,9 @@
                 session = (await authResponse.json()).merchant;
             } catch (_) {
                 alert('⚠️ É necessário entrar com o acesso seguro do comerciante.');
-                window.location.href = 'https://vianabar-delivery.onrender.com/login.html';
+                const loginUrl = new URL('https://vianabar-delivery.onrender.com/login.html');
+                loginUrl.searchParams.set('storeId', getMerchantStoreId());
+                window.location.href = loginUrl.toString();
                 return;
             }
             localStorage.removeItem('adminAccess');
