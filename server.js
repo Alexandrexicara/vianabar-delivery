@@ -648,6 +648,37 @@ wss.on('connection', async (ws, req) => {
         });
         
       } else if (data.type === 'submitDeliveryOrder') {
+        // Validar abertura do Delivery no PostgreSQL antes de aceitar pedido via WebSocket.
+        const deliveryStoreId = String(data.order?.merchantId || data.order?.storeId || 'main');
+        try {
+          const deliveryPool = require('./services/wooviService').pool;
+          const settingsResult = await deliveryPool.query('SELECT settings FROM merchant_settings WHERE store_id=$1', [deliveryStoreId]);
+          const deliverySettings = settingsResult.rows[0]?.settings || {};
+          let deliveryOpen = true;
+          let closedReason = '';
+          if (typeof deliverySettings.deliveryEnabled === 'boolean' || deliverySettings.deliveryOpeningTime || deliverySettings.deliveryClosingTime) {
+            if (deliverySettings.deliveryEnabled === false) {
+              deliveryOpen = false;
+              closedReason = 'O Delivery está fechado manualmente pelo estabelecimento.';
+            } else {
+              const parts = new Intl.DateTimeFormat('en-GB',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date());
+              const now = Number(parts.find(p=>p.type==='hour')?.value||0)*60 + Number(parts.find(p=>p.type==='minute')?.value||0);
+              const minutes = value => { const [h,m]=String(value).split(':').map(Number); return h*60+m; };
+              const start=minutes(deliverySettings.deliveryOpeningTime || '00:00');
+              const end=minutes(deliverySettings.deliveryClosingTime || '23:59');
+              deliveryOpen = start<=end ? now>=start && now<=end : now>=start || now<=end;
+              if (!deliveryOpen) closedReason='Delivery fechado. Horário: '+(deliverySettings.deliveryOpeningTime||'00:00')+' às '+(deliverySettings.deliveryClosingTime||'23:59')+'.';
+            }
+          }
+          if (!deliveryOpen) {
+            ws.send(JSON.stringify({type:'deliveryOrderError',code:'DELIVERY_CLOSED',message:closedReason}));
+            return;
+          }
+        } catch (availabilityError) {
+          console.error('[DELIVERY] Falha ao validar horário no banco:', availabilityError.message);
+          ws.send(JSON.stringify({type:'deliveryOrderError',code:'DELIVERY_STATUS_UNAVAILABLE',message:'Não foi possível confirmar se o Delivery está aberto. Nenhum pedido foi aceito.'}));
+          return;
+        }
         // Handle new delivery order
         if (!data.order || !data.order.id || !Array.isArray(data.order.items)) {
           ws.send(JSON.stringify({ type: 'deliveryOrderError', message: 'Dados do pedido inválidos.' }));
