@@ -87,47 +87,8 @@ app.get('/creator-woovi.html', creatorAuth.requireCreator, (req, res) => {
 // Serve static files
 app.use(express.static('.'));
 
-// Function to determine establishment based on subdomain
-function getEstablishmentIdFromSubdomain(req) {
-  const host = req.get('Host');
-  if (!host) return null;
-  
-  // Extract subdomain from host (assuming format: subdomain.cardapiodigital.com.br)
-  const parts = host.split('.');
-  if (parts.length >= 3 && parts[parts.length - 2] === 'cardapiodigital' && parts[parts.length - 1] === 'com.br') {
-    // This is a subdomain request
-    return parts[0];
-  }
-  
-  return null; // Default domain, no specific establishment
-}
-
-// Middleware to set establishment context based on subdomain
-app.use((req, res, next) => {
-  const establishmentId = getEstablishmentIdFromSubdomain(req);
-  if (establishmentId) {
-    req.establishmentId = establishmentId;
-    console.log(`[SERVER] Request for establishment: ${establishmentId}`);
-  }
-  next();
-});
-
-// Middleware to handle subdomain routing
-app.get('*', (req, res, next) => {
-  const establishmentId = req.establishmentId;
-  if (establishmentId) {
-    // This is a subdomain request, serve the user interface
-    console.log(`[SERVER] Serving usuario for establishment: ${establishmentId}`);
-    
-    // For now, we'll serve usuario.html for subdomain requests
-    // In a real implementation, you would validate that the establishment exists
-    res.sendFile(path.resolve('usuario.html'));
-    return;
-  }
-  
-  // If no subdomain, continue to next middleware (which will serve index.html for root path)
-  next();
-});
+// Cada cardápio é identificado pelo parâmetro ?loja= na URL pública oficial.
+// Não existe roteamento por subdomínio de domínio de terceiros.
 
 // ✅ INJETAR MYGATEWAY AUTOMATICAMENTE EM PÁGINAS HTML
 app.get('*.html', (req, res) => {
