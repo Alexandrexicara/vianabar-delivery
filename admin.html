@@ -1533,14 +1533,16 @@
         }
 
         // Check if user is authenticated
-        function checkAuthentication() {
-            const adminAccess = localStorage.getItem('adminAccess');
-            const establishmentData = localStorage.getItem('establishmentData');
-            
-            if (!adminAccess || !establishmentData) {
-                playTripleBeep(); // Som sonoro para acesso não autorizado
-                window.location.href = 'index.html';
-                return;
+        async function checkAuthentication() {
+            try {
+                const response = await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/session', { credentials:'include', cache:'no-store' });
+                if (!response.ok) throw new Error('Sessão ausente');
+                const result = await response.json();
+                window.merchantSession = result.merchant;
+                if (result.merchant?.storeId) window.merchantStoreIdAuthenticated = result.merchant.storeId;
+            } catch (_) {
+                playTripleBeep();
+                window.location.href = 'https://vianabar-delivery.onrender.com/login.html';
             }
         }
 
@@ -1552,41 +1554,24 @@
         }
 
         // Logout
-        function logout() {
+        async function logout() {
             if (confirm('Tem certeza que deseja sair?')) {
+                try { await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/logout', { method:'POST', credentials:'include' }); } catch (_) {}
                 localStorage.removeItem('adminAccess');
-                localStorage.removeItem('establishmentData');
-                window.location.href = 'index.html';
+                window.location.href = 'login.html';
             }
         }
 
         // Abrir QR Management com autenticação
-        function openQrManagementWithAuth() {
-            // Verificar se está autenticado
-            const adminAccess = localStorage.getItem('adminAccess');
-            const establishmentData = localStorage.getItem('establishmentData');
-            
-            if (!adminAccess || !establishmentData) {
-                alert('⚠️ Você precisa estar logado para acessar a personalização!');
-                return;
+        async function openQrManagementWithAuth() {
+            try {
+                const response = await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/session', {credentials:'include',cache:'no-store'});
+                if (!response.ok) throw new Error('Sessão expirada');
+                window.open('qr-management.html', '_blank');
+            } catch (_) {
+                alert('Entre novamente para acessar a personalização.');
+                window.location.href = 'login.html';
             }
-            
-            // Abrir em nova aba passando os dados de autenticação via localStorage
-            const newWindow = window.open('qr-management.html', '_blank');
-            
-            // Aguardar a nova janela carregar e passar os dados
-            setTimeout(() => {
-                if (newWindow && !newWindow.closed) {
-                    // Passar dados de autenticação para a nova janela
-                    newWindow.localStorage.setItem('adminAccess', adminAccess);
-                    newWindow.localStorage.setItem('establishmentData', establishmentData);
-                    
-                    // Recarregar a página para aplicar a autenticação
-                    newWindow.location.reload();
-                    
-                    console.log('🔐 Autenticação passada para qr-management.html');
-                }
-            }, 1000);
         }
 
         // View menu as customer
