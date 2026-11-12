@@ -35,12 +35,12 @@ O sistema gera automaticamente um QR code único para todo o seu estabelecimento
 2. Imprima cópias deste mesmo QR code e posicione em todas as mesas
 3. Os clientes escaneiam este QR code para acessar o cardápio digital
 
-## URL Personalizada
+## URL pública do cardápio
 
-Seu estabelecimento recebe uma URL única:
-- Formato: `https://cardapiodigital.com.br/nome-do-seu-estabelecimento`
-- Esta URL pode ser copiada e compartilhada
-- Leva diretamente ao cardápio do seu estabelecimento
+Cada estabelecimento recebe um endereço individual usando o identificador criado no cadastro:
+- Formato: `https://delivery-day.netlify.app/usuario.html?loja=ID_DA_LOJA`
+- O mesmo endereço é exibido no painel, copiado e gravado no QR Code.
+- O parâmetro `loja` mantém o cardápio vinculado ao cadastro correto.
 
 ## Como Salvar as Personalizações
 
