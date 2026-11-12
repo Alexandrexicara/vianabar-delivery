@@ -1501,34 +1501,17 @@
 
         // Display menu URL
         function displayMenuUrl() {
-            // Get establishment data to build the URL
             const establishmentData = JSON.parse(localStorage.getItem('establishmentData') || '{}');
-            const customizations = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
-                    
-            // Check if we have a unique ID from the purchase, otherwise generate from name
-            let menuUrl;
-            if (establishmentData.uniqueId) {
-                // Use the unique ID that was generated during purchase
-                menuUrl = `https://${establishmentData.uniqueId}.cardapiodigital.com.br`;
-            } else {
-                // Fallback to generating from establishment name
-                const establishmentName = customizations.establishmentName || establishmentData.establishmentName || 'meu-restaurante';
-                        
-                // Create a URL-friendly version of the name
-                const urlName = establishmentName
-                    .toLowerCase()
-                    .normalize('NFD')
-                    .replace(/[̀-ͯ]/g, '') // Remove accents
-                    .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with hyphens
-                    .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
-                        
-                menuUrl = `https://${urlName}.cardapiodigital.com.br`;
-            }
+            const storeId = String(window.merchantStoreIdAuthenticated || window.merchantSession?.storeId || establishmentData.storeId || establishmentData.uniqueId || '').trim();
+            const menuUrl = new URL('/usuario.html', 'https://delivery-day.netlify.app');
+            if (storeId) menuUrl.searchParams.set('loja', storeId);
+            else menuUrl.searchParams.set('loja', 'main');
+            const officialMenuUrl = menuUrl.toString();
                     
             const menuUrlElement = document.getElementById('menuUrl');
                     
             if (menuUrlElement) {
-                menuUrlElement.textContent = menuUrl;
+                menuUrlElement.textContent = officialMenuUrl;
             }
         }
 
@@ -1587,35 +1570,26 @@
                 }
             }
             
-            // Open usuario.html in a new tab/window
-            window.open('usuario.html?admin=true', '_blank');
+            // Abrir exatamente o mesmo endereço público usado no QR Code.
+            const establishmentData = JSON.parse(localStorage.getItem('establishmentData') || '{}');
+            const storeId = String(window.merchantStoreIdAuthenticated || window.merchantSession?.storeId || establishmentData.storeId || establishmentData.uniqueId || 'main').trim();
+            const menuUrl = new URL('/usuario.html', 'https://delivery-day.netlify.app');
+            menuUrl.searchParams.set('loja', storeId);
+            window.open(menuUrl.toString(), '_blank', 'noopener');
         }
 
         // Copy menu URL to clipboard
         function copyMenuUrl() {
-            // Get establishment data to build the URL
             const establishmentData = JSON.parse(localStorage.getItem('establishmentData') || '{}');
-            const customizations = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
-            
-            // Use establishment name or default
-            const establishmentName = customizations.establishmentName || establishmentData.establishmentName || 'meu-restaurante';
-            
-            // Create a URL-friendly version of the name
-            const urlName = establishmentName
-                .toLowerCase()
-                .normalize('NFD')
-                .replace(/[\u0300-\u036f]/g, '') // Remove accents
-                .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with hyphens
-                .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
-            
-            const menuUrl = `https://cardapiodigital.com.br/${urlName}`;
-            
-            navigator.clipboard.writeText(menuUrl).then(() => {
-                playTripleBeep(); // Som sonoro para URL copiada
+            const storeId = String(window.merchantStoreIdAuthenticated || window.merchantSession?.storeId || establishmentData.storeId || establishmentData.uniqueId || 'main').trim();
+            const menuUrl = new URL('/usuario.html', 'https://delivery-day.netlify.app');
+            menuUrl.searchParams.set('loja', storeId);
+            const officialMenuUrl = menuUrl.toString();
+            navigator.clipboard.writeText(officialMenuUrl).then(() => {
+                playTripleBeep();
             }).catch(err => {
-                console.error('Erro ao copiar URL: ', err);
-                // Fallback: show URL in alert
-                playTripleBeep(); // Som sonoro para URL do cardápio
+                console.error('Erro ao copiar URL:', err);
+                window.prompt('Copie o endereço oficial do cardápio:', officialMenuUrl);
             });
         }
 
