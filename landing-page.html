@@ -1271,60 +1271,57 @@ Sistema completo de pedidos para restaurantes
         }
         
         // Process purchase
-        function processPurchase() {
-            const establishmentName = document.getElementById('establishmentName').value;
-            const adminName = document.getElementById('adminName').value;
-            const email = document.getElementById('email').value;
-            const phone = document.getElementById('phone').value;
-            const cnpj = document.getElementById('cnpj').value;
+        async function processPurchase() {
+            const establishmentName = document.getElementById('establishmentName').value.trim();
+            const adminName = document.getElementById('adminName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const cnpj = document.getElementById('cnpj').value.trim();
             const adminPassword = document.getElementById('adminPassword').value;
             const confirmAdminPassword = document.getElementById('confirmAdminPassword').value;
-            
             if (!establishmentName || !adminName || !email || !phone || !cnpj || !adminPassword || !confirmAdminPassword) {
                 alert('Por favor, preencha todos os campos obrigatórios.');
                 return;
             }
-            
-            // Validate password confirmation
             if (adminPassword !== confirmAdminPassword) {
                 alert('As senhas não coincidem. Por favor, verifique e tente novamente.');
                 return;
             }
-            
-            // Validate password strength (minimum 6 characters)
             if (adminPassword.length < 6) {
                 alert('A senha deve ter pelo menos 6 caracteres.');
                 return;
             }
-            
-            // Generate unique identifier for the establishment
             const uniqueId = generateEstablishmentId(establishmentName);
-            
-            // Save establishment data to localStorage
-            const establishmentData = {
-                establishmentName: establishmentName,
-                adminName: adminName,
-                email: email,
-                phone: phone,
-                cnpj: cnpj,
-                adminPassword: adminPassword, // Store the password
-                purchaseDate: new Date().toISOString(),
-                isAuthenticated: true,
-                uniqueId: uniqueId,
-                // Sem assinatura ou cobrança anual de domínio.
-            };
-            
-            localStorage.setItem('establishmentData', JSON.stringify(establishmentData));
-            
-            // Hide form and show success message
-            document.getElementById('purchaseForm').classList.add('hidden');
-            document.getElementById('successMessage').classList.remove('hidden');
-            
-            // Update success message with domain information
-            updateSuccessMessageWithDomain(uniqueId);
-            
-            // Scroll to success message
-            document.getElementById('successMessage').scrollIntoView({ behavior: 'smooth' });
+            const button = document.querySelector('#purchaseFormElement button[onclick="processPurchase()"]');
+            if (button) { button.disabled = true; button.textContent = 'Cadastrando...'; }
+            try {
+                const response = await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/register', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        storeId: uniqueId, email, password: adminPassword,
+                        establishment: { establishmentName, adminName, phone, cnpj, purchaseDate: new Date().toISOString() }
+                    })
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.error || 'Não foi possível concluir o cadastro.');
+                const establishmentData = {
+                    establishmentName, adminName, email, phone, cnpj,
+                    purchaseDate: new Date().toISOString(),
+                    isAuthenticated: true, uniqueId, storeId: uniqueId
+                };
+                localStorage.setItem('establishmentData', JSON.stringify(establishmentData));
+                localStorage.removeItem('adminAccess');
+                document.getElementById('purchaseForm').classList.add('hidden');
+                document.getElementById('successMessage').classList.remove('hidden');
+                updateSuccessMessageWithDomain(uniqueId);
+                document.getElementById('successMessage').scrollIntoView({ behavior: 'smooth' });
+            } catch (error) {
+                alert(error.message || 'Falha ao cadastrar. Tente novamente.');
+            } finally {
+                if (button) { button.disabled = false; button.textContent = 'Finalizar Cadastro'; }
+            }
         }
         
         // Generate a unique ID for the establishment based on its name
