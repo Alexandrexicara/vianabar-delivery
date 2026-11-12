@@ -1375,15 +1375,11 @@ Sistema completo de pedidos para restaurantes
         
         // Go to admin
         function goToAdmin() {
-            // Check if user has admin access
-            const adminAccess = localStorage.getItem('adminAccess');
-            const establishmentData = localStorage.getItem('establishmentData');
-            
-            if (adminAccess && establishmentData) {
-                // User has admin access, redirect to admin panel
+            let establishmentData = {};
+            try { establishmentData = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
+            if (establishmentData.isAuthenticated && (establishmentData.uniqueId || establishmentData.storeId)) {
                 window.location.href = 'admin.html';
             } else {
-                // User doesn't have admin access, redirect to login page
                 window.location.href = 'login.html';
             }
         }
