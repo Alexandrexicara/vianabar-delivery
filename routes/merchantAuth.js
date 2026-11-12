@@ -131,8 +131,10 @@ router.post('/register', async (req, res) => {
        ON CONFLICT(store_id) DO UPDATE SET settings = merchant_settings.settings || EXCLUDED.settings, updated_at = NOW()`,
       [storeId, JSON.stringify(safeSettings)]
     );
-    const existing = await pool.query('SELECT id FROM merchant_users WHERE store_id=$1 LIMIT 1', [storeId]);
-    if (existing.rowCount) return res.status(409).json({ success:false, error:'Esta loja já possui administrador. Entre com seu e-mail e senha.' });
+    const existingEmail = await pool.query('SELECT id FROM merchant_users WHERE LOWER(email)=LOWER($1) LIMIT 1', [email]);
+    if (existingEmail.rowCount) return res.status(409).json({ success:false, error:'Este e-mail já possui cadastro. Entre com seu e-mail e senha.' });
+    const existingStore = await pool.query('SELECT id FROM merchant_users WHERE store_id=$1 LIMIT 1', [storeId]);
+    if (existingStore.rowCount) return res.status(409).json({ success:false, error:'Já existe uma conta para este estabelecimento. Entre com seu e-mail e senha.' });
     const salt = crypto.randomBytes(16);
     const hash = crypto.scryptSync(password, salt, 64);
     const result = await pool.query(
@@ -154,19 +156,18 @@ router.post('/login', async (req, res) => {
   res.set('Cache-Control', 'no-store');
   const ip = String(req.ip || req.socket?.remoteAddress || 'unknown');
   if (rateLimited(ip)) return res.status(429).json({ success: false, error: 'Muitas tentativas. Aguarde 15 minutos.' });
-  const storeId = cleanStoreId(req.body?.storeId);
   const email = cleanEmail(req.body?.email);
   const password = String(req.body?.password || '');
-  if (!storeId || !email || !password) return res.status(400).json({ success: false, error: 'Informe loja, e-mail e senha.' });
+  if (!email || !password) return res.status(400).json({ success: false, error: 'Informe e-mail e senha.' });
   try {
     await ensureSchema();
     const result = await pool.query(
-      'SELECT id,store_id,email,password_salt,password_hash,role FROM merchant_users WHERE store_id=$1 AND email=$2 AND is_active=TRUE LIMIT 1',
-      [storeId, email]
+      'SELECT id,store_id,email,password_salt,password_hash,role FROM merchant_users WHERE LOWER(email)=LOWER($1) AND is_active=TRUE ORDER BY id DESC LIMIT 10',
+      [email]
     );
-    const user = result.rows[0];
-    if (!user || !verifyPassword(password, user.password_salt, user.password_hash)) {
-      return res.status(401).json({ success: false, error: 'Loja, e-mail ou senha incorretos.' });
+    const user = result.rows.find(candidate => verifyPassword(password, candidate.password_salt, candidate.password_hash));
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'E-mail ou senha incorretos.' });
     }
     attempts.delete(ip);
     setSession(res, user);
