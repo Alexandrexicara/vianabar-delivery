@@ -502,10 +502,10 @@
         const vitrineContainer = document.getElementById('storesList');
         if (!vitrineContainer) return;
         try {
-            const response = await fetch('/api/products?storeId=main', { cache: 'no-store' });
+            const response = await fetch('https://vianabar-delivery.onrender.com/api/products/showcase', { cache: 'no-store' });
             const result = await response.json();
             if (!response.ok) throw new Error(result.error || 'Falha ao carregar vitrine');
-            const vitrineProducts = result.showcase || [];
+            const vitrineProducts = result.products || [];
             localStorage.setItem('vitrineProducts', JSON.stringify(vitrineProducts));
             localStorage.setItem('menuItems', JSON.stringify(result.products || []));
             localStorage.setItem('productShowcase', JSON.stringify(vitrineProducts.map(product => ({
@@ -537,7 +537,7 @@
         const logo = customizations.logo || '';
         
         return `
-            <div class="store-card" onclick="viewProductDetail(${product.id})">
+            <div class="store-card" onclick="viewProductDetail('${product.id}', '${product.storeId || 'main'}')">
                 <div class="store-image" style="position: relative;">
                     ${product.image ? 
                         `<img src="${product.image}" alt="${product.name}" style="width: 100%; height: 100%; object-fit: cover;">` : 
@@ -650,8 +650,8 @@
     }
     
     // Ver detalhes do produto
-    function viewProductDetail(productId) {
-        window.location.href = `delivery.html?productId=${productId}`;
+    function viewProductDetail(productId, storeId) {
+        window.location.href = `delivery.html?storeId=${encodeURIComponent(storeId || 'main')}&productId=${encodeURIComponent(productId)}`;
     }
     
     // Filtrar por categoria
