@@ -2083,7 +2083,14 @@
             // Adicionar evento de busca de CEP
             setupCEPSearch();
             
-            loadMenuItems();
+            const storefrontParams = new URLSearchParams(window.location.search);
+            const openedFromMerchantStore = storefrontParams.has('loja') || storefrontParams.has('storeId');
+            if (openedFromMerchantStore) {
+                // Ao entrar pelo marketplace, abrir diretamente a vitrine da loja.
+                loadMenuItems().then(() => showMenu());
+            } else {
+                loadMenuItems();
+            }
             
             // ============================================
             // EVENTOS DE ATUALIZAÇÃO EM TEMPO REAL
