@@ -2116,12 +2116,13 @@
         await loadMenuItems();
 
         if (!localStorage.getItem('customerData')) {
-            console.log('[DEBUG] Sem dados do cliente, mostrando registro');
-            showSection('registration');
+            // O cliente pode consultar os produtos antes de preencher o cadastro.
+            // O cadastro continua obrigatório ao enviar o pedido ou solicitar atendimento.
+            console.log('[DEBUG] Cliente novo: exibindo cardápio antes do cadastro');
         } else {
-            console.log('[DEBUG] Com dados do cliente, mostrando menu');
-            showSection('menu');
+            console.log('[DEBUG] Dados do cliente encontrados');
         }
+        showSection('menu');
 
         filterMenu('all');
         loadUserOrders();
