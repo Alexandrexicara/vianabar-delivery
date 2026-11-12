@@ -111,16 +111,25 @@ router.post('/register', async (req, res) => {
   const storeId = cleanStoreId(req.body?.storeId);
   const email = cleanEmail(req.body?.email);
   const password = String(req.body?.password || '');
-  if (!storeId || !email || password.length < 12 || password.length > 200) {
-    return res.status(400).json({ success: false, error: 'Informe loja válida, e-mail e senha com pelo menos 12 caracteres.' });
+  if (!storeId || !email || password.length < 6 || password.length > 200) {
+    return res.status(400).json({ success: false, error: 'Informe loja válida, e-mail e senha com pelo menos 6 caracteres.' });
   }
   try {
     await ensureSchema();
     // Cada comerciante pode abrir sua própria loja usando um identificador exclusivo.
     // O cadastro público não exige código secreto nem pré-cadastro manual.
+    const establishment = req.body?.establishment && typeof req.body.establishment === 'object' ? req.body.establishment : {};
+    const safeSettings = {
+      establishmentName: String(establishment.establishmentName || storeId).slice(0,160),
+      adminName: String(establishment.adminName || '').slice(0,160),
+      email,
+      establishmentPhone: String(establishment.phone || '').slice(0,40),
+      cnpj: String(establishment.cnpj || '').slice(0,24)
+    };
     await pool.query(
-      'INSERT INTO merchant_settings(store_id,settings) VALUES($1,$2::jsonb) ON CONFLICT(store_id) DO NOTHING',
-      [storeId, JSON.stringify({ establishmentName: storeId })]
+      `INSERT INTO merchant_settings(store_id,settings) VALUES($1,$2::jsonb)
+       ON CONFLICT(store_id) DO UPDATE SET settings = merchant_settings.settings || EXCLUDED.settings, updated_at = NOW()`,
+      [storeId, JSON.stringify(safeSettings)]
     );
     const existing = await pool.query('SELECT id FROM merchant_users WHERE store_id=$1 LIMIT 1', [storeId]);
     if (existing.rowCount) return res.status(409).json({ success:false, error:'Esta loja já possui administrador. Entre com seu e-mail e senha.' });
