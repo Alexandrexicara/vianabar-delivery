@@ -62,12 +62,11 @@ router.get('/showcase', async (_req, res) => {
 
 router.get('/', async (req, res) => {
   try {
-    // No painel autenticado, o cookie assinado pelo servidor define a loja.
-    // O storeId enviado pelo navegador nunca pode fazer o painel ler outra loja
-    // nem causar divergência entre o ID usado no INSERT e o ID usado no SELECT.
-    const merchantSession = sessionFromCookieHeader(req.headers.cookie);
-    const requestedStoreId = String(req.query.storeId || 'main').trim().slice(0, 120);
-    const storeId = merchantSession?.storeId || requestedStoreId;
+    // Esta rota também atende o cardápio público aberto pelo QR Code.
+    // Portanto, a URL ?loja=... é a fonte da loja nesta leitura: nunca
+    // substituir o identificador do QR por um cookie de comerciante presente
+    // no mesmo navegador (isso faria o QR abrir o catálogo de outra loja).
+    const storeId = String(req.query.storeId || 'main').trim().slice(0, 120);
     const result = await pool.query(
       'SELECT id, store_id, store_name, name, category, sector, price, description, image, is_active, showcase_order FROM menu_products WHERE store_id = $1 AND is_active = TRUE ORDER BY created_at ASC',
       [storeId]
