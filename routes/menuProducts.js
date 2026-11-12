@@ -13,6 +13,19 @@ const pool = new Pool({
   connectionTimeoutMillis: 10000
 });
 
+function dedupeRows(rows) {
+  const seen = new Set();
+  return rows.filter(row => {
+    const key = [
+      row.name, row.category, row.sector,
+      Number(row.price || 0).toFixed(2), row.description, row.image
+    ].map(value => String(value ?? '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('pt-BR')).join('\u001f');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 const toProduct = (row) => ({
   id: /^\d+$/.test(String(row.id)) ? Number(row.id) : row.id,
   storeId: row.store_id,
@@ -26,6 +39,27 @@ const toProduct = (row) => ({
   active: row.is_active !== false
 });
 
+router.get('/showcase', async (_req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, store_id, store_name, name, category, sector, price, description, image, is_active, showcase_order
+       FROM (
+         SELECT mp.*,
+                ROW_NUMBER() OVER (PARTITION BY store_id ORDER BY showcase_order ASC, created_at ASC) AS showcase_rank
+         FROM menu_products mp
+         WHERE is_active = TRUE AND showcase_order IS NOT NULL
+       ) featured
+       WHERE showcase_rank <= 8
+       ORDER BY store_id, showcase_order ASC`
+    );
+    res.set('Cache-Control', 'no-store');
+    res.json({ success: true, products: dedupeRows(result.rows).map(toProduct) });
+  } catch (error) {
+    console.error('[PRODUCTS] Erro ao carregar vitrine pública:', error);
+    res.status(500).json({ success: false, error: 'Não foi possível carregar a vitrine.' });
+  }
+});
+
 router.get('/', async (req, res) => {
   try {
     const storeId = String(req.query.storeId || 'main').slice(0, 120);
@@ -33,8 +67,9 @@ router.get('/', async (req, res) => {
       'SELECT id, store_id, store_name, name, category, sector, price, description, image, is_active, showcase_order FROM menu_products WHERE store_id = $1 AND is_active = TRUE ORDER BY created_at ASC',
       [storeId]
     );
-    const products = result.rows.map(toProduct);
-    const showcase = result.rows
+    const uniqueRows = dedupeRows(result.rows);
+    const products = uniqueRows.map(toProduct);
+    const showcase = uniqueRows
       .filter(row => row.showcase_order !== null)
       .sort((a, b) => a.showcase_order - b.showcase_order)
       .map(toProduct);
@@ -57,9 +92,10 @@ router.post('/', requireAdmin, async (req, res) => {
     const result = await pool.query(
       `INSERT INTO menu_products (id, store_id, store_name, name, category, sector, price, description, image)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-       ON CONFLICT (id) DO UPDATE SET store_id=EXCLUDED.store_id, store_name=EXCLUDED.store_name,
+       ON CONFLICT (id) DO UPDATE SET store_name=EXCLUDED.store_name,
        name=EXCLUDED.name, category=EXCLUDED.category, sector=EXCLUDED.sector, price=EXCLUDED.price,
        description=EXCLUDED.description, image=EXCLUDED.image, is_active=TRUE, updated_at=NOW()
+       WHERE menu_products.store_id = EXCLUDED.store_id
        RETURNING id, store_id, store_name, name, category, sector, price, description, image, is_active`,
       [id, storeId, storeName, name, item.category || '', item.sector || 'Cozinha', Math.max(0, Number(item.price) || 0), item.description || '', item.image || null]
     );
