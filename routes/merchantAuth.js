@@ -116,8 +116,12 @@ router.post('/register', async (req, res) => {
   }
   try {
     await ensureSchema();
-    const knownStore = await pool.query('SELECT store_id FROM merchant_settings WHERE store_id=$1 LIMIT 1', [storeId]);
-    if (!knownStore.rowCount) return res.status(404).json({ success:false, error:'Loja não encontrada. Informe o identificador da loja cadastrado na plataforma.' });
+    // Cada comerciante pode abrir sua própria loja usando um identificador exclusivo.
+    // O cadastro público não exige código secreto nem pré-cadastro manual.
+    await pool.query(
+      'INSERT INTO merchant_settings(store_id,settings) VALUES($1,$2::jsonb) ON CONFLICT(store_id) DO NOTHING',
+      [storeId, JSON.stringify({ establishmentName: storeId })]
+    );
     const existing = await pool.query('SELECT id FROM merchant_users WHERE store_id=$1 LIMIT 1', [storeId]);
     if (existing.rowCount) return res.status(409).json({ success:false, error:'Esta loja já possui administrador. Entre com seu e-mail e senha.' });
     const salt = crypto.randomBytes(16);
