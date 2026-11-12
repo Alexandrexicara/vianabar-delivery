@@ -390,6 +390,19 @@
                         <label for="establishmentHours">Horário de Funcionamento</label>
                         <input type="text" id="establishmentHours" value="Ter-Sex: 18h-23h | Sáb-Dom: 12h-23h" placeholder="Ex: Seg-Sex 18h-23h, Sáb-Dom 12h-23h">
                     </div>
+                    <div class="form-group" style="grid-column:1/-1;border:1px solid #d8e2ec;border-radius:12px;padding:18px;background:#f8fafc;">
+                        <h3 style="margin:0 0 8px;color:#243447;">Funcionamento exclusivo do Delivery</h3>
+                        <p style="margin:0 0 14px;color:#5b6573;">Este controle não altera a vitrine nem o horário geral do estabelecimento.</p>
+                        <label style="display:flex;align-items:center;gap:10px;font-weight:700;">
+                            <input type="checkbox" id="deliveryEnabled" checked style="width:20px;height:20px;">
+                            <span>Delivery ativado (permitir pedidos quando estiver no horário)</span>
+                        </label>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:14px;">
+                            <div><label for="deliveryOpeningTime">Abre às</label><input type="time" id="deliveryOpeningTime" value="09:00"></div>
+                            <div><label for="deliveryClosingTime">Fecha às</label><input type="time" id="deliveryClosingTime" value="23:59"></div>
+                        </div>
+                        <small id="deliveryScheduleStatus" style="display:block;margin-top:10px;color:#475569;">Configure o horário e salve as personalizações.</small>
+                    </div>
                     
                     <div class="form-group">
                         <label for="primaryColor">Cor Primária</label>
@@ -604,8 +617,8 @@
                     else console.warn('[MERCHANT-SETTINGS] Migração local pendente:',migrated.error);
                 }
                 if(Object.keys(c).length>0) localStorage.setItem('establishmentCustomizations',JSON.stringify(c));
-                ['establishmentName','establishmentTagline','establishmentAddress','establishmentPhone','establishmentHours','primaryColor','secondaryColor','facebook','instagram','whatsapp'].forEach(id=>{
-                    const el=document.getElementById(id); if(el&&c[id]!==undefined) el.value=c[id];
+                ['establishmentName','establishmentTagline','establishmentAddress','establishmentPhone','establishmentHours','deliveryOpeningTime','deliveryClosingTime','primaryColor','secondaryColor','facebook','instagram','whatsapp'].forEach(id=>{
+                    const el=document.getElementById(id); if(el&&c[id]!==undefined) { if(el.type==='checkbox') el.checked=!!c[id]; else el.value=c[id]; }
                 });
                 if(c.logo) showImagePreview('logo',c.logo);
                 if(c.background) showImagePreview('background',c.background);
@@ -650,7 +663,7 @@
             const settings={
                 establishmentName:val('establishmentName'),establishmentTagline:val('establishmentTagline'),
                 establishmentAddress:val('establishmentAddress'),establishmentPhone:val('establishmentPhone'),
-                establishmentHours:val('establishmentHours'),primaryColor:val('primaryColor')||'#e74c3c',
+                establishmentHours:val('establishmentHours'),deliveryEnabled:document.getElementById('deliveryEnabled')?.checked!==false,deliveryOpeningTime:val('deliveryOpeningTime')||'09:00',deliveryClosingTime:val('deliveryClosingTime')||'23:59',primaryColor:val('primaryColor')||'#e74c3c',
                 secondaryColor:val('secondaryColor')||'#3498db',facebook:val('facebook'),instagram:val('instagram'),
                 whatsapp:val('whatsapp'),logo:old.logo||'',background:old.background||'',
                 establishmentLocation:old.establishmentLocation||null
