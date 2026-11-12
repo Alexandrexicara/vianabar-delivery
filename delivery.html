@@ -987,22 +987,17 @@
                 if (!response.ok) throw new Error(result.error || 'Falha ao carregar produtos');
                 const products = result.products || [];
                 const showcase = (result.showcase || []).slice(0, 8);
-                const productCacheKey = 'menuItems_' + storeId.replace(/[^a-zA-Z0-9_-]/g, '_');
-                localStorage.setItem(productCacheKey, JSON.stringify(products));
-                localStorage.setItem('menuItems', JSON.stringify(products));
-                localStorage.setItem('vitrineProducts', JSON.stringify(showcase));
-                // Na página da loja, o cliente escolhe entre os produtos que o comerciante destacou na vitrine.
-                // Se ainda não houver destaques, mantém os produtos ativos para não deixar o cardápio vazio.
-                window.menuItems = showcase.length ? showcase : products;
+                // A loja mostra todos os produtos ativos. Os oito destaques limitam apenas a vitrine inicial.
+                // Não gravar o catálogo nem imagens em localStorage: manter a resposta em memória.
+                window.menuItems = products;
+                window.storeShowcase = showcase;
                 console.log('[DELIVERY] Produtos da loja sincronizados:', window.menuItems.length, 'destaques:', showcase.length);
                 renderMenuItems();
             } catch (error) {
                 console.error('[DELIVERY] Erro ao carregar produtos do servidor:', error);
-                const params = new URLSearchParams(window.location.search);
-                const storeId = params.get('loja') || params.get('storeId') || 'main';
-                const productCacheKey = 'menuItems_' + storeId.replace(/[^a-zA-Z0-9_-]/g, '_');
-                window.menuItems = JSON.parse(localStorage.getItem(productCacheKey) || (storeId === 'main' ? localStorage.getItem('menuItems') : '[]') || '[]');
-                renderMenuItems();
+                window.menuItems = [];
+                const menuContainer = document.getElementById('deliveryMenuItems');
+                if (menuContainer) menuContainer.innerHTML = '<p style="text-align:center;color:#b42318;padding:40px;">Não foi possível carregar o cardápio. Atualize a página para tentar novamente.</p>';
             }
         }
 
