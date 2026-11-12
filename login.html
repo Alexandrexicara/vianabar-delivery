@@ -319,7 +319,7 @@
                         let legacyStoreId = String(legacy.uniqueId || legacy.storeId || '').trim();
                         if (!legacyStoreId) {
                             legacyStoreId = String(legacy.establishmentName || 'estabelecimento')
-                                .toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')
+                                .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
                                 .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') + '-' + Date.now();
                         }
                         const migration = await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/register', {
