@@ -21,6 +21,19 @@ function cents(value) {
   if (!Number.isFinite(number) || number < 0) return 0;
   return Math.round(number * 100);
 }
+async function deliveryAvailability(pool, storeId) {
+  const result = await pool.query("SELECT settings FROM merchant_settings WHERE store_id=$1", [storeId]);
+  const settings = result.rows[0]?.settings || {};
+  if (typeof settings.deliveryEnabled !== 'boolean' && !settings.deliveryOpeningTime && !settings.deliveryClosingTime) return {open:true};
+  if (settings.deliveryEnabled === false) return {open:false,reason:'O Delivery está fechado manualmente pelo estabelecimento.'};
+  const parts = new Intl.DateTimeFormat('en-GB',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date());
+  const now = Number(parts.find(p=>p.type==='hour')?.value||0)*60 + Number(parts.find(p=>p.type==='minute')?.value||0);
+  const minutes = value => { const [h,m]=String(value).split(':').map(Number); return h*60+m; };
+  const start=minutes(settings.deliveryOpeningTime || '00:00'), end=minutes(settings.deliveryClosingTime || '23:59');
+  const open = start <= end ? now >= start && now <= end : now >= start || now <= end;
+  return open ? {open:true} : {open:false,reason:'Delivery fechado. Horário de atendimento: '+(settings.deliveryOpeningTime||'00:00')+' às '+(settings.deliveryClosingTime||'23:59')+'.'};
+}
+
 function sectorFor(value) {
   const sector = String(value || '').toLowerCase();
   return sector.includes('balc') || sector.includes('counter') ? 'counter' : 'kitchen';
@@ -57,6 +70,16 @@ router.post('/', async (req, res) => {
   }
   if (Array.from(quantities.values()).some(q => q > 99)) {
     return res.status(400).json({ success: false, error: 'Quantidade total de um produto excede o limite.' });
+  }
+
+  if (orderType === 'delivery') {
+    try {
+      const availability = await deliveryAvailability(pool, storeId);
+      if (!availability.open) return res.status(409).json({success:false,code:'DELIVERY_CLOSED',error:availability.reason});
+    } catch (error) {
+      console.error('[CARDAPIO-ORDERS] Não foi possível validar horário do Delivery:',error.message);
+      return res.status(503).json({success:false,error:'Não foi possível confirmar se o Delivery está aberto. Tente novamente.'});
+    }
   }
 
   const client = await pool.connect();
