@@ -1348,9 +1348,10 @@ Sistema completo de pedidos para restaurantes
         
         // Update success message with domain information
         function updateSuccessMessageWithDomain(uniqueId) {
-            const establishmentData = JSON.parse(localStorage.getItem('establishmentData'));
-            const domainName = `${uniqueId}.cardapiodigital.com.br`;
-            
+            const menuUrl = new URL('/usuario.html', 'https://delivery-day.netlify.app');
+            menuUrl.searchParams.set('loja', uniqueId);
+            const officialMenuUrl = menuUrl.toString();
+
             const successMessageElement = document.getElementById('successMessage');
             if (successMessageElement) {
                 successMessageElement.innerHTML = `
@@ -1359,9 +1360,10 @@ Sistema completo de pedidos para restaurantes
                     <p>Seu acesso foi liberado e está pronto para uso.</p>
                     
                     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 10px; margin: 20px 0; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                        <h3 style="margin: 0 0 10px 0; font-size: 18px;">📱 Seu Domínio Único</h3>
-                        <p style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold;">${domainName}</p>
-                        <p style="margin: 10px 0 0 0; font-size: 12px; opacity: 0.8;">Acesse seu cardápio em: http://${domainName}</p>
+                        <h3 style="margin: 0 0 10px 0; font-size: 18px;">📱 Endereço oficial do seu cardápio</h3>
+                        <p style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold; overflow-wrap:anywhere;">${officialMenuUrl}</p>
+                        <p style="margin: 10px 0 0 0; font-size: 12px; opacity: 0.8;">Este é o mesmo endereço utilizado no QR Code da sua loja.</p>
+                        <button class="btn" type="button" onclick="navigator.clipboard.writeText('${officialMenuUrl}').then(() => alert('Endereço copiado!')).catch(() => window.prompt('Copie o endereço:', '${officialMenuUrl}'))">Copiar endereço do cardápio</button>
                     </div>
                     
                     <h3>Próximos passos:</h3>
