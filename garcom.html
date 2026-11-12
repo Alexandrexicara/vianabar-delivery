@@ -1133,11 +1133,18 @@
                     }));
                 }
                 
-                // Request existing orders when connection is established
+                // Envia primeiro a faixa salva para o servidor e só depois solicita os pedidos.
                 if (window.ws && window.ws.readyState === WebSocket.OPEN) {
-                    window.ws.send(JSON.stringify({
-                        type: 'getExistingOrders'
-                    }));
+                    if (assignedTableRange) {
+                        window.ws.send(JSON.stringify({
+                            type: 'tableAssignment',
+                            waiterId: localStorage.getItem('currentWaiterId') || 'default',
+                            tableStart: assignedTableRange.start,
+                            tableEnd: assignedTableRange.end,
+                            tables: []
+                        }));
+                    }
+                    window.ws.send(JSON.stringify({ type: 'getExistingOrders' }));
                 }
             };
             
