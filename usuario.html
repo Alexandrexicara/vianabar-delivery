@@ -1130,17 +1130,13 @@
     window.ws = null;
     window.cardapioStoreId = (function(){
         const params = new URLSearchParams(window.location.search);
-        const hostParts = window.location.hostname.split('.');
-        const subdomain = hostParts.length >= 3 && hostParts.slice(-2).join('.') === 'cardapiodigital.com.br' ? hostParts[0] : '';
-        return (params.get('loja') || subdomain || 'main').slice(0,120);
+        return (params.get('loja') || 'main').slice(0,120);
     })();
     window.selectedCardapioPayment = null;
 
     async function loadMerchantMenuSettings() {
         const params = new URLSearchParams(window.location.search);
-        const hostParts = window.location.hostname.split('.');
-        const subdomain = hostParts.length >= 3 && hostParts.slice(-2).join('.') === 'cardapiodigital.com.br' ? hostParts[0] : '';
-        const storeId = (params.get('loja') || subdomain || 'main').slice(0,120);
+        const storeId = (params.get('loja') || 'main').slice(0,120);
         window.cardapioStoreId = storeId;
         try {
             // As personalizações são globais: sempre buscar no PostgreSQL do backend,
