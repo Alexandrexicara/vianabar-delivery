@@ -104,14 +104,10 @@ function rateLimited(ip) {
   return false;
 }
 
-router.post('/bootstrap', async (req, res) => {
+router.post('/register', async (req, res) => {
   res.set('Cache-Control', 'no-store');
-  const supplied = String(req.get('X-Merchant-Setup-Token') || '');
-  const configured = String(process.env.MERCHANT_SETUP_TOKEN || '');
-  if (configured.length < 32 || !supplied || supplied.length !== configured.length ||
-      !crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(configured))) {
-    return res.status(403).json({ success: false, error: 'Configuração inicial não autorizada. Configure MERCHANT_SETUP_TOKEN no servidor.' });
-  }
+  const ip = String(req.ip || req.socket?.remoteAddress || 'unknown');
+  if (rateLimited(ip)) return res.status(429).json({ success: false, error: 'Muitas tentativas. Aguarde 15 minutos.' });
   const storeId = cleanStoreId(req.body?.storeId);
   const email = cleanEmail(req.body?.email);
   const password = String(req.body?.password || '');
@@ -121,9 +117,9 @@ router.post('/bootstrap', async (req, res) => {
   try {
     await ensureSchema();
     const knownStore = await pool.query('SELECT store_id FROM merchant_settings WHERE store_id=$1 LIMIT 1', [storeId]);
-    if (!knownStore.rowCount) return res.status(404).json({success:false,error:'Loja não encontrada no cadastro da plataforma. Confira o código da loja.'});
+    if (!knownStore.rowCount) return res.status(404).json({ success:false, error:'Loja não encontrada. Informe o identificador da loja cadastrado na plataforma.' });
     const existing = await pool.query('SELECT id FROM merchant_users WHERE store_id=$1 LIMIT 1', [storeId]);
-    if (existing.rowCount) return res.status(409).json({ success: false, error: 'Esta loja já possui administrador. Use o login.' });
+    if (existing.rowCount) return res.status(409).json({ success:false, error:'Esta loja já possui administrador. Entre com seu e-mail e senha.' });
     const salt = crypto.randomBytes(16);
     const hash = crypto.scryptSync(password, salt, 64);
     const result = await pool.query(
@@ -131,11 +127,13 @@ router.post('/bootstrap', async (req, res) => {
        VALUES($1,$2,$3,$4) RETURNING id,store_id,email,role`,
       [storeId, email, salt.toString('hex'), hash.toString('hex')]
     );
+    attempts.delete(ip);
     setSession(res, result.rows[0]);
-    res.status(201).json({ success: true, merchant: { email, storeId } });
+    res.status(201).json({ success:true, merchant:{ email, storeId } });
   } catch (error) {
-    console.error('[MERCHANT-AUTH] bootstrap:', error.message);
-    res.status(500).json({ success: false, error: 'Não foi possível criar o acesso do comerciante.' });
+    if (error.code === '23505') return res.status(409).json({ success:false, error:'Já existe um administrador cadastrado para esta loja.' });
+    console.error('[MERCHANT-AUTH] register:', error.message);
+    res.status(500).json({ success:false, error:'Não foi possível concluir o cadastro do comerciante.' });
   }
 });
 
