@@ -686,6 +686,7 @@
             <div class="tab active" onclick="showTab('dashboard')">Dashboard</div>
             <div class="tab" onclick="showTab('orders')">Pedidos</div>
             <div class="tab" onclick="showTab('registration')">Cadastro</div>
+            <div class="tab" onclick="showTab('tables')">Minhas Mesas</div>
         </div>
 
         <section id="dashboard" class="content-section active">
@@ -752,25 +753,8 @@
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label for="tableFilter">Mesa:</label>
-                    <select id="tableFilter" onchange="filterOrders()">
-                        <option value="">Todas</option>
-                        <option value="Mesa 01">Mesa 01</option>
-                        <option value="Mesa 02">Mesa 02</option>
-                        <option value="Mesa 03">Mesa 03</option>
-                        <option value="Mesa 04">Mesa 04</option>
-                        <option value="Mesa 05">Mesa 05</option>
-                        <option value="Mesa 06">Mesa 06</option>
-                        <option value="Mesa 07">Mesa 07</option>
-                        <option value="Mesa 08">Mesa 08</option>
-                        <option value="Mesa 09">Mesa 09</option>
-                        <option value="Mesa 10">Mesa 10</option>
-                        <option value="Mesa 11">Mesa 11</option>
-                        <option value="Mesa 12">Mesa 12</option>
-                        <option value="Mesa 13">Mesa 13</option>
-                        <option value="Mesa 14">Mesa 14</option>
-                        <option value="Mesa 15">Mesa 15</option>
-                    </select>
+                    <label for="tableFilter">Filtrar por mesa:</label>
+                    <input id="tableFilter" type="number" min="1" step="1" placeholder="Digite o número da mesa" oninput="filterOrders()">
                 </div>
             </div>
             
@@ -808,48 +792,25 @@
         </section>
 
         <section id="tables" class="content-section">
-            <h2>Atribuição de Mesas</h2>
-            <p>Selecione as mesas que você irá atender marcando com X</p>
-            
-            <div class="blocks-navigation">
-                <h3>Selecionar Bloco de Mesas:</h3>
-                <div class="block-buttons" id="blockButtons">
-                    <!-- Botões de blocos serão gerados aqui -->
-                </div>
-            </div>
-            
+            <h2>Minhas mesas de atendimento</h2>
+            <p>Informe o número da primeira e da última mesa que você vai atender. Exemplo: de 1 até 20.</p>
             <div class="table-block-container">
-                <div class="block-header">
-                    <h3 id="currentBlockTitle">Bloco 1 - Mesas 001 a 100</h3>
-                    <div class="block-info">
-                        <span>Total de mesas: <span id="totalTablesInBlock">100</span></span>
-                        <span>Selecionadas: <span id="selectedTablesCount">0</span></span>
-                    </div>
+                <div class="form-group">
+                    <label for="waiterTableStart">Mesa inicial</label>
+                    <input id="waiterTableStart" type="number" min="1" max="100000" step="1" placeholder="Ex.: 1" inputmode="numeric">
                 </div>
-                
-                <div class="tables-grid-container">
-                    <div id="tablesGrid" class="tables-grid-extended">
-                        <!-- Mesas do bloco atual serão carregadas aqui -->
-                    </div>
+                <div class="form-group">
+                    <label for="waiterTableEnd">Mesa final</label>
+                    <input id="waiterTableEnd" type="number" min="1" max="100000" step="1" placeholder="Ex.: 20" inputmode="numeric">
                 </div>
-                
                 <div class="block-actions">
-                    <button id="selectAllInBlock" class="btn btn-primary">Marcar Todas deste Bloco</button>
-                    <button id="clearAllInBlock" class="btn btn-warning">Desmarcar Todas deste Bloco</button>
-                    <button id="saveTableAssignment" class="btn btn-success">Salvar Atribuição</button>
-                    <button id="clearTableAssignment" class="btn btn-danger">Limpar Tudo</button>
+                    <button id="saveTableAssignment" class="btn btn-success" type="button">Confirmar minhas mesas</button>
+                    <button id="clearTableAssignment" class="btn btn-danger" type="button">Liberar minhas mesas</button>
                 </div>
             </div>
-            
             <div class="my-assigned-tables-summary">
-                <h3>Minhas Mesas Atribuídas</h3>
-                <div class="summary-info">
-                    <div>Blocos ativos: <span id="activeBlocksCount">0</span></div>
-                    <div>Total de mesas: <span id="totalAssignedTables">0</span></div>
-                </div>
-                <div id="myAssignedTablesDisplay" class="tables-tags-extended">
-                    <p>Nenhuma mesa atribuída ainda. Selecione as mesas marcando com X.</p>
-                </div>
+                <h3>Faixa de atendimento confirmada</h3>
+                <p id="myAssignedTablesDisplay">Nenhuma faixa configurada. Você ainda não receberá chamados de mesas.</p>
             </div>
         </section>
     </div>
@@ -970,262 +931,104 @@
             showTab('dashboard');
         }
         
-        // Extended Table Assignment System with Blocks
+        // Atribuição simples por faixa numérica, sem limite artificial de 15 ou 1.000 mesas.
+        let assignedTableRange = null;
         let assignedTables = [];
-        let currentBlock = 1;
-        const totalBlocks = 10; // 10 blocos no total (1 visível + 9 ocultos)
-        const tablesPerBlock = 100;
-        
-        // Initialize table assignment system
-        function initTableAssignment() {
-            // Load assigned tables from localStorage
-            loadAssignedTables();
-            
-            // Render block navigation
-            renderBlockNavigation();
-            
-            // Render current block
-            renderCurrentBlock();
-            
-            // Render assigned tables summary
+
+        function normalizeTableNumber(value) {
+            const match = String(value ?? '').match(/\\d+/);
+            return match ? Number(match[0]) : NaN;
+        }
+
+        function isTableAssignedToWaiter(table) {
+            if (!assignedTableRange) return false;
+            const n = normalizeTableNumber(table);
+            return Number.isInteger(n) && n >= assignedTableRange.start && n <= assignedTableRange.end;
+        }
+
+        function isOrderAssignedToWaiter(order) {
+            return !!order && isTableAssignedToWaiter(order.table);
+        }
+
+        function renderMyAssignedTables() {
+            const display = document.getElementById('myAssignedTablesDisplay');
+            if (!display) return;
+            display.textContent = assignedTableRange
+                ? 'Você atende da mesa ' + assignedTableRange.start + ' até a mesa ' + assignedTableRange.end + '.'
+                : 'Nenhuma faixa configurada. Você ainda não receberá chamados de mesas.';
+        }
+
+        function loadAssignedTables() {
+            const waiterId = localStorage.getItem('currentWaiterId') || 'default';
+            try {
+                const saved = JSON.parse(localStorage.getItem('tableAssignment_' + waiterId) || 'null');
+                if (saved && Number.isInteger(Number(saved.start)) && Number.isInteger(Number(saved.end)) &&
+                    Number(saved.start) >= 1 && Number(saved.end) >= Number(saved.start)) {
+                    assignedTableRange = { start: Number(saved.start), end: Number(saved.end) };
+                } else if (Array.isArray(saved) && saved.length) {
+                    const nums = saved.map(normalizeTableNumber).filter(Number.isInteger);
+                    if (nums.length) assignedTableRange = {start: Math.min(...nums), end: Math.max(...nums)};
+                }
+            } catch (_) { assignedTableRange = null; }
+            if (assignedTableRange) {
+                document.getElementById('waiterTableStart').value = assignedTableRange.start;
+                document.getElementById('waiterTableEnd').value = assignedTableRange.end;
+            }
             renderMyAssignedTables();
-            
-            // Add event listeners
+        }
+
+        function initTableAssignment() {
+            loadAssignedTables();
             document.getElementById('saveTableAssignment').addEventListener('click', saveTableAssignment);
             document.getElementById('clearTableAssignment').addEventListener('click', clearTableAssignment);
-            document.getElementById('selectAllInBlock').addEventListener('click', selectAllInCurrentBlock);
-            document.getElementById('clearAllInBlock').addEventListener('click', clearAllInCurrentBlock);
         }
-        
-        // Render block navigation buttons
-        function renderBlockNavigation() {
-            const container = document.getElementById('blockButtons');
-            container.innerHTML = '';
-            
-            for (let blockNum = 1; blockNum <= totalBlocks; blockNum++) {
-                const button = document.createElement('button');
-                button.className = 'block-btn';
-                button.textContent = `Bloco ${blockNum}`;
-                
-                // Check if this block has assigned tables
-                const blockStart = (blockNum - 1) * tablesPerBlock + 1;
-                const blockEnd = blockNum * tablesPerBlock;
-                const hasTables = assignedTables.some(table => {
-                    const tableNum = parseInt(table.replace('Mesa ', ''));
-                    return tableNum >= blockStart && tableNum <= blockEnd;
-                });
-                
-                if (hasTables) {
-                    button.classList.add('has-tables');
-                }
-                
-                if (blockNum === currentBlock) {
-                    button.classList.add('active');
-                }
-                
-                button.addEventListener('click', () => switchToBlock(blockNum));
-                container.appendChild(button);
-            }
-        }
-        
-        // Switch to a different block
-        function switchToBlock(blockNum) {
-            currentBlock = blockNum;
-            renderBlockNavigation();
-            renderCurrentBlock();
-        }
-        
-        // Render current block tables
-        function renderCurrentBlock() {
-            const blockStart = (currentBlock - 1) * tablesPerBlock + 1;
-            const blockEnd = currentBlock * tablesPerBlock;
-            
-            // Update block title
-            document.getElementById('currentBlockTitle').textContent = 
-                `Bloco ${currentBlock} - Mesas ${blockStart.toString().padStart(3, '0')} a ${blockEnd.toString().padStart(3, '0')}`;
-            
-            // Update totals
-            document.getElementById('totalTablesInBlock').textContent = tablesPerBlock;
-            
-            // Render tables grid
-            const container = document.getElementById('tablesGrid');
-            container.innerHTML = '';
-            
-            let selectedCount = 0;
-            
-            for (let tableNum = blockStart; tableNum <= blockEnd; tableNum++) {
-                const tableName = `Mesa ${tableNum.toString().padStart(3, '0')}`;
-                const cell = document.createElement('div');
-                cell.className = 'table-cell';
-                cell.textContent = 'X';
-                
-                // Check if selected
-                if (assignedTables.includes(tableName)) {
-                    cell.classList.add('selected');
-                    selectedCount++;
-                }
-                
-                cell.addEventListener('click', () => toggleTableSelection(tableName));
-                container.appendChild(cell);
-            }
-            
-            document.getElementById('selectedTablesCount').textContent = selectedCount;
-        }
-        
-        // Toggle table selection
-        function toggleTableSelection(tableName) {
-            const index = assignedTables.indexOf(tableName);
-            if (index > -1) {
-                // Remove table
-                assignedTables.splice(index, 1);
-            } else {
-                // Add table
-                assignedTables.push(tableName);
-            }
-            
-            // Re-render current block and summary
-            renderCurrentBlock();
-            renderMyAssignedTables();
-            renderBlockNavigation();
-        }
-        
-        // Select all tables in current block
-        function selectAllInCurrentBlock() {
-            const blockStart = (currentBlock - 1) * tablesPerBlock + 1;
-            const blockEnd = currentBlock * tablesPerBlock;
-            
-            for (let tableNum = blockStart; tableNum <= blockEnd; tableNum++) {
-                const tableName = `Mesa ${tableNum.toString().padStart(3, '0')}`;
-                if (!assignedTables.includes(tableName)) {
-                    assignedTables.push(tableName);
-                }
-            }
-            
-            renderCurrentBlock();
-            renderMyAssignedTables();
-            renderBlockNavigation();
-        }
-        
-        // Clear all tables in current block
-        function clearAllInCurrentBlock() {
-            const blockStart = (currentBlock - 1) * tablesPerBlock + 1;
-            const blockEnd = currentBlock * tablesPerBlock;
-            
-            assignedTables = assignedTables.filter(tableName => {
-                const tableNum = parseInt(tableName.replace('Mesa ', ''));
-                return tableNum < blockStart || tableNum > blockEnd;
-            });
-            
-            renderCurrentBlock();
-            renderMyAssignedTables();
-            renderBlockNavigation();
-        }
-        
-        // Load assigned tables from localStorage
-        function loadAssignedTables() {
-            const currentWaiterId = localStorage.getItem('currentWaiterId');
-            if (currentWaiterId) {
-                const savedAssignment = localStorage.getItem(`tableAssignment_${currentWaiterId}`);
-                if (savedAssignment) {
-                    assignedTables = JSON.parse(savedAssignment);
-                }
-            }
-        }
-        
-        // Save assigned tables to localStorage
+
         function saveTableAssignment() {
-            const currentWaiterId = localStorage.getItem('currentWaiterId');
-            if (currentWaiterId) {
-                localStorage.setItem(`tableAssignment_${currentWaiterId}`, JSON.stringify(assignedTables));
-                alert('Atribuição de mesas salva com sucesso!');
-                renderMyAssignedTables();
-                renderBlockNavigation();
-                
-                // Notify server about table assignment
-                if (window.ws && window.ws.readyState === WebSocket.OPEN) {
-                    window.ws.send(JSON.stringify({
-                        type: 'tableAssignment',
-                        waiterId: currentWaiterId,
-                        tables: assignedTables
-                    }));
-                }
-            }
-        }
-        
-        // Clear table assignment
-        function clearTableAssignment() {
-            if (confirm('Tem certeza que deseja limpar todas as mesas atribuídas?')) {
-                assignedTables = [];
-                renderCurrentBlock();
-                renderMyAssignedTables();
-                renderBlockNavigation();
-                
-                const currentWaiterId = localStorage.getItem('currentWaiterId');
-                if (currentWaiterId) {
-                    localStorage.removeItem(`tableAssignment_${currentWaiterId}`);
-                }
-            }
-        }
-        
-        // Render my assigned tables display with blocks
-        function renderMyAssignedTables() {
-            const container = document.getElementById('myAssignedTablesDisplay');
-            const activeBlocksSpan = document.getElementById('activeBlocksCount');
-            const totalTablesSpan = document.getElementById('totalAssignedTables');
-            
-            if (assignedTables.length === 0) {
-                container.innerHTML = '<p>Nenhuma mesa atribuída ainda. Selecione as mesas marcando com X.</p>';
-                activeBlocksSpan.textContent = '0';
-                totalTablesSpan.textContent = '0';
+            const start = Number(document.getElementById('waiterTableStart').value);
+            const end = Number(document.getElementById('waiterTableEnd').value);
+            if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start || end > 100000) {
+                alert('Informe uma faixa válida. A mesa inicial deve ser maior ou igual a 1 e a final deve ser igual ou maior que a inicial.');
                 return;
             }
-            
-            // Group tables by blocks
-            const blocksWithTables = {};
-            assignedTables.forEach(table => {
-                const tableNum = parseInt(table.replace('Mesa ', ''));
-                const blockNum = Math.ceil(tableNum / tablesPerBlock);
-                if (!blocksWithTables[blockNum]) {
-                    blocksWithTables[blockNum] = [];
-                }
-                blocksWithTables[blockNum].push(table);
-            });
-            
-            container.innerHTML = '';
-            let totalTables = 0;
-            
-            // Create tags grouped by blocks
-            Object.keys(blocksWithTables).sort((a,b) => a-b).forEach(blockNum => {
-                const tablesInBlock = blocksWithTables[blockNum];
-                totalTables += tablesInBlock.length;
-                
-                tablesInBlock.forEach(table => {
-                    const tagElement = document.createElement('div');
-                    tagElement.className = 'table-tag-extended';
-                    tagElement.innerHTML = `
-                        <span class="tag-block-number">Bloco ${blockNum}</span>
-                        <span>${table}</span>
-                    `;
-                    container.appendChild(tagElement);
-                });
-            });
-            
-            activeBlocksSpan.textContent = Object.keys(blocksWithTables).length;
-            totalTablesSpan.textContent = totalTables;
-        }
-        
-        // Check if waiter is assigned to a specific table
-        function isTableAssignedToWaiter(table) {
-            return assignedTables.includes(table);
-        }
-        
-        // Filter orders based on assigned tables
-        function filterOrdersByAssignedTables(orders) {
-            if (assignedTables.length === 0) {
-                return orders; // If no tables assigned, show all orders
+            assignedTableRange = {start, end};
+            const waiterId = localStorage.getItem('currentWaiterId') || 'default';
+            localStorage.setItem('tableAssignment_' + waiterId, JSON.stringify(assignedTableRange));
+            renderMyAssignedTables();
+            if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+                window.ws.send(JSON.stringify({
+                    type: 'tableAssignment',
+                    waiterId,
+                    tableStart: start,
+                    tableEnd: end,
+                    tables: []
+                }));
             }
-            
-            return orders.filter(order => assignedTables.includes(order.table));
+            // Atualiza a lista sem misturar pedidos de outras faixas.
+            loadLatestOrders();
+            loadAllOrders();
+            updateDashboardStats();
+            alert('Faixa confirmada: mesas ' + start + ' até ' + end + '. Você verá somente pedidos e chamados dessas mesas.');
+        }
+
+        function clearTableAssignment() {
+            if (!confirm('Deseja liberar sua faixa de mesas?')) return;
+            const waiterId = localStorage.getItem('currentWaiterId') || 'default';
+            assignedTableRange = null;
+            localStorage.removeItem('tableAssignment_' + waiterId);
+            document.getElementById('waiterTableStart').value = '';
+            document.getElementById('waiterTableEnd').value = '';
+            renderMyAssignedTables();
+            loadLatestOrders();
+            loadAllOrders();
+            updateDashboardStats();
+            if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+                window.ws.send(JSON.stringify({type:'tableAssignment', waiterId, tableStart:null, tableEnd:null, tables:[]}));
+            }
+        }
+
+        function filterOrdersByAssignedTables(orders) {
+            if (!assignedTableRange) return [];
+            return orders.filter(isOrderAssignedToWaiter);
         }
 
         // Logout
@@ -1351,8 +1154,8 @@
                     // Restaurar status salvos após carregar pedidos
                     setTimeout(restoreOrderStatuses, 100);
                 } else if (data.type === 'newOrder') {
-                    // Add new order
-                    if (data.order) {
+                    // Só processa pedidos dentro da faixa confirmada deste garçom.
+                    if (data.order && isOrderAssignedToWaiter(data.order)) {
                         if (window.ordersData) {
                             window.ordersData.push(data.order);
                         } else {
@@ -1366,6 +1169,8 @@
                         playLoopingNotification();
                     }
                 } else if (data.type === 'statusUpdate') {
+                    const updatedOrder = (window.ordersData || []).find(o => String(o.id) === String(data.orderId));
+                    if (!isOrderAssignedToWaiter(updatedOrder)) return;
                     // Update status
                     updateOrderStatusUI(data.orderId, data.status);
                     updateDashboardStats();
@@ -1416,9 +1221,12 @@
                         playLoopingNotification();
                     }
                 } else if (data.type === 'notifyWaiterForDelivery') {
+                    const deliveryOrder = (window.ordersData || []).find(o => String(o.id) === String(data.orderId));
+                    if (!isOrderAssignedToWaiter(deliveryOrder)) return;
                     // APENAS som sonoro EM LOOP - 30 segundos
                     playLoopingNotification();
                 } else if (data.type === 'callWaiter') {
+                    if (!isTableAssignedToWaiter(data.table)) return;
                     console.log('[DEBUG] RECEBENDO callWaiter:', data);
                     // Registrar chamada permanente no painel do garçom
                     const callType = data.paymentMethod === 'chamar_garcom' ? 'CONVERSA/ATENDIMENTO' : 'PAGAMENTO';
@@ -1432,6 +1240,8 @@
                     console.log('[DEBUG] Tocando som para mesa:', data.table);
                     playLoopingNotification();
                 } else if (data.type === 'paymentStatusUpdate') {
+                    const paymentOrder = (window.ordersData || []).find(o => String(o.id) === String(data.orderId));
+                    if (!isOrderAssignedToWaiter(paymentOrder)) return;
                     // Handle payment status updates
                     if (window.ordersData) {
                         const order = window.ordersData.find(o => o.id === data.orderId);
@@ -1453,6 +1263,7 @@
                     }
                     updateDashboardStats();
                 } else if (data.type === 'requestPayment') {
+                    if (!isTableAssignedToWaiter(data.table)) return;
                     console.log('[DEBUG] RECEBENDO requestPayment:', data);
                     // Registrar solicitação de fechamento permanente
                     const message = `💳 MESA ${data.table} SOLICITANDO FECHAMENTO!`;
@@ -2020,7 +1831,7 @@ Total: R$ ${order.total.toFixed(2).replace('.', ',')}`);
                 if (statusFilter && order.status !== statusFilter) return false;
                 
                 // Table filter
-                if (tableFilter && order.table !== tableFilter) return false;
+                if (tableFilter && normalizeTableNumber(order.table) !== Number(tableFilter)) return false;
                 
                 return true;
             });
