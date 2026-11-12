@@ -78,7 +78,7 @@ router.get('/assets/:key', async (req,res) => {
       return res.status(404).end();
     }
     res.set('Content-Type',result.rows[0].mime_type);
-    res.set('Cache-Control','public, max-age=300');
+    res.set('Cache-Control','no-cache, must-revalidate');
     res.send(result.rows[0].file_data);
   } catch (error) {
     console.error('[PLATFORM-BRANDING] asset:',error);
