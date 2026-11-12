@@ -393,10 +393,9 @@
                     <div class="form-group" style="grid-column:1/-1;border:1px solid #d8e2ec;border-radius:12px;padding:18px;background:#f8fafc;">
                         <h3 style="margin:0 0 8px;color:#243447;">Funcionamento exclusivo do Delivery</h3>
                         <p style="margin:0 0 14px;color:#5b6573;">Este controle não altera a vitrine nem o horário geral do estabelecimento.</p>
-                        <label style="display:flex;align-items:center;gap:10px;font-weight:700;">
-                            <input type="checkbox" id="deliveryEnabled" checked style="width:20px;height:20px;">
-                            <span>Delivery ativado (permitir pedidos quando estiver no horário)</span>
-                        </label>
+                        <input type="checkbox" id="deliveryEnabled" checked style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;" aria-hidden="true">
+                        <button type="button" id="deliveryToggleButton" onclick="toggleDeliveryOpenState()" style="border:0;border-radius:9px;padding:12px 20px;background:#16803c;color:#fff;font-weight:700;cursor:pointer;">DELIVERY ABERTO</button>
+                        <small style="display:block;margin-top:8px;color:#5b6573;">Use este botão para pausar ou reabrir pedidos sem alterar a vitrine.</small>
                         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:14px;">
                             <div><label for="deliveryOpeningTime">Abre às</label><input type="time" id="deliveryOpeningTime" value="09:00"></div>
                             <div><label for="deliveryClosingTime">Fecha às</label><input type="time" id="deliveryClosingTime" value="23:59"></div>
@@ -599,6 +598,22 @@
         const MERCHANT_API_BASE = 'https://vianabar-delivery.onrender.com';
         function merchantSettingsApiUrl() { return MERCHANT_API_BASE + '/api/merchant-settings/' + encodeURIComponent(getMerchantStoreId()); }
 
+        function refreshDeliveryToggleButton() {
+            const enabled = document.getElementById('deliveryEnabled')?.checked !== false;
+            const button = document.getElementById('deliveryToggleButton');
+            if (!button) return;
+            button.textContent = enabled ? 'DELIVERY ABERTO — CLIQUE PARA FECHAR' : 'DELIVERY FECHADO — CLIQUE PARA ABRIR';
+            button.style.background = enabled ? '#16803c' : '#b42318';
+        }
+        function toggleDeliveryOpenState() {
+            const control = document.getElementById('deliveryEnabled');
+            if (!control) return;
+            control.checked = !control.checked;
+            refreshDeliveryToggleButton();
+            const status = document.getElementById('deliveryScheduleStatus');
+            if (status) status.textContent = control.checked ? 'Delivery ativado. Salve as personalizações para aplicar.' : 'Delivery pausado. Salve as personalizações para bloquear novos pedidos.';
+        }
+
         async function loadMerchantSettings() {
             try {
                 const response=await fetch(merchantSettingsApiUrl(),{credentials:'include',cache:'no-store'});
@@ -622,7 +637,7 @@
                 });
                 if(c.logo) showImagePreview('logo',c.logo);
                 if(c.background) showImagePreview('background',c.background);
-                updateMenuUrl(); return c;
+                refreshDeliveryToggleButton(); updateMenuUrl(); return c;
             } catch(error) { console.error('[MERCHANT-SETTINGS] Falha ao carregar do Neon:',error); return null; }
         }
 
