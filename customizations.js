@@ -106,10 +106,60 @@ class CustomizationManager {
         };
     }
 
-    // Aplicar customizações no cardápio
-    applyToMenu() {
+    // Buscar sempre as configurações globais da loja no PostgreSQL/Neon.
+    async loadMerchantCustomizations() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const localData = JSON.parse(localStorage.getItem('establishmentData') || '{}');
+            let storeId = String(params.get('loja') || params.get('storeId') || localData.storeId || localData.uniqueId || '').trim();
+
+            // A sessão autenticada é a fonte principal quando o módulo é aberto pelo painel.
+            try {
+                const sessionResponse = await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/session', {
+                    credentials: 'include',
+                    cache: 'no-store'
+                });
+                if (sessionResponse.ok) {
+                    const sessionData = await sessionResponse.json();
+                    const authenticatedStoreId = String(sessionData.merchant?.storeId || '').trim();
+                    if (authenticatedStoreId) storeId = authenticatedStoreId;
+                }
+            } catch (sessionError) {
+                console.warn('[MERCHANT-SETTINGS] Sessão não disponível; usando identificador da URL:', sessionError);
+            }
+
+            if (!storeId) {
+                console.warn('[MERCHANT-SETTINGS] Loja não identificada; não aplicar personalização de outra loja.');
+                return null;
+            }
+
+            const response = await fetch(
+                'https://vianabar-delivery.onrender.com/api/merchant-settings/' + encodeURIComponent(storeId),
+                { cache: 'no-store', credentials: 'include' }
+            );
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Falha ao buscar personalização da loja.');
+
+            const settings = result.settings || {};
+            if (!Object.keys(settings).length) return null;
+
+            localStorage.setItem('establishmentCustomizations', JSON.stringify(settings));
+            localData.storeId = storeId;
+            localData.uniqueId = storeId;
+            localStorage.setItem('establishmentData', JSON.stringify(localData));
+            console.log('[MERCHANT-SETTINGS] Configurações globais carregadas para:', storeId);
+            return settings;
+        } catch (error) {
+            console.error('[MERCHANT-SETTINGS] Erro ao carregar configurações globais:', error);
+            return null;
+        }
+    }
+
+    // Aplicar customizações no cardápio e nos setores operacionais.
+    async applyToMenu() {
         console.log('[DEBUG] Iniciando aplicação de customizações');
-        const customizations = this.loadCustomizations();
+        const serverCustomizations = await this.loadMerchantCustomizations();
+        const customizations = serverCustomizations || this.loadCustomizations();
         console.log('[DEBUG] Customizações carregadas:', customizations);
 
         // Aplicar logo
@@ -454,9 +504,9 @@ function loadCustomizations() {
     return customizationManager.loadCustomizations();
 }
 
-function applyCustomizationsToMenu() {
+async function applyCustomizationsToMenu() {
     console.log('[DEBUG] Chamando applyCustomizationsToMenu');
-    customizationManager.applyToMenu();
+    return await customizationManager.applyToMenu();
 }
 
 function applyCustomizationsToAdmin() {
