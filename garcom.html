@@ -936,7 +936,7 @@
         let assignedTables = [];
 
         function normalizeTableNumber(value) {
-            const match = String(value ?? '').match(/\\d+/);
+            const match = String(value ?? '').match(/\d+/);
             return match ? Number(match[0]) : NaN;
         }
 
@@ -1372,6 +1372,7 @@
         function updateDashboardStats() {
             if (!window.ordersData) return;
             
+            const visibleOrders = filterOrdersByAssignedTables(window.ordersData);
             const stats = {
                 pending: 0,
                 preparing: 0,
@@ -1380,7 +1381,7 @@
                 completed: 0
             };
             
-            window.ordersData.forEach(order => {
+            visibleOrders.forEach(order => {
                 if (stats.hasOwnProperty(order.status)) {
                     stats[order.status]++;
                 }
@@ -1403,7 +1404,7 @@
             }
             
             // Sort orders by timestamp (newest first)
-            const sortedOrders = [...window.ordersData].sort((a, b) => 
+            const sortedOrders = filterOrdersByAssignedTables(window.ordersData).sort((a, b) => 
                 new Date(b.timestamp) - new Date(a.timestamp)
             );
             
@@ -1427,8 +1428,8 @@
         // Add new order to dashboard (maintaining proper sorting)
         function addNewOrderToDashboard(order) {
             // Check if order belongs to assigned tables
-            if (assignedTables.length > 0 && !assignedTables.includes(order.table)) {
-                return; // Don't show orders from unassigned tables
+            if (!isOrderAssignedToWaiter(order)) {
+                return; // Não exibe pedidos fora da faixa confirmada
             }
             
             // Add to orders data if not already present
