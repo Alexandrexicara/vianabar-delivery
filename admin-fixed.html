@@ -702,7 +702,64 @@
             }
         }
     </style>
-    <script src="/delivery-day-ui.js" defer></script>
+
+<script src="/delivery-day-ui.js" defer></script>
+
+    <link id="leaflet-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" crossorigin="" onerror="this.onerror=null;this.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';">
+    <style>
+        #deliveryMap {
+            position: relative;
+            width: 100%;
+            height: 460px;
+            min-height: 360px;
+            overflow: hidden;
+            border-radius: 10px;
+            background: #e8edf0;
+            z-index: 1;
+        }
+        #deliveryMap .leaflet-container { width:100%; height:100%; font-family:inherit; }
+        .delivery-map-empty {
+            position:absolute;
+            z-index:1000;
+            top:12px;
+            left:50%;
+            transform:translateX(-50%);
+            max-width:calc(100% - 30px);
+            padding:9px 13px;
+            border-radius:8px;
+            background:rgba(255,255,255,.94);
+            color:#34495e;
+            box-shadow:0 2px 10px rgba(0,0,0,.18);
+            font-size:13px;
+            text-align:center;
+            pointer-events:none;
+        }
+        .delivery-live-marker { background:transparent; border:0; }
+        .delivery-map-column.is-map-fullscreen {
+            position:fixed !important;
+            inset:0 !important;
+            z-index:99999 !important;
+            width:100vw !important;
+            height:100dvh !important;
+            margin:0 !important;
+            padding:12px !important;
+            border-radius:0 !important;
+            background:#fff !important;
+            display:flex !important;
+            flex-direction:column !important;
+            box-sizing:border-box !important;
+        }
+        .delivery-map-column.is-map-fullscreen #deliveryMap {
+            flex:1 1 auto;
+            height:auto !important;
+            min-height:0;
+        }
+        @media(max-width:768px) {
+            #deliveryMap { height:400px; min-height:320px; }
+            .delivery-map-column.is-map-fullscreen { padding:8px !important; }
+        }
+    </style>
+
 </head>
 <body>
     <!-- Header Banner Space -->
@@ -722,33 +779,32 @@
             </div>
             <div class="user-info">
                 <span id="adminName">Administrador</span>
-                <button class="btn btn-warning" onclick="logout()">Sair</button>
+                <button class="btn btn-warning" onclick="logout()" style="background: #f39c12; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 1.1em; font-weight: bold; min-width: 100px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">SAIR</button>
             </div>
         </header>
 
         <div class="tabs">
-            <div class="tab active" onclick="showTab('dashboard')">Dashboard</div>
-            <div class="tab" onclick="showTab('orders')">Pedidos</div>
-            <div class="tab" onclick="showTab('delivery')">🚚 Delivery</div>
-            <div class="tab" onclick="showTab('customers')">👥 Clientes</div>
-            <div class="tab" onclick="showTab('loyalty')">🎁 Fidelidade</div>
-            <div class="tab" onclick="showTab('financial')">💰 Financeiro</div>
-            <div class="tab" onclick="showTab('totems')">🖥️ Totens</div>
-            <div class="tab" onclick="showTab('merchant')">💼 Comerciante</div>
-            <div class="tab" onclick="showTab('waiters')">Garçons</div>
-            <div class="tab" onclick="window.open('garcom.html', '_blank')">Área do Garçom</div>
-            <div class="tab" onclick="viewMenuAsCustomer()">Ver Cardápio</div>
-            <div class="tab" onclick="showTab('payments')">Pagamentos</div>
-            <div class="tab" onclick="showTab('tables')">_Blocos de Mesas_</div>
-            <div class="tab" onclick="showTab('reports')">Relatórios</div>
-            <div class="tab" onclick="window.open('qr-management.html','_blank')">Mesas & QR Codes</div>
-            <div class="tab" onclick="showTab('inventory')">Estoque</div>
-            <div class="tab" onclick="showTab('notifications')">Notificações</div>
-            <div class="tab" onclick="showTab('history')">Histórico</div>
-            <div class="tab" onclick="showTab('combined')">Pedidos Combinados</div>
-            <!-- Botões com acesso direto aos HTMLs da cozinha e balcão -->
-            <div class="tab" onclick="window.open('cozinha.html', '_blank')">Cozinha HTML</div>
-            <div class="tab" onclick="window.open('balcao.html', '_blank')">Balcão HTML</div>
+            <div class="tab active" onclick="showTab('dashboard')" style="background: linear-gradient(135deg, #3498db, #2980b9); color: white; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Dashboard</div>
+            <div class="tab" onclick="showTab('orders')" style="background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Pedidos</div>
+            <div class="tab" onclick="showTab('delivery')" style="background: linear-gradient(135deg, #f39c12, #e67e22); color: white; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Delivery</div>
+            <div class="tab" onclick="showTab('customers')" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Clientes</div>
+            <div class="tab" onclick="showTab('loyalty')" style="background: linear-gradient(135deg, #e91e63, #c2185b); color: white; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Fidelidade</div>
+            <a class="tab" href="/financial-dashboard.html" style="display:block; text-decoration:none; background: linear-gradient(135deg, #27ae60, #229954); color: white; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Financeiro</a>
+            <div class="tab" onclick="showTab('totems')" style="background: linear-gradient(135deg, #00bcd4, #0097a7); color: white; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Totens</div>
+            <div class="tab" onclick="window.location.href='merchant-dashboard.html'" style="background: linear-gradient(135deg, #795548, #5d4037); color: white; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Comerciante</div>
+            <div class="tab" onclick="showTab('waiters')" style="background: linear-gradient(135deg, #ff5722, #e64a19); color: white; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Garçons</div>
+            <div class="tab" onclick="window.open('garcom.html', '_blank')" style="background: linear-gradient(135deg, #607d8b, #455a64); color: white; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Área do Garçom</div>
+            <div class="tab" onclick="viewMenuAsCustomer()" style="background: linear-gradient(135deg, #4caf50, #388e3c); color: white; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Ver Cardápio</div>
+            <div class="tab" onclick="showTab('payments')" style="background: linear-gradient(135deg, #ffc107, #ffa000); color: #333; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Pagamentos</div>
+            <div class="tab" onclick="showTab('tables')" style="background: linear-gradient(135deg, #3f51b5, #303f9f); color: white; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">_Blocos de Mesas_</div>
+            <div class="tab" onclick="showTab('reports')" style="background: linear-gradient(135deg, #009688, #00796b); color: white; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Relatórios</div>
+            <div class="tab" onclick="window.open('qr-management.html','_blank')" style="background: linear-gradient(135deg, #673ab7, #512da8); color: white; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Mesas & QR Codes</div>
+            <div class="tab" onclick="showTab('inventory')" style="background: linear-gradient(135deg, #ff9800, #f57c00); color: white; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Estoque</div>
+            <div class="tab" onclick="showTab('notifications')" style="background: linear-gradient(135deg, #795548, #5d4037); color: white; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Notificações</div>
+            <div class="tab" onclick="showTab('history')" style="background: linear-gradient(135deg, #9e9e9e, #757575); color: white; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Histórico</div>
+            <div class="tab" onclick="showTab('combined')" style="background: linear-gradient(135deg, #2196f3, #1976d2); color: white; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Pedidos Combinados</div>
+            <div class="tab" onclick="window.open('cozinha.html', '_blank')" style="background: linear-gradient(135deg, #ff5722, #e64a19); color: white; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Cozinha HTML</div>
+            <div class="tab" onclick="window.open('balcao.html', '_blank')" style="background: linear-gradient(135deg, #4caf50, #388e3c); color: white; font-size: 1.3em; font-weight: bold; padding: 15px 20px; border-radius: 8px; margin: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Balcão HTML</div>
         </div>
         <!-- Waiters Section -->
         <section id="waiters" class="content-section">
@@ -830,25 +886,26 @@
                 <h3>Personalização & QR Code</h3>
                 <p>Gerencie a aparência do seu estabelecimento e o QR code do cardápio.</p>
                 
-                <p class="system-free-note">Sistema gratuito para o estabelecimento. É aplicada somente a taxa do sistema por pedido, com valor definido pelo criador.</p>
-                                <button class="btn btn-primary" onclick="window.location.href='qr-management.html'">Acessar Personalização</button>
+                <p class="system-free-note">Sistema gratuito para o estabelecimento: não há cobrança por produto. A taxa do sistema é cobrada uma única vez por pedido, independentemente da quantidade de produtos, com valor definido pelo criador.</p>
+                
+                <button class="btn btn-primary" onclick="openQrManagementWithAuth()" style="background: #3498db; color: white; border: none; padding: 15px 25px; border-radius: 8px; font-size: 1.2em; font-weight: bold; min-width: 200px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">⚙️ ACESSAR PERSONALIZAÇÃO</button>
                 <div class="url-display-box">
                     <p><strong>URL do Cardápio:</strong> <span id="menuUrl">Carregando...</span></p>
-                    <button class="btn btn-success copy-url-button" onclick="copyMenuUrl()">Copiar URL</button>
+                    <button class="btn btn-success copy-url-button" onclick="copyMenuUrl()" style="background: #27ae60; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 1.1em; font-weight: bold; min-width: 150px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">📋 COPIAR URL</button>
                 </div>
                 
                 <!-- Botões de Acesso Direto aos Módulos -->
                 <div style="margin-top: 20px;">
                     <h4>Acesso Rápido aos Módulos:</h4>
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
-                        <button class="btn btn-success" onclick="openCardapioDigital()" style="background: linear-gradient(135deg, #27ae60, #2ecc71); border: none;">
-                            <i class="fas fa-utensils"></i> Cardápio Digital
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 10px;">
+                        <button class="btn btn-success" onclick="openCardapioDigital()" style="background: linear-gradient(135deg, #27ae60, #2ecc71); border: none; padding: 15px 25px; border-radius: 8px; font-size: 1.1em; font-weight: bold; min-width: 180px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+                            🍽️ CARDÁPIO DIGITAL
                         </button>
-                        <button class="btn btn-primary" onclick="openDeliveryModule()" style="background: linear-gradient(135deg, #3498db, #2980b9); border: none;">
-                            <i class="fas fa-motorcycle"></i> Delivery
+                        <button class="btn btn-primary" onclick="openDeliveryModule()" style="background: linear-gradient(135deg, #3498db, #2980b9); border: none; padding: 15px 25px; border-radius: 8px; font-size: 1.1em; font-weight: bold; min-width: 150px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+                            🛵 DELIVERY
                         </button>
-                        <button class="btn btn-warning" onclick="openTotemModule()" style="background: linear-gradient(135deg, #f39c12, #e67e22); border: none;">
-                            <i class="fas fa-tablet-alt"></i> Totem
+                        <button class="btn btn-warning" onclick="openTotemModule()" style="background: linear-gradient(135deg, #f39c12, #e67e22); border: none; padding: 15px 25px; border-radius: 8px; font-size: 1.1em; font-weight: bold; min-width: 150px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+                            📟 TOTEM
                         </button>
                     </div>
                 </div>
@@ -959,22 +1016,18 @@
                 <div class="delivery-map-column">
                     <div class="column-header">
                         <h3>🗺️ Mapa de Entregas</h3>
-                        <button class="btn btn-small" onclick="refreshDeliveryMap()">Atualizar</button>
+                        <div class="delivery-map-toolbar"><span id="deliveryMapRefreshStatus" role="status" aria-live="polite" style="font-size:12px;color:#34495e;align-self:center;">Aguardando conexão com o servidor…</span><button id="merchantGpsButton" class="btn btn-small" type="button" onclick="captureMerchantLocation()" style="background:#087f5b;color:white;border:0;padding:10px 14px;border-radius:8px;font-weight:bold;">📍 ATIVAR GPS DO COMÉRCIO</button><button id="deliveryMapFullscreenButton" class="btn btn-small" type="button" onclick="toggleDeliveryMapFullscreen()" style="background:#159957;color:white;border:0;padding:10px 14px;border-radius:8px;font-weight:bold;">⛶ EXPANDIR MAPA</button></div>
                     </div>
-                    <div id="deliveryMap">
-                        <div style="background: #f8f9fa; border: 2px dashed #ddd; border-radius: 10px; padding: 40px; text-align: center;">
-                            <i class="fas fa-map-marked-alt" style="font-size: 3em; color: #ddd; margin-bottom: 15px;"></i>
-                            <p style="color: #666;">Mapa de entregas em tempo real</p>
-                            <p style="font-size: 12px; color: #999;">Visualização das rotas de delivery</p>
-                        </div>
+                    <div id="deliveryMap" role="region" aria-label="Mapa de entregas em tempo real">
+                        <div id="deliveryMapEmpty" class="delivery-map-empty">Mapa carregando. As posições dos motoboys aparecerão aqui quando o rastreamento GPS estiver ativo.</div>
                     </div>
                 </div>
             </div>
 
             <div class="delivery-actions">
-                <button class="btn" onclick="exportDeliveryOrders()">📥 Exportar Pedidos</button>
-                <button class="btn btn-secondary" onclick="printDeliverySummary()">🖨️ Imprimir Resumo</button>
-                <button class="btn btn-warning" onclick="openDeliverySettings()">⚙️ Configurações</button>
+                <button class="btn" onclick="exportDeliveryOrders()" style="background: #27ae60; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 1.1em; font-weight: bold; min-width: 180px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">📥 EXPORTAR PEDIDOS</button>
+                <button class="btn btn-secondary" onclick="printDeliverySummary()" style="background: #95a5a6; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 1.1em; font-weight: bold; min-width: 180px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🖨️ IMPRIMIR RESUMO</button>
+                <button class="btn btn-warning" onclick="openDeliverySettings()" style="background: #f39c12; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 1.1em; font-weight: bold; min-width: 180px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">⚙️ CONFIGURAÇÕES</button>
             </div>
         </section>
 
@@ -1042,12 +1095,59 @@
                 </div>
             </div>
             
-            <button class="btn btn-success" onclick="savePaymentCredentials()">Salvar Credenciais</button>
-            <button class="btn" onclick="testPaymentConnection()">Testar Conexão</button>
+            <button class="btn btn-success" onclick="savePaymentCredentials()" style="background: #27ae60; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 1.1em; font-weight: bold; min-width: 180px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">💾 SALVAR CREDENCIAIS</button>
+            <button class="btn" onclick="testPaymentConnection()" style="background: #3498db; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 1.1em; font-weight: bold; min-width: 180px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🧪 TESTAR CONEXÃO</button>
             
             <div id="paymentTestResult" class="form-group" style="margin-top: 20px; display: none;">
                 <h3>Resultado do Teste:</h3>
                 <div id="testResultContent"></div>
+            </div>
+        </div>
+
+        <!-- Totem Card Machine Configuration -->
+        <section id="totem-payment-config" class="content-section" style="display: none;">
+            <h2>Configuração da Máquina de Cartão para Totem</h2>
+            <p>Configure os dados da maquininha de cartão que será usada no totem</p>
+            
+            <div class="form-group">
+                <label for="totemMachineBrand">Marca da Máquina:</label>
+                <input type="text" id="totemMachineBrand" placeholder="Ex: MyGateway, PagSeguro, etc">
+            </div>
+            
+            <div class="form-group">
+                <label for="totemMachineModel">Modelo:</label>
+                <input type="text" id="totemMachineModel" placeholder="Ex: XYZ 200, Model A, etc">
+            </div>
+            
+            <div class="form-group">
+                <label for="totemConnectionType">Tipo de Conexão:</label>
+                <select id="totemConnectionType">
+                    <option value="usb">USB</option>
+                    <option value="bluetooth">Bluetooth</option>
+                    <option value="gateway">Gateway Online</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="totemMerchantId">Merchant ID / API Key:</label>
+                <input type="password" id="totemMerchantId" placeholder="Chave ou ID do comerciante">
+            </div>
+            
+            <div class="form-group">
+                <label for="totemMotoboyId">ID do Motoboy:</label>
+                <input type="text" id="totemMotoboyId" placeholder="ID do motoboy (opcional)">
+            </div>
+            
+            <div class="form-switch">
+                <label>Ativar Pagamento no Totem:</label>
+                <input type="checkbox" id="totemPaymentEnabled" checked>
+            </div>
+            
+            <button class="btn btn-success" onclick="saveTotemConfig()" style="background: #27ae60; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 1.1em; font-weight: bold; min-width: 180px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">💾 SALVAR CONFIGURAÇÃO DO TOTEM</button>
+            <button class="btn" onclick="clearTotemConfig()" style="background: #e74c3c; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 1.1em; font-weight: bold; min-width: 180px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🗑️ LIMPAR CONFIGURAÇÃO</button>
+            
+            <div id="totemConfigResult" class="form-group" style="margin-top: 20px; display: none;">
+                <div id="totemConfigMessage"></div>
             </div>
         </section>
 
@@ -1070,6 +1170,8 @@
                 <div id="tableConfigMessage"></div>
             </div>
         </section>
+
+        <section id="combined" class="content-section">
             <h2>Pedidos Combinados</h2>
             <div class="filters">
                 <div class="filter-group">
@@ -1159,6 +1261,28 @@
     <!-- Sistema de Customizações -->
     <script src="customizations.js"></script>
     <script src="fix-ws-json-error.js"></script>
+
+
+    <script>
+    // Carrega Leaflet com CDN principal e alternativa, antes de inicializar o mapa.
+    window.deliveryLeafletReady = new Promise(resolve => {
+        const sources = [
+            'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js',
+            'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+        ];
+        const loadSource = index => {
+            if (window.L) { resolve(true); return; }
+            if (index >= sources.length) { resolve(false); return; }
+            const script = document.createElement('script');
+            script.src = sources[index];
+            script.crossOrigin = '';
+            script.onload = () => resolve(!!window.L);
+            script.onerror = () => { script.remove(); loadSource(index + 1); };
+            document.head.appendChild(script);
+        };
+        loadSource(0);
+    });
+    </script>
 
     <script>
         // Funções para gerenciamento de blocos de mesas
@@ -1355,7 +1479,7 @@
             applyCustomizationsToAdmin();
             console.log('[DEBUG] Customizações aplicadas no admin');
             
-            // Sem cobrança ou bloqueio por renovação de domínio.
+            // O sistema não possui cobrança nem bloqueio por renovação de domínio.
             
             // Forçar aplicação das customizações após um pequeno delay
             setTimeout(() => {
@@ -1377,46 +1501,38 @@
 
         // Display menu URL
         function displayMenuUrl() {
-            // Get establishment data to build the URL
             const establishmentData = JSON.parse(localStorage.getItem('establishmentData') || '{}');
-            const customizations = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
-                    
-            // Check if we have a unique ID from the purchase, otherwise generate from name
-            let menuUrl;
-            if (establishmentData.uniqueId) {
-                // Use the unique ID that was generated during purchase
-                menuUrl = `https://${establishmentData.uniqueId}.cardapiodigital.com.br`;
-            } else {
-                // Fallback to generating from establishment name
-                const establishmentName = customizations.establishmentName || establishmentData.establishmentName || 'meu-restaurante';
-                        
-                // Create a URL-friendly version of the name
-                const urlName = establishmentName
-                    .toLowerCase()
-                    .normalize('NFD')
-                    .replace(/[̀-ͯ]/g, '') // Remove accents
-                    .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with hyphens
-                    .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
-                        
-                menuUrl = `https://${urlName}.cardapiodigital.com.br`;
-            }
+            const storeId = String(window.merchantStoreIdAuthenticated || window.merchantSession?.storeId || establishmentData.storeId || establishmentData.uniqueId || '').trim();
+            const menuUrl = new URL('/usuario.html', 'https://delivery-day.netlify.app');
+            if (storeId) menuUrl.searchParams.set('loja', storeId);
+            else menuUrl.searchParams.set('loja', 'main');
+            const officialMenuUrl = menuUrl.toString();
                     
             const menuUrlElement = document.getElementById('menuUrl');
                     
             if (menuUrlElement) {
-                menuUrlElement.textContent = menuUrl;
+                menuUrlElement.textContent = officialMenuUrl;
             }
         }
 
         // Check if user is authenticated
-        function checkAuthentication() {
-            const adminAccess = localStorage.getItem('adminAccess');
-            const establishmentData = localStorage.getItem('establishmentData');
-            
-            if (!adminAccess || !establishmentData) {
-                playTripleBeep(); // Som sonoro para acesso não autorizado
-                window.location.href = 'index.html';
-                return;
+        async function checkAuthentication() {
+            try {
+                const response = await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/session', { credentials:'include', cache:'no-store' });
+                if (!response.ok) throw new Error('Sessão ausente');
+                const result = await response.json();
+                window.merchantSession = result.merchant;
+                if (result.merchant?.storeId) {
+                    window.merchantStoreIdAuthenticated = result.merchant.storeId;
+                    const establishmentData = JSON.parse(localStorage.getItem('establishmentData') || '{}');
+                    establishmentData.storeId = result.merchant.storeId;
+                    establishmentData.uniqueId = result.merchant.storeId;
+                    localStorage.setItem('establishmentData', JSON.stringify(establishmentData));
+                    displayMenuUrl();
+                }
+            } catch (_) {
+                playTripleBeep();
+                window.location.href = 'https://vianabar-delivery.onrender.com/login.html';
             }
         }
 
@@ -1428,11 +1544,23 @@
         }
 
         // Logout
-        function logout() {
+        async function logout() {
             if (confirm('Tem certeza que deseja sair?')) {
+                try { await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/logout', { method:'POST', credentials:'include' }); } catch (_) {}
                 localStorage.removeItem('adminAccess');
-                localStorage.removeItem('establishmentData');
-                window.location.href = 'index.html';
+                window.location.href = 'login.html';
+            }
+        }
+
+        // Abrir QR Management com autenticação
+        async function openQrManagementWithAuth() {
+            try {
+                const response = await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/session', {credentials:'include',cache:'no-store'});
+                if (!response.ok) throw new Error('Sessão expirada');
+                window.open('qr-management.html', '_blank');
+            } catch (_) {
+                alert('Entre novamente para acessar a personalização.');
+                window.location.href = 'login.html';
             }
         }
 
@@ -1449,35 +1577,26 @@
                 }
             }
             
-            // Open usuario.html in a new tab/window
-            window.open('usuario.html?admin=true', '_blank');
+            // Abrir exatamente o mesmo endereço público usado no QR Code.
+            const establishmentData = JSON.parse(localStorage.getItem('establishmentData') || '{}');
+            const storeId = String(window.merchantStoreIdAuthenticated || window.merchantSession?.storeId || establishmentData.storeId || establishmentData.uniqueId || 'main').trim();
+            const menuUrl = new URL('/usuario.html', 'https://delivery-day.netlify.app');
+            menuUrl.searchParams.set('loja', storeId);
+            window.open(menuUrl.toString(), '_blank', 'noopener');
         }
 
         // Copy menu URL to clipboard
         function copyMenuUrl() {
-            // Get establishment data to build the URL
             const establishmentData = JSON.parse(localStorage.getItem('establishmentData') || '{}');
-            const customizations = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
-            
-            // Use establishment name or default
-            const establishmentName = customizations.establishmentName || establishmentData.establishmentName || 'meu-restaurante';
-            
-            // Create a URL-friendly version of the name
-            const urlName = establishmentName
-                .toLowerCase()
-                .normalize('NFD')
-                .replace(/[\u0300-\u036f]/g, '') // Remove accents
-                .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with hyphens
-                .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
-            
-            const menuUrl = `https://cardapiodigital.com.br/${urlName}`;
-            
-            navigator.clipboard.writeText(menuUrl).then(() => {
-                playTripleBeep(); // Som sonoro para URL copiada
+            const storeId = String(window.merchantStoreIdAuthenticated || window.merchantSession?.storeId || establishmentData.storeId || establishmentData.uniqueId || 'main').trim();
+            const menuUrl = new URL('/usuario.html', 'https://delivery-day.netlify.app');
+            menuUrl.searchParams.set('loja', storeId);
+            const officialMenuUrl = menuUrl.toString();
+            navigator.clipboard.writeText(officialMenuUrl).then(() => {
+                playTripleBeep();
             }).catch(err => {
-                console.error('Erro ao copiar URL: ', err);
-                // Fallback: show URL in alert
-                playTripleBeep(); // Som sonoro para URL do cardápio
+                console.error('Erro ao copiar URL:', err);
+                window.prompt('Copie o endereço oficial do cardápio:', officialMenuUrl);
             });
         }
 
@@ -1530,6 +1649,7 @@
                 } else if (tabName === 'delivery') {
                     loadDeliveryOrders();
                     updateDeliveryStats();
+                    setTimeout(() => initializeDeliveryMap(), 80);
                 } else if (tabName === 'customers') {
                     window.location.href = 'customer-analytics.html';
                 } else if (tabName === 'loyalty') {
@@ -1574,7 +1694,12 @@
         function getPaymentStatusText(paymentStatus) {
             switch (paymentStatus) {
                 case 'pending': return 'Pendente';
+                case 'awaiting_in_person': return 'Aguardando garçom';
                 case 'completed': return 'Pago';
+                case 'paid': return 'Pago';
+                case 'expired': return 'Cobrança expirada';
+                case 'needs_review': return 'Em análise';
+                case 'failed': return 'Falha no pagamento';
                 default: return paymentStatus;
             }
         }
@@ -1685,9 +1810,8 @@
                 window.ws.close();
             }
             
-            // Connect using dynamic URL
-            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            const wsUrl = isLocal
+            // Frontend Netlify; WebSocket no backend Render.
+            const wsUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
                 ? `ws://${window.location.hostname}:3002`
                 : 'wss://vianabar-delivery.onrender.com';
             
@@ -1700,18 +1824,29 @@
                 // Send admin login message to identify this connection as admin
                 if (window.ws && window.ws.readyState === WebSocket.OPEN) {
                     window.ws.send(JSON.stringify({
-                        type: 'adminLogin'
+                        type: 'adminLogin',
+                        storeId: typeof merchantStoreId === 'function' ? merchantStoreId() : 'main'
                     }));
                 }
                 
                 // Request existing orders when connection is established
                 if (window.ws && window.ws.readyState === WebSocket.OPEN) {
-                    window.ws.send(JSON.stringify({
-                        type: 'getExistingOrders'
-                    }));
+                    window.ws.send(JSON.stringify({ type: 'getExistingOrders' }));
+                    window.ws.send(JSON.stringify({ type: 'getExistingDeliveryOrders' }));
+                    const mapStatus = document.getElementById('deliveryMapRefreshStatus');
+                    if (mapStatus) mapStatus.textContent = 'Conectado. Solicitando pedidos e posições…';
                 }
             };
             
+            ws.onerror = function() {
+                const status = document.getElementById('deliveryMapRefreshStatus');
+                if (status) status.textContent = '❌ Falha na conexão com o servidor de entregas.';
+            };
+            ws.onclose = function() {
+                const status = document.getElementById('deliveryMapRefreshStatus');
+                if (status) status.textContent = '⚠️ Conexão perdida. O painel tentará reconectar ao recarregar.';
+            };
+
             ws.onmessage = function(event) {
                 let data;
                 try {
@@ -1723,6 +1858,22 @@
                 
                 if (data.type === 'adminLoginSuccess') {
                     console.log('Admin login successful');
+                } else if (data.type === 'newDeliveryOrder') {
+                    const incoming = data.order;
+                    if (incoming && !deliveryMapOrders.some(item => String(item.id) === String(incoming.id))) {
+                        deliveryMapOrders.push(incoming);
+                        renderDeliveryMapMarkers();
+                    }
+                } else if (data.type === 'existingDeliveryOrders') {
+                    if (deliveryMapRefreshTimeout) clearTimeout(deliveryMapRefreshTimeout);
+                    receiveDeliveryMapOrders(data.orders || []);
+                    const status = document.getElementById('deliveryMapRefreshStatus');
+                    if (status) status.textContent = '✓ Consulta concluída: ' + (data.orders || []).length + ' pedido(s) em andamento recebidos às ' + new Date().toLocaleTimeString('pt-BR');
+                } else if (data.type === 'motoboyLocationUpdate' || data.type === 'deliveryMotoboyLocation') {
+                    receiveDeliveryMapLocation(data);
+                } else if (data.type === 'deliveryCustomerLocation') {
+                    const target = deliveryMapOrders.find(item => String(item.id) === String(data.orderId));
+                    if (target) { target.customerLocation = data.customerLocation; renderDeliveryMapMarkers(); }
                 } else if (data.type === 'existingOrders') {
                     // Store orders data for combined view
                     window.ordersData = data.orders || [];
@@ -1741,7 +1892,7 @@
                         addNewOrderToCounterSection(order);
                                         
                         // Add to payments section if payment is pending
-                        if (order.paymentStatus === 'pending') {
+                        if (['pending','awaiting_in_person'].includes(order.paymentStatus)) {
                             addOrderToPaymentsSection(order);
                         }
                                         
@@ -1837,7 +1988,8 @@
                     console.log('Carregados ' + orders.length + ' pedidos existentes');
                     
                     // Load combined orders if the section is active
-                    if (document.getElementById('combined').classList.contains('active')) {
+                    const combinedSection = document.getElementById('combinedOrdersContainer');
+                    if (combinedSection && combinedSection.classList.contains('active')) {
                         displayCombinedOrders(window.ordersData);
                     }
                 } else if (data.type === 'newOrder') {
@@ -1847,7 +1999,7 @@
                         addNewOrderToKitchenSection(data.order);
                         addNewOrderToCounterSection(data.order);
                         // Add to payments section if payment is pending
-                        if (data.order.paymentStatus === 'pending') {
+                        if (['pending','awaiting_in_person'].includes(data.order.paymentStatus)) {
                             addOrderToPaymentsSection(data.order);
                         }
                         
@@ -1862,7 +2014,7 @@
                         }
                         
                         // Refresh combined orders if the section is active
-                        if (document.getElementById('combined').classList.contains('active')) {
+                        if (document.getElementById('combined')?.classList.contains('active')) {
                             displayCombinedOrders(window.ordersData);
                         }
                         
@@ -1889,7 +2041,7 @@
                             window.ordersData[orderIndex].status = data.status;
                             
                             // Refresh combined orders if the section is active
-                            if (document.getElementById('combined').classList.contains('active')) {
+                            if (document.getElementById('combined')?.classList.contains('active')) {
                                 displayCombinedOrders(window.ordersData);
                             }
                         }
@@ -1928,6 +2080,19 @@
                         type: 'callWaiter',
                         table: data.table,
                         paymentMethod: data.paymentMethod,
+                        timestamp: new Date().toISOString()
+                    };
+                    saveOrderAction(action);
+                } else if (data.type === 'requestPayment') {
+                    const message = `A Mesa ${data.table} solicitou fechamento de conta / pagamento via ${data.paymentMethod}.`;
+                    playTripleBeep(); // Som sonoro para solicitação de fechamento
+                    addNotificationToDashboard(message, data.orderId || null);
+
+                    const action = {
+                        type: 'requestPayment',
+                        table: data.table,
+                        paymentMethod: data.paymentMethod,
+                        orderId: data.orderId,
                         timestamp: new Date().toISOString()
                     };
                     saveOrderAction(action);
@@ -1977,7 +2142,7 @@
                             window.ordersData[orderIndex].paymentStatus = data.paymentStatus;
                             
                             // Refresh combined orders if the section is active
-                            if (document.getElementById('combined').classList.contains('active')) {
+                            if (document.getElementById('combined')?.classList.contains('active')) {
                                 displayCombinedOrders(window.ordersData);
                             }
                         }
@@ -1988,10 +2153,16 @@
                     switch (data.paymentStatus) {
                         case 'completed':
                             notificationMessage = 'Pagamento do pedido ' + data.orderId + ' foi confirmado';
-                            addNotificationToDashboard('Pagamento do pedido ' + data.orderId + ' foi confirmado', data.orderId);
-                            
-                            // Clear order history after payment is completed
+                            addNotificationToDashboard(notificationMessage, data.orderId);
                             clearOrderHistory(data.orderId);
+                            break;
+                        case 'expired':
+                            notificationMessage = 'Cobrança Pix do pedido ' + data.orderId + ' expirou';
+                            addNotificationToDashboard(notificationMessage, data.orderId);
+                            break;
+                        case 'needs_review':
+                            notificationMessage = 'Pagamento do pedido ' + data.orderId + ' exige conferência';
+                            addNotificationToDashboard(notificationMessage, data.orderId);
                             break;
                     }
                     
@@ -2329,7 +2500,7 @@
         
         // Filter combined orders (called when filters change)
         function filterCombinedOrders() {
-            if (window.ordersData && document.getElementById('combined').classList.contains('active')) {
+            if (window.ordersData && document.getElementById('combined')?.classList.contains('active')) {
                 displayCombinedOrders(window.ordersData);
             }
         }
@@ -2340,7 +2511,7 @@
             let completedTotal = 0;
             
             orders.forEach(order => {
-                if (order.paymentStatus === 'pending') {
+                if (['pending','awaiting_in_person'].includes(order.paymentStatus)) {
                     pendingTotal += order.total;
                 } else if (order.paymentStatus === 'completed') {
                     completedTotal += order.total;
@@ -2778,11 +2949,7 @@
                         orderIdsElement.innerHTML += ` | ${order.id}`;
                     }
                     
-                    // Update the confirm payment button to handle multiple order IDs
-                    const confirmButton = existingTableOrder.querySelector('button');
-                    if (confirmButton) {
-                        confirmButton.setAttribute('onclick', `confirmMultiplePayments('${orderIdsElement.textContent.trim()}')`);
-                    }
+                    // A confirmação financeira não é feita pelo navegador; aguardar provedor ou recebimento presencial.
                 }
             } else {
                 // Create new table order element
@@ -2798,7 +2965,7 @@
                     <div class="order-total">Total: R$ ${order.total.toFixed(2).replace('.', ',')}</div>
                     <div class="payment-status payment-${order.paymentStatus}">Pagamento: ${getPaymentStatusText(order.paymentStatus)}</div>
                     <div class="order-actions">
-                         <button class="btn btn-success" onclick="confirmPayment('${order.id}')">Confirmar Pagamento</button>
+                         <span class="payment-note">${order.paymentMethod === 'pix' ? 'Aguardando confirmação automática da Ovi' : 'Aguardando recebimento presencial pelo garçom'}</span>
                     </div>
                 `;
                 paymentsList.appendChild(paymentCard);
@@ -3061,6 +3228,57 @@
                     <p><strong>Última atualização:</strong> ${new Date(config.updatedAt).toLocaleString('pt-BR')}</p>
                 </div>
             `;
+        }
+        
+        // Save totem card machine configuration to localStorage
+        function saveTotemConfig() {
+            const brand = document.getElementById('totemMachineBrand').value;
+            const model = document.getElementById('totemMachineModel').value;
+            const connectionType = document.getElementById('totemConnectionType').value;
+            const merchantId = document.getElementById('totemMerchantId').value;
+            const motoboyId = document.getElementById('totemMotoboyId').value;
+            const enabled = document.getElementById('totemPaymentEnabled').checked;
+            
+            if (!brand || !model || !connectionType) {
+                playTripleBeep(); // Som sonoro para campos obrigatórios
+                return;
+            }
+            
+            const config = {
+                brand: brand,
+                model: model,
+                connectionType: connectionType,
+                merchantId: merchantId || '',
+                motoboyId: motoboyId || '',
+                enabled: enabled
+            };
+            
+            localStorage.setItem('totemPaymentConfig', JSON.stringify(config));
+            playTripleBeep(); // Som sonoro para configuração salva
+            
+            // Show result
+            const resultDiv = document.getElementById('totemConfigResult');
+            const resultMsg = document.getElementById('totemConfigMessage');
+            resultMsg.innerHTML = `✅ Configuração do totem salva: ${brand} ${model} (${connectionType})`;
+            resultDiv.style.display = 'block';
+        }
+        
+        // Clear totem card machine configuration from localStorage
+        function clearTotemConfig() {
+            localStorage.removeItem('totemPaymentConfig');
+            // Reset form fields
+            document.getElementById('totemMachineBrand').value = '';
+            document.getElementById('totemMachineModel').value = '';
+            document.getElementById('totemConnectionType').value = '';
+            document.getElementById('totemMerchantId').value = '';
+            document.getElementById('totemMotoboyId').value = '';
+            document.getElementById('totemPaymentEnabled').checked = true;
+            
+            // Show result
+            const resultDiv = document.getElementById('totemConfigResult');
+            const resultMsg = document.getElementById('totemConfigMessage');
+            resultMsg.innerHTML = '✅ Configuração do totem limpa';
+            resultDiv.style.display = 'block';
         }
         
         // Load saved payment configuration on page load
@@ -3951,10 +4169,236 @@
             }
         }
 
-        function refreshDeliveryMap() {
-            // Placeholder para funcionalidade de mapa
-            showNotification('Mapa de entregas atualizado!');
+        let deliveryLeafletMap = null;
+        let deliveryMapMarkers = new Map();
+        let deliveryMapOrders = [];
+        let deliveryMapRouteLayer = null;
+        let deliveryMapRouteKey = '';
+        let deliveryMapRouteAt = 0;
+        let deliveryMapFullscreen = false;
+        let merchantMapLocation = null;
+        let merchantLocationCheckStarted = false;
+
+        function merchantStoreId() {
+            let establishment = {};
+            try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
+            if (establishment.uniqueId) return String(establishment.uniqueId).slice(0, 120);
+            const name = establishment.establishmentName || 'estabelecimento';
+            return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 100) || 'estabelecimento';
         }
+
+        function merchantSettingsApi() {
+            const base = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? `http://${location.hostname}:3002` : (location.hostname === 'vianabar-delivery.onrender.com' ? '' : 'https://vianabar-delivery.onrender.com');
+            return base + '/api/merchant-settings/' + encodeURIComponent(merchantStoreId());
+        }
+
+        async function captureMerchantLocation() {
+            const status = document.getElementById('deliveryMapRefreshStatus');
+            const button = document.getElementById('merchantGpsButton');
+            if (!navigator.geolocation) { if (status) status.textContent = 'Este aparelho não oferece localização GPS.'; return; }
+            if (button) { button.disabled = true; button.textContent = '⏳ OBTENDO GPS…'; }
+            if (status) status.textContent = 'Solicitando permissão de localização do comércio…';
+            navigator.geolocation.getCurrentPosition(async position => {
+                const locationData = { latitude:Number(position.coords.latitude), longitude:Number(position.coords.longitude), accuracy:Number(position.coords.accuracy)||null, updatedAt:new Date(position.timestamp||Date.now()).toISOString() };
+                try {
+                    const response = await fetch(merchantSettingsApi(), { method:'PUT', headers:{'Content-Type':'application/json','X-Admin-Access':localStorage.getItem('adminAccess') === 'true' ? 'true' : 'false'}, body:JSON.stringify({settings:{establishmentLocation:locationData}}), cache:'no-store' });
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.error || 'Não foi possível gravar o GPS no cadastro do comércio.');
+                    merchantMapLocation = locationData;
+                    const cached = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
+                    localStorage.setItem('establishmentCustomizations', JSON.stringify({...cached, ...(result.settings||{}), establishmentLocation:locationData}));
+                    if (status) status.textContent = '✓ GPS do comércio salvo no banco e vinculado ao estabelecimento.';
+                    renderDeliveryMapMarkers();
+                } catch (error) {
+                    if (status) status.textContent = 'GPS obtido, mas não foi salvo no cadastro: ' + error.message;
+                    console.error('[DeliveryMap] Falha ao persistir GPS do comércio:', error);
+                } finally {
+                    if (button) { button.disabled = false; button.textContent = '📍 ATUALIZAR GPS DO COMÉRCIO'; }
+                }
+            }, error => {
+                const messages = {1:'Permissão de localização negada. Libere a localização nas permissões do navegador.',2:'GPS indisponível neste aparelho.',3:'Tempo esgotado ao obter GPS. Tente novamente.'};
+                if (status) status.textContent = messages[error.code] || 'Não foi possível obter a localização.';
+                if (button) { button.disabled = false; button.textContent = '📍 TENTAR GPS DO COMÉRCIO'; }
+            }, {enableHighAccuracy:true,timeout:20000,maximumAge:0});
+        }
+
+        async function ensureMerchantLocation() {
+            if (merchantLocationCheckStarted) return;
+            merchantLocationCheckStarted = true;
+            try {
+                const response = await fetch(merchantSettingsApi(), {headers:{'X-Admin-Access':localStorage.getItem('adminAccess') === 'true' ? 'true' : 'false'},cache:'no-store'});
+                const result = await response.json();
+                merchantMapLocation = result.settings?.establishmentLocation || null;
+                if (merchantMapLocation) { renderDeliveryMapMarkers(); return; }
+            } catch (error) { console.warn('[DeliveryMap] Não foi possível consultar GPS salvo:', error); }
+            // Solicita a permissão na primeira abertura da área de entregas.
+            captureMerchantLocation();
+        }
+
+        async function initializeDeliveryMap() {
+            const element = document.getElementById('deliveryMap');
+            if (!element) return false;
+            if (typeof L === 'undefined') {
+                const loaded = await (window.deliveryLeafletReady || Promise.resolve(false));
+                if (!loaded || typeof L === 'undefined') {
+                    const empty = document.getElementById('deliveryMapEmpty');
+                    if (empty) empty.textContent = 'A biblioteca do mapa não respondeu. Verifique o acesso à internet e tente atualizar.';
+                    console.error('[DeliveryMap] Leaflet não carregou pelos CDNs disponíveis.');
+                    return false;
+                }
+            }
+            if (!deliveryLeafletMap) {
+                deliveryLeafletMap = L.map(element, { zoomControl: true }).setView([-16.735, -43.861], 12);
+                const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(deliveryLeafletMap);
+                let tileErrors = 0;
+                tiles.on('tileerror', () => {
+                    tileErrors++;
+                    const empty = document.getElementById('deliveryMapEmpty');
+                    if (empty && tileErrors >= 3) empty.textContent = 'O mapa foi iniciado, mas os blocos do OpenStreetMap não responderam. Verifique a conexão ou bloqueios de rede.';
+                });
+                tiles.on('tileload', () => {
+                    tileErrors = Math.max(0, tileErrors - 1);
+                    const empty = document.getElementById('deliveryMapEmpty');
+                    if (empty && tileErrors < 3 && !deliveryMapMarkers.size) empty.textContent = 'Mapa ativo. Nenhuma localização de motoboy recebida ainda. O motoboy precisa iniciar uma entrega e permitir o acesso ao GPS.';
+                });
+                L.control.scale().addTo(deliveryLeafletMap);
+            }
+            setTimeout(() => deliveryLeafletMap && deliveryLeafletMap.invalidateSize(), 120);
+            renderDeliveryMapMarkers();
+            ensureMerchantLocation();
+            return true;
+        }
+
+        function deliveryMapPoint(value) {
+            if (!value) return null;
+            const lat = Number(value.latitude ?? value.lat), lng = Number(value.longitude ?? value.lng);
+            return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat)<=90 && Math.abs(lng)<=180 ? [lat,lng] : null;
+        }
+
+        async function drawDeliveryRoadRoute(origin, destination, orderId) {
+            if (!origin || !destination || !deliveryLeafletMap) return;
+            const key = String(orderId)+'|'+origin.join(',')+'|'+destination.join(',');
+            if (Date.now()-deliveryMapRouteAt < 12000) return;
+            deliveryMapRouteKey = key; deliveryMapRouteAt = Date.now();
+            try {
+                const url='https://router.project-osrm.org/route/v1/driving/'+origin[1]+','+origin[0]+';'+destination[1]+','+destination[0]+'?overview=full&geometries=geojson';
+                const response=await fetch(url), result=await response.json();
+                if (!response.ok || !result.routes || !result.routes[0]) throw new Error('Rota viária indisponível');
+                if (deliveryMapRouteLayer) deliveryLeafletMap.removeLayer(deliveryMapRouteLayer);
+                deliveryMapRouteLayer=L.geoJSON(result.routes[0].geometry,{style:{color:'#1769ff',weight:5,opacity:0.85}}).addTo(deliveryLeafletMap);
+            } catch(error) { console.warn('[DeliveryMap] Rota viária indisponível:',error); }
+        }
+
+        function renderDeliveryMapMarkers() {
+            if (!deliveryLeafletMap) return;
+            deliveryMapMarkers.forEach(marker=>deliveryLeafletMap.removeLayer(marker));
+            deliveryMapMarkers.clear();
+            let merchants=0, customers=0, motoboys=0;
+            const bounds=[]; let route=null;
+            const savedMerchantPoint = deliveryMapPoint(merchantMapLocation);
+            if (savedMerchantPoint) {
+                const marker = L.marker(savedMerchantPoint,{icon:L.divIcon({className:'delivery-live-marker',html:'<div style="font-size:27px;text-shadow:0 1px 4px #fff">🏪</div>',iconSize:[34,34],iconAnchor:[17,17]})}).addTo(deliveryLeafletMap);
+                marker.bindPopup('<strong>Comércio / origem</strong><br>Localização cadastrada do estabelecimento');
+                deliveryMapMarkers.set('merchant:establishment',marker); bounds.push(savedMerchantPoint); merchants++;
+            }
+            deliveryMapOrders.forEach(order=>{
+                const id=String(order.id||'');
+                const merchant=deliveryMapPoint(order.establishmentLocation);
+                const customer=deliveryMapPoint(order.customerLocation);
+                const motoboy=deliveryMapPoint(order.motoboyLocation||order.currentLocation);
+                const add=(kind,point,emoji,title,detail)=>{
+                    if(!point)return;
+                    const marker=L.marker(point,{icon:L.divIcon({className:'delivery-live-marker',html:'<div style="font-size:27px;text-shadow:0 1px 4px #fff">'+emoji+'</div>',iconSize:[34,34],iconAnchor:[17,17]})}).addTo(deliveryLeafletMap);
+                    marker.bindPopup('<strong>'+title+'</strong><br>'+escapeDeliveryMapText(detail)+'<br>Pedido: '+escapeDeliveryMapText(id));
+                    deliveryMapMarkers.set(id+':'+kind,marker); bounds.push(point);
+                };
+                add('merchant',merchant,'🏪','Comércio / origem',order.establishmentName||order.merchantId||'Comércio');
+                add('customer',customer,'🏠','Cliente / destino',order.address||'Endereço do cliente');
+                add('motoboy',motoboy,'🏍️','Motoboy / ao vivo',order.motoboyName||'Motoboy');
+                if(merchant)merchants++; if(customer)customers++; if(motoboy)motoboys++;
+                if(customer&&motoboy)route={origin:motoboy,destination:customer,id};
+                else if(merchant&&customer)route={origin:merchant,destination:customer,id};
+            });
+            const empty=document.getElementById('deliveryMapEmpty');
+            if(empty){empty.textContent=deliveryMapOrders.length
+                ? 'Pedidos no mapa — comércio: '+merchants+' | clientes: '+customers+' | motoboys: '+motoboys+'. Linha azul: rota viária até o destino.'
+                : 'Mapa ativo. Nenhum pedido em andamento recebido.'; empty.style.display='block';}
+            if(bounds.length)deliveryLeafletMap.fitBounds(bounds,{padding:[35,35],maxZoom:15});
+            if(route)drawDeliveryRoadRoute(route.origin,route.destination,route.id);
+            else if(deliveryMapRouteLayer){deliveryLeafletMap.removeLayer(deliveryMapRouteLayer);deliveryMapRouteLayer=null;deliveryMapRouteKey='';}
+        }
+
+        function escapeDeliveryMapText(value) {
+            return String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+        }
+
+        function receiveDeliveryMapOrders(orders) {
+            deliveryMapOrders = Array.isArray(orders) ? orders.filter(order => ['pending','accepted','preparing','delivering','onroute'].includes(String(order.status || '').toLowerCase())) : [];
+            renderDeliveryMapMarkers();
+        }
+
+        function receiveDeliveryMapLocation(data) {
+            if (!data || !data.orderId) return;
+            const order = deliveryMapOrders.find(item => String(item.id) === String(data.orderId));
+            if (order) {
+                order.motoboyLocation = { latitude:Number(data.latitude), longitude:Number(data.longitude), timestamp:data.timestamp || new Date().toISOString() };
+                if (data.motoboyName) order.motoboyName = data.motoboyName;
+            } else if (Number.isFinite(Number(data.latitude)) && Number.isFinite(Number(data.longitude))) {
+                deliveryMapOrders.push({ id:data.orderId, status:data.status || 'delivering', motoboyName:data.motoboyName || 'Motoboy', motoboyLocation:{latitude:Number(data.latitude),longitude:Number(data.longitude)} });
+            }
+            renderDeliveryMapMarkers();
+        }
+
+        let deliveryMapRefreshTimeout = null;
+        async function refreshDeliveryMap() {
+            const status = document.getElementById('deliveryMapRefreshStatus');
+            const button = document.getElementById('deliveryMapRefreshButton');
+            if (button) { button.disabled = true; button.textContent = '⏳ CONSULTANDO…'; }
+            if (status) status.textContent = 'Consultando o servidor…';
+            try {
+                const ready = await initializeDeliveryMap();
+                if (!ready) throw new Error('O mapa não foi inicializado. Verifique o carregamento da biblioteca.');
+                if (!window.ws || window.ws.readyState !== WebSocket.OPEN) {
+                    throw new Error('Sem conexão WebSocket com o servidor. Aguardando reconexão.');
+                }
+                window.ws.send(JSON.stringify({ type:'getExistingDeliveryOrders', requestId:String(Date.now()) }));
+                if (deliveryMapRefreshTimeout) clearTimeout(deliveryMapRefreshTimeout);
+                deliveryMapRefreshTimeout = setTimeout(() => {
+                    if (status) status.textContent = '⚠️ O servidor não respondeu à consulta. Confira a conexão.';
+                    if (button) { button.disabled = false; button.textContent = '🔄 ATUALIZAR'; }
+                }, 8000);
+                renderDeliveryMapMarkers();
+            } catch (error) {
+                console.error('[DeliveryMap] Falha ao atualizar:', error);
+                if (status) status.textContent = '❌ ' + error.message;
+            } finally {
+                setTimeout(() => {
+                    if (button) { button.disabled = false; button.textContent = '🔄 ATUALIZAR'; }
+                }, 800);
+            }
+        }
+
+        function toggleDeliveryMapFullscreen() {
+            const panel = document.querySelector('.delivery-map-column');
+            const button = document.getElementById('deliveryMapFullscreenButton');
+            if (!panel) return;
+            deliveryMapFullscreen = !deliveryMapFullscreen;
+            panel.classList.toggle('is-map-fullscreen', deliveryMapFullscreen);
+            if (button) {
+                button.textContent = deliveryMapFullscreen ? '✕ FECHAR TELA CHEIA' : '⛶ EXPANDIR MAPA';
+                button.setAttribute('aria-expanded', String(deliveryMapFullscreen));
+            }
+            document.body.style.overflow = deliveryMapFullscreen ? 'hidden' : '';
+            if (deliveryMapFullscreen && !panel.dataset.previousParent) panel.dataset.previousParent = 'delivery';
+            setTimeout(() => deliveryLeafletMap && deliveryLeafletMap.invalidateSize(), 180);
+        }
+
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && deliveryMapFullscreen) toggleDeliveryMapFullscreen();
+        });
 
         function openDeliverySettings() {
             // Placeholder para configurações de delivery
@@ -3987,5 +4431,7 @@
         <source src="public/img/audio/ti62duxfbrf-bells-sfx-7.mp3" type="audio/mpeg">
     </audio>
     
+
+    <script src="/notification-voice.js?v=20261111-location-voice-3" defer></script>
 </body>
 </html>
