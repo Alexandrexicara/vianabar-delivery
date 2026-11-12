@@ -1,13 +1,13 @@
 'use strict';
 const express = require('express');
 const { Pool } = require('pg');
-const { requireMerchant } = require('./merchantAuth');
+const { requireMerchant, sessionFromCookieHeader } = require('./merchantAuth');
 
 const router = express.Router();
 const requireAdmin = requireMerchant;
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  ssl: process.env.NODE_ENV === 'production' || process.env.RENDER ? { rejectUnauthorized: false } : false,
   max: 5,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000
@@ -62,7 +62,12 @@ router.get('/showcase', async (_req, res) => {
 
 router.get('/', async (req, res) => {
   try {
-    const storeId = String(req.query.storeId || 'main').slice(0, 120);
+    // No painel autenticado, o cookie assinado pelo servidor define a loja.
+    // O storeId enviado pelo navegador nunca pode fazer o painel ler outra loja
+    // nem causar divergência entre o ID usado no INSERT e o ID usado no SELECT.
+    const merchantSession = sessionFromCookieHeader(req.headers.cookie);
+    const requestedStoreId = String(req.query.storeId || 'main').trim().slice(0, 120);
+    const storeId = merchantSession?.storeId || requestedStoreId;
     const result = await pool.query(
       'SELECT id, store_id, store_name, name, category, sector, price, description, image, is_active, showcase_order FROM menu_products WHERE store_id = $1 AND is_active = TRUE ORDER BY created_at ASC',
       [storeId]
