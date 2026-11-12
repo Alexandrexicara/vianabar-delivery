@@ -411,75 +411,14 @@
         loadStores();
     }
     
-    // Carregar lojas
+    // A tela principal mostra somente produtos reais escolhidos pelos comerciantes.
     function loadStores() {
-        // Lojas de exemplo (em produção, viriam do backend)
-        const stores = [
-            {
-                id: 1,
-                name: 'Pizza Express',
-                category: 'pizzaria',
-                image: '🍕',
-                rating: 4.8,
-                deliveryTime: '30-40 min',
-
-                description: 'As melhores pizzas da cidade'
-            },
-            {
-                id: 2,
-                name: 'Burger King',
-                category: 'lanchonete',
-                image: '🍔',
-                rating: 4.5,
-                deliveryTime: '20-30 min',
-
-                description: 'Hambúrgueres artesanais'
-            },
-            {
-                id: 3,
-                name: 'Sushi House',
-                category: 'restaurante',
-                image: '🍣',
-                rating: 4.9,
-                deliveryTime: '40-50 min',
-
-                description: 'Comida japonesa autêntica'
-            },
-            {
-                id: 4,
-                name: 'Mercadão',
-                category: 'mercado',
-                image: '🛒',
-                rating: 4.7,
-                deliveryTime: '60-90 min',
-
-                description: 'Tudo para sua casa'
-            }
-        ];
-        
         const storesList = document.getElementById('storesList');
-        storesList.innerHTML = '';
-        
-        function createCard(store) {
-            var onclickAttr = 'viewStoreProducts(' + store.id + ')';
-            var html = '<div onclick="' + onclickAttr + '" class="store-card">';
-            html += '<div class="store-image">' + store.image + '</div>';
-            html += '<div class="store-info">';
-            html += '<h3>' + store.name + '</h3>';
-            html += '<p>' + store.description + '</p>';
-            html += '<div class="store-meta">';
-            html += '<span class="rating">⭐ ' + store.rating + '</span>';
-            html += '<span class="delivery-time">⏱️ ' + store.deliveryTime + '</span>';
-            html += '</div></div></div>';
-            return html;
+        if (storesList) {
+            storesList.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#666;padding:24px;">Carregando produtos das lojas...</p>';
         }
-        
-        stores.forEach(store => {
-            const storeCard = createCard(store);
-            storesList.innerHTML += storeCard;
-        });
     }
-    
+
     // Ver produtos da loja
     function viewStoreProducts(storeId) {
         console.log('Visualizando produtos da loja:', storeId);
@@ -504,8 +443,8 @@
         try {
             const response = await fetch('https://vianabar-delivery.onrender.com/api/products/showcase', { cache: 'no-store' });
             const result = await response.json();
-            if (!response.ok) throw new Error(result.error || 'Falha ao carregar vitrine');
-            const vitrineProducts = result.products || [];
+            if (!response.ok || result.success === false) throw new Error(result.error || 'Falha ao carregar vitrine');
+            const vitrineProducts = Array.isArray(result.products) ? result.products : [];
             localStorage.setItem('vitrineProducts', JSON.stringify(vitrineProducts));
             localStorage.setItem('productShowcase', JSON.stringify(vitrineProducts.map(product => ({
                 ...product, productName: product.name, storeId: product.storeId || 'main',
@@ -525,6 +464,8 @@
             if (cached.length) {
                 vitrineContainer.innerHTML = '';
                 cached.forEach(product => vitrineContainer.innerHTML += createProductCard(product));
+            } else {
+                vitrineContainer.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#b42318;padding:24px;">Não foi possível carregar os produtos agora. Atualize a página para tentar novamente.</p>';
             }
         }
     }
@@ -536,7 +477,7 @@
         const logo = customizations.logo || '';
         
         return `
-            <div class="store-card" onclick="viewProductDetail('${product.id}', '${product.storeId || 'main'}')">
+            <div class="store-card" onclick="viewProductDetail('${String(product.id).replace(/'/g, '')}', '${String(product.storeId || 'main').replace(/'/g, '')}', '${String(product.storeName || '').replace(/'/g, '')}')">
                 <div class="store-image" style="position: relative;">
                     ${product.image ? 
                         `<img src="${product.image}" alt="${product.name}" style="width: 100%; height: 100%; object-fit: cover;">` : 
@@ -649,8 +590,11 @@
     }
     
     // Ver detalhes do produto
-    function viewProductDetail(productId, storeId) {
-        window.location.href = `delivery.html?storeId=${encodeURIComponent(storeId || 'main')}&productId=${encodeURIComponent(productId)}`;
+    function viewProductDetail(productId, storeId, storeName) {
+        const url = new URL('/delivery.html', window.location.origin);
+        url.searchParams.set('loja', storeId || 'main');
+        if (storeName) url.searchParams.set('storeName', storeName);
+        window.location.href = url.toString();
     }
     
     // Filtrar por categoria
