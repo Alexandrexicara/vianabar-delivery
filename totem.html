@@ -179,6 +179,43 @@
             min-width: 0;
         }
 
+        /* Busca global de produtos do Totem */
+        .totem-product-search {
+            position: relative;
+            margin: 0 0 16px;
+        }
+        .totem-product-search i {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #667085;
+            font-size: 1.1rem;
+            pointer-events: none;
+        }
+        #productSearchInput {
+            width: 100%;
+            min-height: 54px;
+            padding: 14px 18px 14px 48px;
+            border: 2px solid #dfe3eb;
+            border-radius: 14px;
+            background: #fff;
+            color: #2c3e50;
+            font-size: 1.05rem;
+            outline: none;
+            box-shadow: 0 3px 12px rgba(0,0,0,.04);
+        }
+        #productSearchInput:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,.14);
+        }
+        #productSearchStatus {
+            min-height: 20px;
+            margin: -7px 0 12px 2px;
+            color: #667085;
+            font-size: .88rem;
+        }
+
         /* Grid de Produtos */
         .menu-grid {
             display: grid;
@@ -883,6 +920,11 @@
             </div>
 
             <div class="menu-panel">
+                <div class="totem-product-search">
+                    <i class="fas fa-search" aria-hidden="true"></i>
+                    <input id="productSearchInput" type="search" placeholder="Buscar produto... Ex.: carne de sol com mandioca" autocomplete="off" aria-label="Buscar produto em todas as categorias">
+                </div>
+                <div id="productSearchStatus" aria-live="polite"></div>
                 <!-- Grid de Produtos -->
                 <div class="menu-grid" id="menuGrid">
                     <!-- Produtos serão carregados aqui -->
@@ -1249,14 +1291,28 @@
         }
 
         // Renderizar Itens do Menu
+        function normalizeProductSearch(value) {
+            return String(value || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLocaleLowerCase('pt-BR').trim();
+        }
+
         function renderMenuItems() {
             const menuGrid = document.getElementById('menuGrid');
-            const filteredItems = currentCategory === 'all' 
-                ? menuItems 
-                : menuItems.filter(item => item.category === currentCategory);
-            
+            const searchInput = document.getElementById('productSearchInput');
+            const searchStatus = document.getElementById('productSearchStatus');
+            const searchTerm = normalizeProductSearch(searchInput ? searchInput.value : '');
+            // Quando há busca, pesquisar no catálogo inteiro, sem limitar pela categoria ativa.
+            const filteredItems = searchTerm
+                ? menuItems.filter(item => normalizeProductSearch([item.name, item.description].join(' ')).includes(searchTerm))
+                : (currentCategory === 'all' ? menuItems : menuItems.filter(item => item.category === currentCategory));
+
+            if (searchStatus) {
+                searchStatus.textContent = searchTerm
+                    ? filteredItems.length + (filteredItems.length === 1 ? ' produto encontrado' : ' produtos encontrados') + ' em todas as categorias'
+                    : '';
+            }
+
             if (filteredItems.length === 0) {
-                menuGrid.innerHTML = '<div style="text-align: center; padding: 40px; color: #6c757d;">Nenhum produto encontrado nesta categoria.</div>';
+                menuGrid.innerHTML = '<div style="text-align: center; padding: 40px; color: #6c757d;">' + (searchTerm ? 'Nenhum produto encontrado. Tente outro nome.' : 'Nenhum produto encontrado nesta categoria.') + '</div>';
                 return;
             }
             
@@ -2917,6 +2973,8 @@ ${paymentInfo}
         
         // Inicializar WebSocket quando carregar a página
         document.addEventListener('DOMContentLoaded', function() {
+            const productSearchInput = document.getElementById('productSearchInput');
+            if (productSearchInput) productSearchInput.addEventListener('input', renderMenuItems);
             console.log('[TOTEM] Inicializando WebSocket...');
             initWebSocket();
         });
