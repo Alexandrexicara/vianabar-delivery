@@ -1181,122 +1181,83 @@
             }
         }
 
-        // Carrega sempre do PostgreSQL; produtos e imagens ficam apenas em memória.
+        // PostgreSQL/Neon é a única fonte de verdade do catálogo.
         window.merchantProductsCache = window.merchantProductsCache || [];
+        window.merchantShowcaseCache = window.merchantShowcaseCache || [];
+
         async function loadMenuItems() {
             const menuItemsList = document.getElementById('menuItemsList');
             if (!menuItemsList) return;
+            menuItemsList.innerHTML = '<p style="text-align:center;padding:20px;">Carregando produtos do banco...</p>';
             try {
-                const response = await fetch(MERCHANT_API_BASE + '/api/products?storeId=' + encodeURIComponent(getMerchantStoreId()) + '', { credentials: 'include', cache: 'no-store' });
-                let result = await response.json();
-                if (!response.ok) throw new Error(result.error || 'Falha ao carregar produtos.');
-                let serverProducts = result.products || [];
-
-                // Importa somente produtos locais ausentes, sem sobrescrever dados mais recentes do servidor.
-                const merchantStoreId = getMerchantStoreId();
-                const merchantCacheKey = 'menuItems_' + merchantStoreId.replace(/[^a-zA-Z0-9_-]/g, '_');
-                const showcaseCacheKey = 'vitrineProducts_' + merchantStoreId.replace(/[^a-zA-Z0-9_-]/g, '_');
-                const cachedProducts = JSON.parse(localStorage.getItem(merchantCacheKey) || (merchantStoreId === 'main' ? localStorage.getItem('menuItems') : '[]') || '[]');
-                const cachedShowcase = JSON.parse(localStorage.getItem(showcaseCacheKey) || (merchantStoreId === 'main' ? localStorage.getItem('vitrineProducts') : '[]') || '[]');
-                const restoreOldShowcase = serverProducts.length === 0;
-                const existingIds = new Set(serverProducts.map(product => String(product.id)));
-                const knownProducts = new Set(serverProducts.map(product => [product.name, product.category, product.sector, Number(product.price || 0).toFixed(2), product.description].map(value => String(value || '').trim().toLowerCase()).join('|')));
-                const missingCachedProducts = cachedProducts.filter(product => {
-                    const signature = [product.name, product.category, product.sector, Number(product.price || 0).toFixed(2), product.description].map(value => String(value || '').trim().toLowerCase()).join('|');
-                    if (existingIds.has(String(product.id)) || knownProducts.has(signature)) return false;
-                    knownProducts.add(signature);
-                    return true;
+                const storeId = getMerchantStoreId();
+                const response = await fetch(MERCHANT_API_BASE + '/api/products?storeId=' + encodeURIComponent(storeId), {
+                    credentials: 'include', cache: 'no-store'
                 });
-                for (const cachedProduct of missingCachedProducts) {
-                    const saveResponse = await fetch(MERCHANT_API_BASE + '/api/products', {
-                        method: 'POST', credentials: 'include',
-                        headers: productAdminHeaders(),
-                        body: JSON.stringify({ ...cachedProduct, storeId: getMerchantStoreId(), storeName: getMerchantName() })
-                    });
-                    if (!saveResponse.ok) {
-                        const saveError = await saveResponse.json().catch(() => ({}));
-                        throw new Error(saveError.error || 'Não foi possível migrar os produtos antigos.');
-                    }
-                }
-                if (restoreOldShowcase) {
-                    for (const cachedProduct of cachedShowcase.slice(0, 8)) {
-                        const showcaseResponse = await fetch(`${MERCHANT_API_BASE}/api/products/${encodeURIComponent(cachedProduct.id)}/showcase`, {
-                            method: 'PATCH', credentials: 'include',
-                            headers: productAdminHeaders(),
-                            body: JSON.stringify({ storeId: getMerchantStoreId(), showcase: true })
-                        });
-                        if (!showcaseResponse.ok && showcaseResponse.status !== 409) {
-                            throw new Error('Produtos foram migrados, mas não foi possível restaurar toda a vitrine.');
-                        }
-                    }
-                }
-                if (missingCachedProducts.length > 0 || (restoreOldShowcase && cachedShowcase.length > 0)) {
-                    const refreshed = await fetch(MERCHANT_API_BASE + '/api/products?storeId=' + encodeURIComponent(getMerchantStoreId()) + '', { credentials: 'include', cache: 'no-store' });
-                    result = await refreshed.json();
-                    if (!refreshed.ok) throw new Error(result.error || 'Falha ao confirmar a migração.');
-                    serverProducts = result.products || [];
-                    console.log('[MIGRACAO] Produtos locais enviados ao PostgreSQL:', missingCachedProducts.length);
-                }
-                window.merchantProductsCache = serverProducts;
+                const result = await response.json();
+                if (!response.ok || result.success === false) throw new Error(result.error || 'Falha ao carregar produtos do PostgreSQL.');
+                window.merchantProductsCache = Array.isArray(result.products) ? result.products : [];
+                window.merchantShowcaseCache = Array.isArray(result.showcase) ? result.showcase.slice(0, 8) : [];
             } catch (error) {
-                console.error('[MENU] Não foi possível sincronizar com o servidor:', error);
-            }
-            const menuItems = window.merchantProductsCache || [];
-            if (menuItems.length === 0) {
-                menuItemsList.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">Nenhum produto cadastrado ainda. Clique em "+ Adicionar Item" para começar.</p>';
+                console.error('[MENU] Falha ao ler catálogo do PostgreSQL:', error);
+                menuItemsList.innerHTML = '<p style="color:#b42318;text-align:center;padding:20px;">Não foi possível carregar os produtos do banco. ' + String(error.message || '') + '</p>';
                 return;
             }
-            let html = '';
-            menuItems.forEach(item => {
-                html += `
-                    <div style="border: 1px solid #ddd; padding: 15px; border-radius: 8px; background: white; position: relative;">
-                        <div style="display: flex; gap: 15px; align-items: start;">
-                            <div style="width: 80px; height: 80px; background: #f8f9fa; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                                ${item.image ? `<img src="${item.image}" alt="${item.name}" style="width: 100%; height: 100%; object-fit: cover;">` : '<div style="font-size: 30px; color: #ccc;">🍽️</div>'}
+
+            const menuItems = window.merchantProductsCache;
+            if (!menuItems.length) {
+                menuItemsList.innerHTML = '<p style="color:#666;text-align:center;padding:20px;">Nenhum produto cadastrado no banco. Clique em "+ Adicionar Item" para começar.</p>';
+                return;
+            }
+            const featuredIds = new Set(window.merchantShowcaseCache.map(p => String(p.id)));
+            menuItemsList.innerHTML = menuItems.map(item => {
+                const featured = featuredIds.has(String(item.id));
+                return `
+                    <div style="border:1px solid #ddd;padding:15px;border-radius:8px;background:white;position:relative;">
+                        <div style="display:flex;gap:15px;align-items:start;">
+                            <div style="width:80px;height:80px;background:#f8f9fa;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+                                ${item.image ? `<img src="${item.image}" alt="${item.name}" style="width:100%;height:100%;object-fit:cover;">` : '<div style="font-size:30px;color:#ccc;">🍽️</div>'}
                             </div>
-                            <div style="flex: 1;">
-                                <h4 style="margin: 0 0 5px 0; color: #333;">${item.name}</h4>
-                                <p style="margin: 0 0 5px 0; color: #666; font-size: 14px;">${item.description || 'Sem descrição'}</p>
-                                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
-                                    <span style="background: #e3f2fd; color: #1976d2; padding: 3px 8px; border-radius: 12px; font-size: 12px;">${item.category || 'Sem categoria'}</span>
-                                    <span style="background: #f3e5f5; color: #7b1fa2; padding: 3px 8px; border-radius: 12px; font-size: 12px;">${item.sector || 'Cozinha'}</span>
-                                    <span style="background: #e8f5e8; color: #388e3c; font-weight: bold; padding: 3px 8px; border-radius: 12px; font-size: 12px;">R$ ${parseFloat(item.price || 0).toFixed(2)}</span>
+                            <div style="flex:1;">
+                                <h4 style="margin:0 0 5px 0;color:#333;">${item.name}</h4>
+                                <p style="margin:0 0 5px 0;color:#666;font-size:14px;">${item.description || 'Sem descrição'}</p>
+                                <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;">
+                                    <span style="background:#e3f2fd;color:#1976d2;padding:3px 8px;border-radius:12px;font-size:12px;">${item.category || 'Sem categoria'}</span>
+                                    <span style="background:#f3e5f5;color:#7b1fa2;padding:3px 8px;border-radius:12px;font-size:12px;">${item.sector || 'Cozinha'}</span>
+                                    <span style="background:#e8f5e8;color:#388e3c;font-weight:bold;padding:3px 8px;border-radius:12px;font-size:12px;">R$ ${parseFloat(item.price || 0).toFixed(2)}</span>
                                 </div>
-                                <div style="display: flex; gap: 8px;">
-                                    <button onclick="editMenuItem(${item.id})" style="background: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">✏️ Editar</button>
-                                    <button onclick="deleteMenuItem(${item.id})" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">🗑️ Apagar</button>
-                                    ${JSON.parse(localStorage.getItem('vitrineProducts') || '[]').some(p => String(p.id) === String(item.id)) ? '<span style="background:#e8f5e9;color:#2e7d32;padding:6px 10px;border-radius:4px;font-size:12px;">✓ Na vitrine</span>' : '<button onclick="addToVitrine(' + "'" + item.id + "'" + ')" style="background:#27ae60;color:white;border:0;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;">🏪 Adicionar à Vitrine</button>'}
+                                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                    <button onclick="editMenuItem('${item.id}')" style="background:#3498db;color:white;border:0;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;">✏️ Editar</button>
+                                    <button onclick="deleteMenuItem('${item.id}')" style="background:#e74c3c;color:white;border:0;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;">🗑️ Apagar</button>
+                                    ${featured ? '<span style="background:#e8f5e9;color:#2e7d32;padding:6px 10px;border-radius:4px;font-size:12px;">✓ Na vitrine</span>' : '<button onclick="addToVitrine(\'' + String(item.id).replace(/'/g, '') + '\')" style="background:#27ae60;color:white;border:0;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;">🏪 Adicionar à Vitrine</button>'}
                                 </div>
                             </div>
                         </div>
                     </div>`;
-            });
-            menuItemsList.innerHTML = html;
-            console.log('[MENU] Produtos sincronizados:', menuItems.length);
+            }).join('');
+            console.log('[MENU] Produtos lidos do PostgreSQL:', menuItems.length);
         }
 
         function editMenuItem(itemId) {
-            const menuItems = JSON.parse(localStorage.getItem('menuItems') || '[]');
-            const item = menuItems.find(p => String(p.id) === String(itemId));
-            if (!item) return alert('Produto não encontrado!');
-            document.getElementById('itemName').value = item.name;
-            document.getElementById('itemPrice').value = item.price;
+            const item = (window.merchantProductsCache || []).find(p => String(p.id) === String(itemId));
+            if (!item) return alert('Produto não encontrado no catálogo recebido do banco. Atualize a lista e tente novamente.');
+            document.getElementById('itemName').value = item.name || '';
+            document.getElementById('itemPrice').value = item.price || '';
             document.getElementById('itemDescription').value = item.description || '';
             document.getElementById('itemCategory').value = item.category || '';
             document.getElementById('itemSector').value = item.sector || '';
-            const addButton = document.querySelector('button[onclick="addItem()"]');
+            const addButton = document.querySelector('button[onclick="addItem()"], button[onclick*="updateMenuItem"]');
             if (addButton) {
                 addButton.textContent = '💾 Atualizar Produto';
-                addButton.setAttribute('onclick', `updateMenuItem('${itemId}')`);
+                addButton.setAttribute('onclick', `updateMenuItem('${String(itemId).replace(/'/g, '')}')`);
             }
             openAddItemModal();
         }
 
         async function updateMenuItem(itemId) {
-            const current = JSON.parse(localStorage.getItem('menuItems') || '[]').find(p => String(p.id) === String(itemId));
-            if (!current) return alert('Produto não encontrado!');
+            const current = (window.merchantProductsCache || []).find(p => String(p.id) === String(itemId));
+            if (!current) return alert('Produto não encontrado no banco. Atualize a lista e tente novamente.');
             const updated = {
-                ...current,
                 name: document.getElementById('itemName').value.trim(),
                 price: document.getElementById('itemPrice').value || 0,
                 description: document.getElementById('itemDescription').value,
@@ -1309,16 +1270,18 @@
                     headers: productAdminHeaders(), body: JSON.stringify(updated)
                 });
                 const result = await response.json();
-                if (!response.ok) throw new Error(result.error || 'Falha ao atualizar produto.');
+                if (!response.ok) throw new Error(result.error || 'Falha ao atualizar produto no PostgreSQL.');
                 closeModal('addItemModal');
                 const addButton = document.querySelector('button[onclick*="updateMenuItem"]');
                 if (addButton) { addButton.textContent = '+ Adicionar Item'; addButton.setAttribute('onclick', 'addItem()'); }
-                ['itemName','itemPrice','itemDescription','itemCategory','itemSector'].forEach(id => document.getElementById(id).value = '');
+                ['itemName','itemPrice','itemDescription','itemCategory','itemSector'].forEach(id => {
+                    const field = document.getElementById(id); if (field) field.value = '';
+                });
                 await loadMenuItems();
                 await loadVitrineProducts();
-                alert(`Produto "${result.product.name}" atualizado e sincronizado!`);
+                alert(`Produto "${result.product.name}" atualizado no banco!`);
             } catch (error) {
-                console.error('[MENU] Erro ao atualizar:', error);
+                console.error('[MENU] Erro ao atualizar produto:', error);
                 alert(error.message || 'Não foi possível atualizar o produto.');
             }
         }
