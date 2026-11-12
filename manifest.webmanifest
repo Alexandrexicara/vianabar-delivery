@@ -15,15 +15,15 @@
   "lang": "pt-BR",
   "icons": [
     {
-      "src": "/icons/delivery-day.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/api/platform-branding/assets/appIcon",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/delivery-day.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/api/platform-branding/assets/appIcon",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "maskable"
     }
   ]
