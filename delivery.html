@@ -986,13 +986,15 @@
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Falha ao carregar produtos');
                 const products = result.products || [];
-                const showcase = result.showcase || [];
+                const showcase = (result.showcase || []).slice(0, 8);
                 const productCacheKey = 'menuItems_' + storeId.replace(/[^a-zA-Z0-9_-]/g, '_');
                 localStorage.setItem(productCacheKey, JSON.stringify(products));
                 localStorage.setItem('menuItems', JSON.stringify(products));
                 localStorage.setItem('vitrineProducts', JSON.stringify(showcase));
-                window.menuItems = products;
-                console.log('[DELIVERY] Produtos sincronizados com PostgreSQL:', window.menuItems.length);
+                // Na página da loja, o cliente escolhe entre os produtos que o comerciante destacou na vitrine.
+                // Se ainda não houver destaques, mantém os produtos ativos para não deixar o cardápio vazio.
+                window.menuItems = showcase.length ? showcase : products;
+                console.log('[DELIVERY] Produtos da loja sincronizados:', window.menuItems.length, 'destaques:', showcase.length);
                 renderMenuItems();
             } catch (error) {
                 console.error('[DELIVERY] Erro ao carregar produtos do servidor:', error);
