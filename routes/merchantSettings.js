@@ -139,7 +139,7 @@ router.post('/:storeId/assets/:type', requireMerchantAdmin, (req, res, next) => 
     const imageUrl = `/api/merchant-settings/${encodeURIComponent(storeId)}/assets/${type}`;
     await pool.query(
       `INSERT INTO merchant_settings (store_id, settings)
-       VALUES ($1, jsonb_build_object($2, $3))
+       VALUES ($1, jsonb_build_object($2::text, $3::text))
        ON CONFLICT (store_id) DO UPDATE
        SET settings = merchant_settings.settings || EXCLUDED.settings, updated_at=NOW()`,
       [storeId, type, imageUrl]
