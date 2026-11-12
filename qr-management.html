@@ -275,10 +275,10 @@
                 </div>
             </div>
             
-            <div style="background-color: #e8f4fc; padding: 20px; border-radius: 10px; margin: 20px 0;">
-                <h3>Sua URL Personalizada</h3>
-                <p><strong>https://cardapiodigital.com.br/restaurante-sabores</strong></p>
-                <button class="btn" onclick="copyToClipboard('https://cardapiodigital.com.br/restaurante-sabores')">Copiar URL</button>
+            <div style="background-color:#e8f4fc;padding:20px;border-radius:10px;margin:20px 0;">
+                <h3>Endereço oficial do seu cardápio</h3>
+                <p id="dashboard-menu-url" style="overflow-wrap:anywhere;">Gerando endereço da loja...</p>
+                <button class="btn" type="button" onclick="copyMerchantMenuUrl()">Copiar URL do cardápio</button>
             </div>
         </section>
 
@@ -332,7 +332,7 @@
                     <div class="plaque-kicker">Cardápio digital</div>
                     <div class="plaque-brand" id="plaque-establishment-name">Seu estabelecimento</div>
                     <p class="plaque-instruction">Aponte a câmera do celular e confira nosso cardápio.</p>
-                    <div class="plaque-url" id="current-url">https://delivery-day.netlify.app/usuario.html</div>
+                    <div class="plaque-url" id="current-url">Gerando endereço do cardápio...</div>
                 </div>
                 <div class="plaque-qr-wrap"><div id="qrcode"></div></div>
             </div>
@@ -1402,8 +1402,20 @@
             localStorage.setItem('productShowcase', JSON.stringify(vitrineProducts));
         }
 
+        const MERCHANT_PUBLIC_BASE_URL = 'https://delivery-day.netlify.app';
+
+        function getMerchantMenuUrl() {
+            const url = new URL('/usuario.html', MERCHANT_PUBLIC_BASE_URL);
+            url.searchParams.set('loja', getMerchantStoreId());
+            return url.toString();
+        }
+
+        function copyMerchantMenuUrl() {
+            return copyToClipboard(getMerchantMenuUrl());
+        }
+
         function getMerchantTotemUrl() {
-            const url = new URL('/totem.html', 'https://delivery-day.netlify.app');
+            const url = new URL('/totem.html', MERCHANT_PUBLIC_BASE_URL);
             url.searchParams.set('loja', getMerchantStoreId());
             return url.toString();
         }
@@ -1427,18 +1439,15 @@
         function updateMenuUrl() {
             let establishment = {};
             try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
-            const storeId = getMerchantStoreId();
-            const menuUrl = new URL('/usuario.html', 'https://delivery-day.netlify.app');
-            menuUrl.searchParams.set('loja', storeId);
-            const url = menuUrl.toString();
+            const url = getMerchantMenuUrl();
             const totemUrlElement = document.getElementById('totem-url');
             if (totemUrlElement) totemUrlElement.textContent = getMerchantTotemUrl();
             const currentUrlElement = document.getElementById('current-url');
             if (currentUrlElement) currentUrlElement.textContent = url;
             const nameElement = document.getElementById('plaque-establishment-name');
             if (nameElement) nameElement.textContent = getMerchantName();
-            const dashboardUrlElement = document.querySelector('#dashboard .url-display-box p');
-            if (dashboardUrlElement) dashboardUrlElement.textContent = 'URL do Cardápio: ' + url;
+            const dashboardUrlElement = document.getElementById('dashboard-menu-url');
+            if (dashboardUrlElement) dashboardUrlElement.textContent = url;
             generateQRCode(url);
         }
 
