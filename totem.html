@@ -1135,16 +1135,13 @@
             const backgroundUrl = totemAssetUrl(settings.background);
             if (backgroundUrl) {
                 const safeBackgroundUrl = backgroundUrl.replace(/["\\]/g, '');
-                document.body.style.backgroundImage = 'url("' + safeBackgroundUrl + '")';
-                document.body.style.backgroundSize = 'cover';
-                document.body.style.backgroundAttachment = 'fixed';
-                document.body.style.backgroundRepeat = 'no-repeat';
-                const welcome = document.getElementById('welcomeScreen');
-                if (welcome) {
-                    welcome.style.backgroundImage = 'url("' + safeBackgroundUrl + '")';
-                    welcome.style.backgroundSize = 'cover';
-                    welcome.style.backgroundPosition = 'center';
-                }
+                [document.body, document.getElementById('welcomeScreen'), document.getElementById('mainContent')].filter(Boolean).forEach(layer => {
+                    layer.style.setProperty('background-image', 'url("' + safeBackgroundUrl + '")', 'important');
+                    layer.style.setProperty('background-size', 'cover', 'important');
+                    layer.style.setProperty('background-position', 'center center', 'important');
+                    layer.style.setProperty('background-attachment', 'fixed', 'important');
+                    layer.style.setProperty('background-repeat', 'no-repeat', 'important');
+                });
             }
             const primary = settings.primaryColor && /^#[0-9a-f]{6}$/i.test(settings.primaryColor) ? settings.primaryColor : '#667eea';
             const secondary = settings.secondaryColor && /^#[0-9a-f]{6}$/i.test(settings.secondaryColor) ? settings.secondaryColor : '#764ba2';
@@ -1189,6 +1186,11 @@
                 }
                 logo.src = totemAssetUrl(settings.logo);
                 logo.alt = 'Logo ' + name;
+                logo.onerror = () => {
+                    console.error('[TOTEM] Não foi possível carregar a logo do estabelecimento:', logo.src);
+                    logo.style.display = 'none';
+                };
+                logo.onload = () => { logo.style.display = 'block'; };
                 const placeholder = logoContainer.querySelector('.brand-mark');
                 if (placeholder) placeholder.style.display = 'none';
             }
