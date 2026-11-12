@@ -129,36 +129,47 @@
             width: 100%;
         }
 
-        /* Categorias */
+        /* Barra compacta de categorias: mais espaço para os produtos */
         .categories {
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            width: 240px;
-            min-width: 240px;
-            padding: 15px;
+            align-items: center;
+            gap: 8px;
+            width: 76px;
+            min-width: 76px;
+            padding: 9px 7px;
             background: #f8f9fa;
             border: 1px solid #e9ecef;
-            border-radius: 18px;
+            border-radius: 16px;
             position: sticky;
             top: 92px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.04);
         }
 
         .category-btn {
-            padding: 14px 16px;
-            border: 2px solid #667eea;
-            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 52px;
+            min-width: 52px;
+            height: 48px;
+            padding: 0;
+            border: 1px solid #667eea;
+            border-radius: 12px;
             background: white;
             color: #667eea;
             cursor: pointer;
-            transition: all 0.25s ease;
+            transition: all 0.2s ease;
             font-weight: 600;
-            font-size: 1rem;
-            text-align: left;
-            width: 100%;
-            min-width: 0;
+            font-size: 1.15rem;
+            text-align: center;
         }
+        .category-btn i { pointer-events: none; }
+        .category-btn:hover { transform: translateY(-1px); }
+        .category-btn:focus-visible { outline: 3px solid rgba(102,126,234,.3); outline-offset: 2px; }
+        .categories .side-panel { width: 100%; min-width: 0; }
+        .categories .side-panel .social-box { padding: 8px 4px; }
+        .categories .side-panel .social-box-title { font-size: .58rem; }
 
         .category-btn:hover {
             background: #667eea;
@@ -603,6 +614,11 @@
 
         /* Responsivo */
         @media (max-width: 768px) {
+            .catalog-layout { gap: 8px; padding: 10px 8px; }
+            .categories { width: 62px; min-width: 62px; padding: 7px 4px; gap: 7px; }
+            .category-btn { width: 46px; min-width: 46px; height: 44px; font-size: 1.05rem; }
+            .categories .side-panel .social-box-title { font-size: .52rem; }
+            .menu-panel { flex: 1; min-width: 0; }
             .welcome-title {
                 font-size: 3rem;
             }
@@ -903,13 +919,12 @@
         </header>
 
         <div class="catalog-layout">
-            <div class="categories">
-                <button class="category-btn active" onclick="filterByCategory('all')">Todos</button>
-                <button class="category-btn" onclick="filterByCategory('appetizer')">Entradas</button>
-                <button class="category-btn" onclick="filterByCategory('main')">Pratos Principais</button>
-                <button class="category-btn" onclick="filterByCategory('drink')">Bebidas</button>
-                <button class="category-btn" onclick="filterByCategory('dessert')">Sobremesas</button>
-                <button class="category-btn" onclick="filterByCategory('outros')">Outros</button>
+            <div class="categories" aria-label="Categorias do cardápio">
+                <button class="category-btn active" type="button" data-category="all" title="Todos os produtos" aria-label="Todos os produtos" onclick="filterByCategory('all')"><i class="fas fa-th-large" aria-hidden="true"></i></button>
+                <button class="category-btn" type="button" data-category="food" title="Comidas" aria-label="Comidas" onclick="filterByCategory('food')"><i class="fas fa-utensils" aria-hidden="true"></i></button>
+                <button class="category-btn" type="button" data-category="drink" title="Bebidas" aria-label="Bebidas" onclick="filterByCategory('drink')"><i class="fas fa-glass-water" aria-hidden="true"></i></button>
+                <button class="category-btn" type="button" data-category="dessert" title="Sobremesas" aria-label="Sobremesas" onclick="filterByCategory('dessert')"><i class="fas fa-ice-cream" aria-hidden="true"></i></button>
+                <button class="category-btn" type="button" data-category="other" title="Outros" aria-label="Outros" onclick="filterByCategory('other')"><i class="fas fa-ellipsis" aria-hidden="true"></i></button>
 
                 <div class="side-panel">
                     <div class="social-box">
@@ -1274,20 +1289,23 @@
         }
 
         function buildTotemCategories() {
+            // As quatro categorias são fixas e compactas; os nomes nunca ocupam a lateral.
             const container = document.querySelector('.categories');
             if (!container) return;
-            container.querySelectorAll('.category-btn').forEach(button => button.remove());
-            const categories = [...new Set(menuItems.map(item => String(item.category || '').trim()).filter(Boolean))];
-            const buttons = [{ value:'all', label:'Todos' }, ...categories.map(value => ({ value, label:value }))];
-            const sidePanel = container.querySelector('.side-panel');
-            buttons.forEach((item, index) => {
-                const button = document.createElement('button');
-                button.className = 'category-btn' + (index === 0 ? ' active' : '');
-                button.type = 'button';
-                button.textContent = item.label;
-                button.addEventListener('click', () => filterByCategory(item.value));
-                container.insertBefore(button, sidePanel || null);
+            container.querySelectorAll('.category-btn').forEach(button => {
+                button.classList.toggle('active', button.dataset.category === currentCategory);
             });
+        }
+
+        function getTotemCategoryGroup(item) {
+            const category = normalizeProductSearch(item.category || '');
+            const name = normalizeProductSearch(item.name || '');
+            const combined = category + ' ' + name;
+            if (/bebida|drink|refrigerante|suco|agua|cerveja|cafe|cha|milk.?shake/.test(combined)) return 'drink';
+            if (/sobremesa|dessert|doce|sorvete|pudim|bolo|torta|acai|gelad/.test(combined)) return 'dessert';
+            if (/entrada|appetizer|prato|principal|main|comida|food|lanche|hamburg|pizza|sanduiche|porcao|petisco|carne|massa|salada|arroz|feij/.test(category)) return 'food';
+            if (!category) return 'other';
+            return 'other';
         }
 
         // Renderizar Itens do Menu
@@ -1303,7 +1321,7 @@
             // Quando há busca, pesquisar no catálogo inteiro, sem limitar pela categoria ativa.
             const filteredItems = searchTerm
                 ? menuItems.filter(item => normalizeProductSearch([item.name, item.description].join(' ')).includes(searchTerm))
-                : (currentCategory === 'all' ? menuItems : menuItems.filter(item => item.category === currentCategory));
+                : (currentCategory === 'all' ? menuItems : menuItems.filter(item => getTotemCategoryGroup(item) === currentCategory));
 
             if (searchStatus) {
                 searchStatus.textContent = searchTerm
@@ -1354,7 +1372,7 @@
         function filterByCategory(category) {
             currentCategory = category;
             document.querySelectorAll('.category-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.textContent === (category === 'all' ? 'Todos' : category));
+                btn.classList.toggle('active', btn.dataset.category === category);
             });
             renderMenuItems();
         }
