@@ -1086,13 +1086,19 @@
         }
         
         // Add item
+        let isAddingMenuItem = false;
         function addItem() {
+            if (isAddingMenuItem) return;
             const itemName = document.getElementById('itemName').value;
             if (!itemName) {
                 alert('Por favor, informe o nome do item.');
                 return;
             }
             
+            isAddingMenuItem = true;
+            const addButton = document.querySelector('button[onclick="addItem()"]');
+            if (addButton) { addButton.disabled = true; addButton.dataset.idleText = addButton.textContent; addButton.textContent = 'Salvando...'; }
+
             // Get item data
             const itemData = {
                 id: Date.now(), // Simple ID generation
@@ -1115,6 +1121,7 @@
                     saveItem(itemData);
                 };
                 
+                reader.onerror = function() { isAddingMenuItem = false; if (addButton) { addButton.disabled = false; addButton.textContent = addButton.dataset.idleText || '+ Adicionar Item'; } alert('Não foi possível ler a imagem do produto.'); };
                 reader.readAsDataURL(file);
             } else {
                 saveItem(itemData);
@@ -1167,6 +1174,10 @@
             } catch (error) {
                 console.error('[MENU] Erro ao salvar produto:', error);
                 alert(error.message || 'Não foi possível salvar o produto.');
+            } finally {
+                isAddingMenuItem = false;
+                const addButton = document.querySelector('button[onclick="addItem()"]');
+                if (addButton) { addButton.disabled = false; addButton.textContent = addButton.dataset.idleText || '+ Adicionar Item'; }
             }
         }
 
@@ -1175,19 +1186,28 @@
             const menuItemsList = document.getElementById('menuItemsList');
             if (!menuItemsList) return;
             try {
-                const response = await fetch('/api/products?storeId=' + encodeURIComponent(getMerchantStoreId()) + '', { credentials: 'include', cache: 'no-store' });
+                const response = await fetch(MERCHANT_API_BASE + '/api/products?storeId=' + encodeURIComponent(getMerchantStoreId()) + '', { credentials: 'include', cache: 'no-store' });
                 let result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Falha ao carregar produtos.');
                 let serverProducts = result.products || [];
 
                 // Importa somente produtos locais ausentes, sem sobrescrever dados mais recentes do servidor.
-                const cachedProducts = JSON.parse(localStorage.getItem('menuItems') || '[]');
-                const cachedShowcase = JSON.parse(localStorage.getItem('vitrineProducts') || '[]');
+                const merchantStoreId = getMerchantStoreId();
+                const merchantCacheKey = 'menuItems_' + merchantStoreId.replace(/[^a-zA-Z0-9_-]/g, '_');
+                const showcaseCacheKey = 'vitrineProducts_' + merchantStoreId.replace(/[^a-zA-Z0-9_-]/g, '_');
+                const cachedProducts = JSON.parse(localStorage.getItem(merchantCacheKey) || (merchantStoreId === 'main' ? localStorage.getItem('menuItems') : '[]') || '[]');
+                const cachedShowcase = JSON.parse(localStorage.getItem(showcaseCacheKey) || (merchantStoreId === 'main' ? localStorage.getItem('vitrineProducts') : '[]') || '[]');
                 const restoreOldShowcase = serverProducts.length === 0;
                 const existingIds = new Set(serverProducts.map(product => String(product.id)));
-                const missingCachedProducts = cachedProducts.filter(product => !existingIds.has(String(product.id)));
+                const knownProducts = new Set(serverProducts.map(product => [product.name, product.category, product.sector, Number(product.price || 0).toFixed(2), product.description].map(value => String(value || '').trim().toLowerCase()).join('|')));
+                const missingCachedProducts = cachedProducts.filter(product => {
+                    const signature = [product.name, product.category, product.sector, Number(product.price || 0).toFixed(2), product.description].map(value => String(value || '').trim().toLowerCase()).join('|');
+                    if (existingIds.has(String(product.id)) || knownProducts.has(signature)) return false;
+                    knownProducts.add(signature);
+                    return true;
+                });
                 for (const cachedProduct of missingCachedProducts) {
-                    const saveResponse = await fetch('/api/products', {
+                    const saveResponse = await fetch(MERCHANT_API_BASE + '/api/products', {
                         method: 'POST', credentials: 'include',
                         headers: productAdminHeaders(),
                         body: JSON.stringify({ ...cachedProduct, storeId: getMerchantStoreId(), storeName: getMerchantName() })
@@ -1210,17 +1230,20 @@
                     }
                 }
                 if (missingCachedProducts.length > 0 || (restoreOldShowcase && cachedShowcase.length > 0)) {
-                    const refreshed = await fetch('/api/products?storeId=' + encodeURIComponent(getMerchantStoreId()) + '', { credentials: 'include', cache: 'no-store' });
+                    const refreshed = await fetch(MERCHANT_API_BASE + '/api/products?storeId=' + encodeURIComponent(getMerchantStoreId()) + '', { credentials: 'include', cache: 'no-store' });
                     result = await refreshed.json();
                     if (!refreshed.ok) throw new Error(result.error || 'Falha ao confirmar a migração.');
                     serverProducts = result.products || [];
                     console.log('[MIGRACAO] Produtos locais enviados ao PostgreSQL:', missingCachedProducts.length);
                 }
+                localStorage.setItem(merchantCacheKey, JSON.stringify(serverProducts));
                 localStorage.setItem('menuItems', JSON.stringify(serverProducts));
             } catch (error) {
                 console.error('[MENU] Não foi possível sincronizar com o servidor:', error);
             }
-            const menuItems = JSON.parse(localStorage.getItem('menuItems') || '[]');
+            const currentStoreId = getMerchantStoreId();
+            const currentCacheKey = 'menuItems_' + currentStoreId.replace(/[^a-zA-Z0-9_-]/g, '_');
+            const menuItems = JSON.parse(localStorage.getItem(currentCacheKey) || (currentStoreId === 'main' ? localStorage.getItem('menuItems') : '[]') || '[]');
             if (menuItems.length === 0) {
                 menuItemsList.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">Nenhum produto cadastrado ainda. Clique em "+ Adicionar Item" para começar.</p>';
                 return;
@@ -1283,7 +1306,7 @@
                 sector: document.getElementById('itemSector').value
             };
             try {
-                const response = await fetch(`/api/products/${encodeURIComponent(itemId)}`, {
+                const response = await fetch(`${MERCHANT_API_BASE}/api/products/${encodeURIComponent(itemId)}`, {
                     method: 'PUT', credentials: 'include',
                     headers: productAdminHeaders(), body: JSON.stringify(updated)
                 });
@@ -1305,7 +1328,7 @@
         async function deleteMenuItem(itemId) {
             if (!confirm('Tem certeza que deseja apagar este produto? Esta ação não pode ser desfeita.')) return;
             try {
-                const response = await fetch(`/api/products/${encodeURIComponent(itemId)}`, { method: 'DELETE', credentials: 'include', headers: productAdminHeaders() });
+                const response = await fetch(`${MERCHANT_API_BASE}/api/products/${encodeURIComponent(itemId)}`, { method: 'DELETE', credentials: 'include', headers: productAdminHeaders() });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Falha ao apagar produto.');
                 await loadMenuItems();
@@ -1321,11 +1344,15 @@
             const vitrineContainer = document.getElementById('vitrineProducts');
             if (!vitrineContainer) return;
             try {
-                const response = await fetch('/api/products?storeId=' + encodeURIComponent(getMerchantStoreId()) + '', { credentials: 'include', cache: 'no-store' });
+                const response = await fetch(MERCHANT_API_BASE + '/api/products?storeId=' + encodeURIComponent(getMerchantStoreId()) + '', { credentials: 'include', cache: 'no-store' });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Falha ao carregar vitrine.');
                 const allProducts = result.products || [];
                 const vitrineProducts = result.showcase || [];
+                const merchantCacheKey = 'menuItems_' + getMerchantStoreId().replace(/[^a-zA-Z0-9_-]/g, '_');
+                const showcaseCacheKey = 'vitrineProducts_' + getMerchantStoreId().replace(/[^a-zA-Z0-9_-]/g, '_');
+                localStorage.setItem(merchantCacheKey, JSON.stringify(allProducts));
+                localStorage.setItem(showcaseCacheKey, JSON.stringify(vitrineProducts));
                 localStorage.setItem('menuItems', JSON.stringify(allProducts));
                 localStorage.setItem('vitrineProducts', JSON.stringify(vitrineProducts));
                 localStorage.setItem('productShowcase', JSON.stringify(vitrineProducts.map(product => ({
@@ -1335,8 +1362,9 @@
             } catch (error) {
                 console.error('[VITRINE] Erro ao sincronizar:', error);
             }
-            const vitrineProducts = JSON.parse(localStorage.getItem('vitrineProducts') || '[]');
-            const allProducts = JSON.parse(localStorage.getItem('menuItems') || '[]');
+            const storeCacheSuffix = getMerchantStoreId().replace(/[^a-zA-Z0-9_-]/g, '_');
+            const vitrineProducts = JSON.parse(localStorage.getItem('vitrineProducts_' + storeCacheSuffix) || (getMerchantStoreId() === 'main' ? localStorage.getItem('vitrineProducts') : '[]') || '[]');
+            const allProducts = JSON.parse(localStorage.getItem('menuItems_' + storeCacheSuffix) || (getMerchantStoreId() === 'main' ? localStorage.getItem('menuItems') : '[]') || '[]');
             const availableProducts = allProducts.filter(product => !vitrineProducts.some(vp => String(vp.id) === String(product.id)));
             let html = '<h4>🏪 Produtos na Vitrine (Máx. 8)</h4>';
             html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:20px;">';
@@ -1367,7 +1395,7 @@
 
         async function addToVitrine(productId) {
             try {
-                const response = await fetch(`/api/products/${encodeURIComponent(productId)}/showcase`, {
+                const response = await fetch(`${MERCHANT_API_BASE}/api/products/${encodeURIComponent(productId)}/showcase`, {
                     method: 'PATCH', credentials: 'include',
                     headers: productAdminHeaders(),
                     body: JSON.stringify({ storeId: getMerchantStoreId(), showcase: true })
@@ -1383,7 +1411,7 @@
 
         async function removeFromVitrine(productId) {
             try {
-                const response = await fetch(`/api/products/${encodeURIComponent(productId)}/showcase`, {
+                const response = await fetch(`${MERCHANT_API_BASE}/api/products/${encodeURIComponent(productId)}/showcase`, {
                     method: 'PATCH', credentials: 'include',
                     headers: productAdminHeaders(),
                     body: JSON.stringify({ storeId: getMerchantStoreId(), showcase: false })
