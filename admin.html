@@ -1153,8 +1153,16 @@
 
         <section id="tables" class="content-section">
             <h2>Gerenciamento de Mesas</h2>
-            <p>Configure os blocos de mesas disponíveis no estabelecimento</p>
-            <p style="color: #4CAF50; font-weight: bold;">ℹ️ Todos os 10 blocos serão exibidos abaixo. Ative/desative conforme necessário e salve as configurações.</p>
+            <p>Informe quantas mesas existem no salão. O sistema criará automaticamente os blocos de até 100 mesas, incluindo o último bloco parcial.</p>
+            <div class="form-group" style="max-width: 420px; margin: 20px 0;">
+                <label for="salonTableCount" style="display:block;font-weight:bold;margin-bottom:8px;">Quantidade de mesas do salão</label>
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                    <input id="salonTableCount" type="number" min="1" max="100000" step="1" value="1000" inputmode="numeric" placeholder="Ex.: 30" style="flex:1;min-width:160px;padding:12px;border:1px solid #ccc;border-radius:8px;font-size:16px;">
+                    <button class="btn btn-primary" type="button" onclick="configureSalonTableCount()">Configurar mesas</button>
+                </div>
+                <small style="display:block;margin-top:8px;color:#666;">Exemplo: 30 mesas cria o bloco de 1 a 30; 150 mesas cria os blocos de 1 a 100 e de 101 a 150.</small>
+            </div>
+            <p id="salonTableCountSummary" style="color:#4CAF50;font-weight:bold;">Total configurado: 1.000 mesas</p>
             
             <div id="tableBlocksContainer">
                 <!-- Todos os 10 blocos serão gerados aqui automaticamente -->
@@ -1285,28 +1293,47 @@
     </script>
 
     <script>
-        // Funções para gerenciamento de blocos de mesas
-        function generateAllTableBlocks() {
-            console.log('[DEBUG] generateAllTableBlocks chamado - gerando todos os 10 blocos');
-            const container = document.getElementById('tableBlocksContainer');
-            
-            if (!container) {
-                console.error('[DEBUG] Container tableBlocksContainer não encontrado!');
+        // Gerenciamento de mesas do salão: blocos dinâmicos de até 100 mesas.
+        function getConfiguredSalonTableCount() {
+            const input = document.getElementById('salonTableCount');
+            const value = Number(input?.value || 1000);
+            return Number.isInteger(value) && value >= 1 && value <= 100000 ? value : 1000;
+        }
+
+        function configureSalonTableCount() {
+            const input = document.getElementById('salonTableCount');
+            const count = Number(input?.value);
+            if (!Number.isInteger(count) || count < 1 || count > 100000) {
+                alert('Informe uma quantidade válida de 1 a 100.000 mesas.');
                 return;
             }
-            
+            const saved = JSON.parse(localStorage.getItem('tableConfiguration') || '{}');
+            saved.totalTables = count;
+            localStorage.setItem('tableConfiguration', JSON.stringify(saved));
+            generateAllTableBlocks();
+            const summary = document.getElementById('salonTableCountSummary');
+            if (summary) summary.textContent = 'Total configurado: ' + count.toLocaleString('pt-BR') + ' mesas';
+        }
+
+        function generateAllTableBlocks() {
+            const container = document.getElementById('tableBlocksContainer');
+            if (!container) return;
+            const count = getConfiguredSalonTableCount();
+            const savedConfig = JSON.parse(localStorage.getItem('tableConfiguration') || '{}');
+            const savedBlocks = savedConfig.blocks || {};
+            const blockCount = Math.ceil(count / 100);
             container.innerHTML = '';
-            console.log('[DEBUG] Container limpo');
-            
-            // Gerar todos os 10 blocos
-            for (let i = 1; i <= 10; i++) {
-                console.log('[DEBUG] Criando bloco:', i);
+
+            for (let i = 1; i <= blockCount; i++) {
+                const firstTable = (i - 1) * 100 + 1;
+                const lastTable = Math.min(i * 100, count);
+                const isActive = savedBlocks[i]?.active === true;
                 const blockDiv = document.createElement('div');
                 blockDiv.className = 'table-block';
                 blockDiv.innerHTML = `
-                    <h3>Bloco ${i} - Mesas ${(i-1)*100 + 1} a ${i*100}</h3>
+                    <h3>Bloco ${i} - Mesas ${firstTable} a ${lastTable}</h3>
                     <div class="block-status" id="blockStatus${i}">
-                        Status: <span class="status-inactive">Inativo</span>
+                        Status: <span class="${isActive ? 'status-active' : 'status-inactive'}">${isActive ? '✅ Ativo' : 'Inativo'}</span>
                     </div>
                     <div class="block-actions">
                         <button class="btn btn-primary" onclick="activateBlock(${i})">✅ Ativar Bloco</button>
@@ -1314,102 +1341,82 @@
                     </div>
                 `;
                 container.appendChild(blockDiv);
-                console.log('[DEBUG] Bloco', i, 'adicionado ao container');
             }
-            
-            console.log('[DEBUG] Total de blocos gerados:', container.children.length);
+            const summary = document.getElementById('salonTableCountSummary');
+            if (summary) summary.textContent = 'Total configurado: ' + count.toLocaleString('pt-BR') + ' mesas em ' + blockCount + ' bloco(s)';
         }
-        
+
         function activateBlock(blockNumber) {
-            console.log('[DEBUG] activateBlock chamado para bloco:', blockNumber);
             const statusElement = document.getElementById(`blockStatus${blockNumber}`);
-            console.log('[DEBUG] Elemento de status encontrado:', statusElement);
-            
-            if (statusElement) {
-                statusElement.innerHTML = 'Status: <span class="status-active">✅ Ativo</span>';
-                console.log('[DEBUG] Status atualizado para Ativo');
-            } else {
-                console.error('[DEBUG] Elemento de status não encontrado para bloco:', blockNumber);
-            }
-            
-            // Enviar atualização para todos os setores via WebSocket
+            if (!statusElement) return;
+            statusElement.innerHTML = 'Status: <span class="status-active">✅ Ativo</span>';
             if (window.ws && window.ws.readyState === WebSocket.OPEN) {
                 window.ws.send(JSON.stringify({
                     type: 'tableBlockUpdate',
-                    blockNumber: blockNumber,
+                    blockNumber,
                     action: 'activate',
-                    totalTables: blockNumber * 100
+                    totalTables: getConfiguredSalonTableCount()
                 }));
-                console.log('[DEBUG] Mensagem WebSocket enviada para ativar bloco:', blockNumber);
-            } else {
-                console.log('[DEBUG] WebSocket não disponível para enviar ativação do bloco:', blockNumber);
             }
         }
-        
+
         function deactivateBlock(blockNumber) {
             const statusElement = document.getElementById(`blockStatus${blockNumber}`);
+            if (!statusElement) return;
             statusElement.innerHTML = 'Status: <span class="status-inactive">❌ Inativo</span>';
-            
-            // Enviar atualização para todos os setores via WebSocket
             if (window.ws && window.ws.readyState === WebSocket.OPEN) {
                 window.ws.send(JSON.stringify({
                     type: 'tableBlockUpdate',
-                    blockNumber: blockNumber,
+                    blockNumber,
                     action: 'deactivate',
-                    totalTables: (blockNumber - 1) * 100
+                    totalTables: getConfiguredSalonTableCount()
                 }));
             }
         }
-        
+
         function saveTableConfiguration() {
-            console.log('[DEBUG] Salvando configuração de mesas');
-            
-            // Contar blocos ativos
-            let activeBlocks = 0;
+            const totalTables = getConfiguredSalonTableCount();
+            const blockCount = Math.ceil(totalTables / 100);
             const blocksConfig = {};
-            
-            for (let i = 1; i <= 10; i++) {
+            let activeBlocks = 0;
+            for (let i = 1; i <= blockCount; i++) {
                 const statusElement = document.getElementById(`blockStatus${i}`);
-                if (statusElement) {
-                    const isActive = statusElement.innerHTML.includes('✅ Ativo');
-                    blocksConfig[i] = { active: isActive };
-                    if (isActive) activeBlocks++;
-                }
+                const isActive = !!statusElement && statusElement.innerHTML.includes('✅ Ativo');
+                blocksConfig[i] = {active:isActive};
+                if (isActive) activeBlocks++;
             }
-            
             const tableConfig = {
-                numberOfBlocks: 10, // Sempre 10 blocos fixos
-                totalTables: activeBlocks * 100,
-                activeBlocks: activeBlocks,
-                blocks: blocksConfig,
-                lastSaved: new Date().toISOString()
+                numberOfBlocks:blockCount,
+                totalTables,
+                activeBlocks,
+                blocks:blocksConfig,
+                lastSaved:new Date().toISOString()
             };
-            
-            // Salvar configuração no localStorage
             localStorage.setItem('tableConfiguration', JSON.stringify(tableConfig));
-            
-            // Mostrar mensagem de sucesso
+            if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+                window.ws.send(JSON.stringify({type:'tableConfigurationUpdate', totalTables, numberOfBlocks:blockCount, blocks:blocksConfig}));
+            }
             const resultDiv = document.getElementById('tableConfigResult');
             const messageDiv = document.getElementById('tableConfigMessage');
             if (resultDiv && messageDiv) {
                 messageDiv.innerHTML = `
-                    <div class="success-message" style="background-color: #4CAF50; color: white; padding: 15px; border-radius: 5px; text-align: center;">
-                        ✅ Configuração salva com sucesso!<br>
-                        Blocos ativos: ${activeBlocks}/10<br>
-                        Total de mesas disponíveis: ${tableConfig.totalTables}
-                    </div>
-                `;
+                    <div class="success-message" style="background-color:#4CAF50;color:white;padding:15px;border-radius:5px;text-align:center;">
+                        ✅ Configuração salva!<br>
+                        Quantidade de mesas: ${totalTables}<br>
+                        Blocos ativos: ${activeBlocks}/${blockCount}
+                    </div>`;
                 resultDiv.style.display = 'block';
-                
-                // Ocultar mensagem após 3 segundos
-                setTimeout(() => {
-                    resultDiv.style.display = 'none';
-                }, 3000);
+                setTimeout(() => { resultDiv.style.display = 'none'; }, 3000);
             }
-            
-            console.log('[DEBUG] Configuração de mesas salva:', tableConfig);
         }
-        
+
+        function initializeTableManagement() {
+            const savedConfig = JSON.parse(localStorage.getItem('tableConfiguration') || '{}');
+            const countInput = document.getElementById('salonTableCount');
+            if (countInput) countInput.value = savedConfig.totalTables || 1000;
+            generateAllTableBlocks();
+        }
+
         function testBlockGeneration() {
             console.log('[TEST] Iniciando teste de geração de blocos');
             
@@ -1425,8 +1432,8 @@
             
             // Forçar geração
             console.log('[TEST] Forçando geração de blocos');
-            document.getElementById('numberOfBlocks').value = '2'; // Testar com 2 blocos
-            updateTableBlocks();
+            document.getElementById('salonTableCount').value = '200';
+            configureSalonTableCount();
             
             // Verificar resultado
             setTimeout(() => {
@@ -1644,7 +1651,7 @@
                     // Forçar atualização dos blocos
                     setTimeout(() => {
                         console.log('[DEBUG] Forçando updateTableBlocks após mostrar aba');
-                        updateTableBlocks();
+                        generateAllTableBlocks();
                     }, 100);
                 } else if (tabName === 'delivery') {
                     loadDeliveryOrders();
