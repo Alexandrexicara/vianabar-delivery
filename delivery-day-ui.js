@@ -87,3 +87,83 @@
   window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); installEvent = event; showBanner(); });
   window.addEventListener('appinstalled', hideBanner);
 })();
+
+/* Identidade visual: substitui emojis da interface por ícones Font Awesome consistentes. */
+(() => {
+  const ICONS = {
+    '🍽':'utensils','⚙':'gear','🔍':'magnifying-glass','🥗':'leaf','🥤':'glass-water','🍰':'cake-candles',
+    '📦':'box','🛒':'cart-shopping','📱':'mobile-screen','📘':'book-open','📷':'camera','🐦':'comment',
+    '📋':'clipboard-list','🏪':'store','🏆':'trophy','🍕':'pizza-slice','🍔':'burger','💼':'briefcase',
+    '💰':'money-bill-wave','💸':'money-bill-transfer','👥':'users','🏦':'building-columns','📊':'chart-column',
+    '📅':'calendar-days','📈':'chart-line','💳':'credit-card','⚡':'bolt','📄':'file-lines','👁':'eye',
+    '🗺':'map-location-dot','📍':'location-dot','🏁':'flag-checkered','📏':'ruler','🧹':'broom','❌':'xmark',
+    '✅':'circle-check','⚠':'triangle-exclamation','🔥':'fire','🕒':'clock','🏠':'house','🚚':'truck-fast',
+    '🛵':'motorcycle','🏍':'motorcycle','👨':'user','👍':'thumbs-up','🔔':'bell','🔊':'volume-high',
+    '🔇':'volume-xmark','🛑':'octagon-stop','📞':'phone','🎉':'party-horn','💵':'money-bill-1',
+    '💳':'credit-card','🏡':'house','👑':'crown','🎯':'bullseye','💾':'floppy-disk','🗑':'trash',
+    '✏':'pen','➤':'arrow-right','✓':'check','✗':'xmark','★':'star','❤️':'heart','🎁':'gift',
+    '🍟':'bowl-food','🍣':'fish','🍜':'bowl-rice','🍦':'ice-cream','🍺':'beer-mug-empty','☕':'mug-hot',
+    '🥪':'bread-slice','🥩':'drumstick-bite','🥘':'bowl-food','🍱':'box','🍹':'martini-glass',
+    '🧾':'receipt','💲':'dollar-sign','📝':'pen-to-square','🔄':'arrows-rotate','🔓':'lock-open',
+    '🔒':'lock','🚀':'rocket','📡':'tower-broadcast','🧪':'flask','🧭':'compass','🧑':'user',
+    '👋':'hand','💬':'comments','📦':'box','🛍':'bag-shopping','🧾':'receipt'
+  };
+  const pattern = /[\\u{1F300}-\\u{1FAFF}\\u{2600}-\\u{27BF}]/gu;
+  const style = document.createElement('link');
+  style.rel = 'stylesheet';
+  style.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css';
+  if (!document.querySelector('link[data-dd-icon-font]')) {
+    style.dataset.ddIconFont = 'true';
+    document.head.appendChild(style);
+  }
+  const iconClass = emoji => ICONS[emoji] || 'circle';
+  function replaceTextNode(node) {
+    if (!node || !node.parentNode || !pattern.test(node.nodeValue)) { pattern.lastIndex = 0; return; }
+    pattern.lastIndex = 0;
+    const value = node.nodeValue;
+    const fragment = document.createDocumentFragment();
+    let last = 0;
+    value.replace(pattern, (emoji, offset) => {
+      if (offset > last) fragment.appendChild(document.createTextNode(value.slice(last, offset)));
+      const icon = document.createElement('i');
+      icon.className = 'fa-solid fa-' + iconClass(emoji) + ' dd-professional-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.title = emoji;
+      fragment.appendChild(icon);
+      last = offset + emoji.length;
+      return emoji;
+    });
+    if (last < value.length) fragment.appendChild(document.createTextNode(value.slice(last)));
+    node.parentNode.replaceChild(fragment, node);
+  }
+  function scan(root) {
+    if (!root) return;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const parent = node.parentElement;
+        if (!parent || parent.closest('script,style,textarea,input,select,option,code,pre,[contenteditable="true"],.dd-professional-icon')) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(replaceTextNode);
+  }
+  const css = document.createElement('style');
+  css.textContent = '.dd-professional-icon{display:inline-block;font-size:.9em;line-height:1;vertical-align:-.06em;margin-inline:.08em;color:inherit}';
+  document.head.appendChild(css);
+  const run = () => {
+    scan(document.body);
+    if (!window.__ddProfessionalIconsObserver) {
+      window.__ddProfessionalIconsObserver = new MutationObserver(records => records.forEach(record => {
+        record.addedNodes.forEach(node => {
+          if (node.nodeType === Node.TEXT_NODE) replaceTextNode(node);
+          else if (node.nodeType === Node.ELEMENT_NODE && !node.matches('script,style')) scan(node);
+        });
+      }));
+      window.__ddProfessionalIconsObserver.observe(document.body, { childList: true, subtree: true });
+    }
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, { once: true });
+  else run();
+})();
