@@ -12,13 +12,13 @@
 
 [[redirects]]
   from = "/creator-login.html"
-  to = "https://vianabar-delivery.onrender.com/creator-login.html"
+  to = "/creator-login.html"
   status = 200
   force = true
 
 [[redirects]]
   from = "/creator-dashboard.html"
-  to = "https://vianabar-delivery.onrender.com/creator-dashboard.html"
+  to = "/creator-dashboard.html"
   status = 200
   force = true
 
