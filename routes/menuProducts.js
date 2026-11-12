@@ -17,7 +17,7 @@ function dedupeRows(rows) {
   const seen = new Set();
   return rows.filter(row => {
     const key = [
-      row.name, row.category, row.sector,
+      row.store_id, row.name, row.category, row.sector,
       Number(row.price || 0).toFixed(2), row.description, row.image
     ].map(value => String(value ?? '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('pt-BR')).join('\u001f');
     if (seen.has(key)) return false;
