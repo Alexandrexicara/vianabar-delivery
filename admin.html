@@ -1522,7 +1522,14 @@
                 if (!response.ok) throw new Error('Sessão ausente');
                 const result = await response.json();
                 window.merchantSession = result.merchant;
-                if (result.merchant?.storeId) window.merchantStoreIdAuthenticated = result.merchant.storeId;
+                if (result.merchant?.storeId) {
+                    window.merchantStoreIdAuthenticated = result.merchant.storeId;
+                    const establishmentData = JSON.parse(localStorage.getItem('establishmentData') || '{}');
+                    establishmentData.storeId = result.merchant.storeId;
+                    establishmentData.uniqueId = result.merchant.storeId;
+                    localStorage.setItem('establishmentData', JSON.stringify(establishmentData));
+                    displayMenuUrl();
+                }
             } catch (_) {
                 playTripleBeep();
                 window.location.href = 'https://vianabar-delivery.onrender.com/login.html';
