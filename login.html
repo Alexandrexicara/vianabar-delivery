@@ -292,16 +292,18 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', async function() {
-            if (location.hostname !== 'vianabar-delivery.onrender.com') {
-                location.replace('https://vianabar-delivery.onrender.com/login.html' + location.search);
-                return;
-            }
             let establishment = {};
             try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
-            const storeInput = document.getElementById('storeId');
-            if (storeInput) {
-                storeInput.value = new URLSearchParams(location.search).get('storeId') || establishment.uniqueId || establishment.storeId || '';
+            const params = new URLSearchParams(location.search);
+            if (!params.get('storeId') && (establishment.uniqueId || establishment.storeId)) {
+                params.set('storeId', establishment.uniqueId || establishment.storeId);
             }
+            if (location.hostname !== 'vianabar-delivery.onrender.com') {
+                location.replace('https://vianabar-delivery.onrender.com/login.html?' + params.toString());
+                return;
+            }
+            const storeInput = document.getElementById('storeId');
+            if (storeInput) storeInput.value = params.get('storeId') || '';
         });
 
         document.getElementById('loginForm').addEventListener('submit', async function(e) {
