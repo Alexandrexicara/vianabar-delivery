@@ -617,7 +617,7 @@
                     else console.warn('[MERCHANT-SETTINGS] Migração local pendente:',migrated.error);
                 }
                 if(Object.keys(c).length>0) localStorage.setItem('establishmentCustomizations',JSON.stringify(c));
-                ['establishmentName','establishmentTagline','establishmentAddress','establishmentPhone','establishmentHours','deliveryOpeningTime','deliveryClosingTime','primaryColor','secondaryColor','facebook','instagram','whatsapp'].forEach(id=>{
+                ['establishmentName','establishmentTagline','establishmentAddress','establishmentPhone','establishmentHours','deliveryEnabled','deliveryOpeningTime','deliveryClosingTime','primaryColor','secondaryColor','facebook','instagram','whatsapp'].forEach(id=>{
                     const el=document.getElementById(id); if(el&&c[id]!==undefined) { if(el.type==='checkbox') el.checked=!!c[id]; else el.value=c[id]; }
                 });
                 if(c.logo) showImagePreview('logo',c.logo);
