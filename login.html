@@ -306,8 +306,51 @@
                     headers:{'Content-Type':'application/json'},
                     body:JSON.stringify({email,password})
                 });
-                const result = await response.json();
-                if (!response.ok || !result.success) throw new Error(result.error || 'E-mail ou senha inválidos.');
+                let result = await response.json();
+
+                // Migra automaticamente cadastros antigos que ficaram salvos no navegador
+                // antes da autenticação segura no servidor.
+                if (response.status === 401) {
+                    let legacy = {};
+                    try { legacy = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
+                    const legacyEmail = String(legacy.email || '').trim().toLowerCase();
+                    const legacyPassword = String(legacy.adminPassword || '');
+                    if (legacyEmail === email.toLowerCase() && legacyPassword === password) {
+                        let legacyStoreId = String(legacy.uniqueId || legacy.storeId || '').trim();
+                        if (!legacyStoreId) {
+                            legacyStoreId = String(legacy.establishmentName || 'estabelecimento')
+                                .toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')
+                                .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') + '-' + Date.now();
+                        }
+                        const migration = await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/register', {
+                            method:'POST', credentials:'include',
+                            headers:{'Content-Type':'application/json'},
+                            body:JSON.stringify({
+                                storeId:legacyStoreId, email, password,
+                                establishment:{
+                                    establishmentName:legacy.establishmentName || 'Estabelecimento',
+                                    adminName:legacy.adminName || '',
+                                    phone:legacy.phone || '',
+                                    cnpj:legacy.cnpj || '',
+                                    purchaseDate:legacy.purchaseDate || ''
+                                }
+                            })
+                        });
+                        const migrated = await migration.json();
+                        if (migration.ok && migrated.success) {
+                            result = migrated;
+                            legacy.uniqueId = migrated.merchant.storeId;
+                            legacy.storeId = migrated.merchant.storeId;
+                            legacy.email = migrated.merchant.email;
+                            legacy.isAuthenticated = true;
+                            delete legacy.adminPassword;
+                            localStorage.setItem('establishmentData', JSON.stringify(legacy));
+                        } else if (migration.status !== 409) {
+                            throw new Error(migrated.error || 'Não foi possível recuperar seu cadastro antigo.');
+                        }
+                    }
+                }
+                if (!result.success) throw new Error(result.error || 'E-mail ou senha inválidos.');
                 localStorage.removeItem('adminAccess');
                 let establishment = {};
                 try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
