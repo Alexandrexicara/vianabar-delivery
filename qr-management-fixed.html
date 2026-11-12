@@ -231,7 +231,12 @@
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="/delivery-day-ui.js" defer></script>
+    <style>
+      .table-plaque-preview{width:min(100%,650px);aspect-ratio:3/2;margin:18px auto;padding:22px 26px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:20px;background:linear-gradient(135deg,#fff 0%,#f4fff8 58%,#fff8ed 100%);border:3px solid #19c96b;border-radius:20px;outline:2px solid #ff8a00;outline-offset:3px;box-shadow:0 14px 34px rgba(13,85,58,.18);text-align:left}.plaque-copy{min-width:0;flex:1}.plaque-brand{font-family:'Trebuchet MS',Arial,sans-serif;font-size:clamp(20px,3.2vw,29px);font-weight:900;letter-spacing:-.5px;color:#075c43;line-height:1.12;overflow-wrap:anywhere;text-shadow:0 1px 0 #fff}.plaque-kicker{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#f07800;font-weight:900;margin-bottom:9px}.plaque-instruction{font-size:14px;color:#315b4b;line-height:1.45;margin:10px 0}.plaque-url{font-size:10px;color:#527265;overflow-wrap:anywhere;line-height:1.35}.plaque-qr-wrap{flex:0 0 174px;width:174px;height:174px;background:#fff;border:3px solid #19c96b;outline:2px solid #ff8a00;outline-offset:3px;border-radius:16px;display:flex;align-items:center;justify-content:center;padding:8px;box-sizing:border-box;box-shadow:0 5px 16px rgba(7,92,67,.12)}.plaque-qr-wrap img,.plaque-qr-wrap canvas{max-width:100%;height:auto!important}
+      @media(max-width:480px){.table-plaque-preview{padding:13px;gap:8px}.plaque-qr-wrap{flex-basis:126px;width:126px;height:126px}.plaque-instruction{font-size:12px}}
+    </style>
+
+<script src="/delivery-day-ui.js" defer></script>
 </head>
 <body>
     <div class="container">
@@ -270,10 +275,10 @@
                 </div>
             </div>
             
-            <div style="background-color: #e8f4fc; padding: 20px; border-radius: 10px; margin: 20px 0;">
-                <h3>Sua URL Personalizada</h3>
-                <p><strong>https://cardapiodigital.com.br/restaurante-sabores</strong></p>
-                <button class="btn" onclick="copyToClipboard('https://cardapiodigital.com.br/restaurante-sabores')">Copiar URL</button>
+            <div style="background-color:#e8f4fc;padding:20px;border-radius:10px;margin:20px 0;">
+                <h3>Endereço oficial do seu cardápio</h3>
+                <p id="dashboard-menu-url" style="overflow-wrap:anywhere;">Gerando endereço da loja...</p>
+                <button class="btn" type="button" onclick="copyMerchantMenuUrl()">Copiar URL do cardápio</button>
             </div>
         </section>
 
@@ -283,6 +288,14 @@
             <p>Adicione, edite ou remova itens do seu cardápio</p>
             
             <button class="btn btn-success" onclick="openAddItemModal()">+ Adicionar Item</button>
+            
+            <!-- 📋 LISTA DE PRODUTOS CADASTRADOS -->
+            <div style="margin-top: 30px;">
+                <h3>📋 Produtos Cadastrados</h3>
+                <div id="menuItemsList" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 15px;">
+                    <!-- Produtos serão carregados aqui -->
+                </div>
+            </div>
             
             <div style="margin-top: 20px;">
                 <h3>Categorias</h3>
@@ -294,6 +307,15 @@
                     <div style="background-color: #3498db; color: white; padding: 10px 15px; border-radius: 20px; cursor: pointer;" onclick="openAddCategoryModal()">+ Nova Categoria</div>
                 </div>
             </div>
+            
+            <!-- 🏪 SEÇÃO DE VITRINE (ATÉ 8 PRODUTOS) -->
+            <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px; border-left: 4px solid #27ae60;">
+                <h3 style="color: #27ae60; margin-bottom: 15px;">🏪 Vitrine do Index</h3>
+                <p style="color: #666; margin-bottom: 15px;">Selecione até 8 produtos para aparecer na página principal (index.html)</p>
+                <div id="vitrineProducts" style="margin-top: 15px;">
+                    <!-- Produtos da vitrine serão carregados aqui -->
+                </div>
+            </div>
         </section>
 
         <!-- Tables & QR Codes Section -->
@@ -301,25 +323,31 @@
             <h2>QR Code do Estabelecimento</h2>
             <p>Este é o QR code único para todo o seu estabelecimento. Imprima e posicione em todas as mesas.</p>
             
-            <div style="background:#f4fff6;border-left:4px solid #20a45a;padding:12px 15px;border-radius:8px;margin-bottom:20px;color:#28543a;">
-                <strong>Uso gratuito:</strong> não há cobrança por produto, pelo cardápio nem pelo domínio. A taxa do sistema é cobrada uma única vez por pedido, independentemente da quantidade de produtos, com valor definido pelo criador.
+            <div style="background:#eef7ff;border-left:4px solid #23865b;padding:14px 16px;border-radius:10px;margin-bottom:18px;">
+                <strong>QR Code exclusivo do seu estabelecimento</strong>
+                <p style="margin:6px 0 0;color:#425466;">Ao apontar a câmera, o cliente será levado diretamente ao seu cardápio digital no Delivery Day. O mesmo QR Code pode ser colocado em todas as mesas.</p>
             </div>
-
-            <div style="text-align: center; margin: 30px 0;">
-                <div style="display: inline-block; padding: 20px; background-color: white; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">
-                    <h3>QR Code do Estabelecimento</h3>
-                    <div id="qrcode-container" style="width: 150px; height: 150px; margin: 15px auto; display: flex; align-items: center; justify-content: center; border: 2px solid #3498db;">
-                        <div id="qrcode" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;"></div>
-                    </div>
-                    <p style="font-size: 12px; color: #7f8c8d;">
-                        <span id="current-url">https://cardapiodigital.com.br/restaurante-sabores</span>
-                    </p>
-                    <button class="btn" onclick="copyToClipboard(document.getElementById('current-url').textContent)" style="margin: 8px; padding: 8px 16px; font-size: 14px;">
-                        Copiar URL
-                    </button>
-                    <button class="btn btn-warning" onclick="printQRCode()" style="margin: 8px; padding: 8px 16px; font-size: 14px;">
-                        Imprimir QR
-                    </button>
+            <div class="table-plaque-preview" id="table-plaque">
+                <div class="plaque-copy">
+                    <div class="plaque-kicker">Cardápio digital</div>
+                    <div class="plaque-brand" id="plaque-establishment-name">Seu estabelecimento</div>
+                    <p class="plaque-instruction">Aponte a câmera do celular e confira nosso cardápio.</p>
+                    <div class="plaque-url" id="current-url">Gerando endereço do cardápio...</div>
+                </div>
+                <div class="plaque-qr-wrap"><div id="qrcode"></div></div>
+            </div>
+            <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin:16px 0 24px;">
+                <button class="btn" onclick="copyToClipboard(document.getElementById('current-url').textContent)">Copiar endereço do cardápio</button>
+                <button class="btn btn-warning" onclick="printQRCode()">Imprimir plaquinha 15 × 10 cm</button>
+            </div>
+            <p style="text-align:center;color:#667085;font-size:13px;">Formato horizontal • QR Code com aproximadamente 4 cm • Fundo branco para facilitar a leitura.</p>
+            <div style="max-width:650px;margin:22px auto;padding:18px;border:1px solid #d8e7df;border-radius:14px;background:#f7fcf9;text-align:center;">
+                <h3 style="margin:0 0 8px;color:#075c43;">Totem de autoatendimento</h3>
+                <p style="margin:0 0 14px;color:#526273;">Abra o totem já vinculado ao estabelecimento. Os produtos e as configurações serão carregados do mesmo cadastro usado no cardápio digital.</p>
+                <div id="totem-url" style="font-size:12px;color:#527265;overflow-wrap:anywhere;margin-bottom:12px;"></div>
+                <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;">
+                    <button class="btn" type="button" onclick="openMerchantTotem()">Abrir Totem desta loja</button>
+                    <button class="btn btn-warning" type="button" onclick="copyMerchantTotemUrl()">Copiar endereço do Totem</button>
                 </div>
             </div>
             
@@ -349,6 +377,8 @@
                     <div class="form-group">
                         <label for="establishmentAddress">Endereço</label>
                         <input type="text" id="establishmentAddress" value="Rua das Flores, 123 - Centro" placeholder="Endereço completo">
+                        <button type="button" class="btn btn-secondary" onclick="captureEstablishmentLocation()" style="margin-top:10px">📍 Capturar localização GPS do estabelecimento</button>
+                        <small id="establishmentLocationStatus" style="display:block;margin-top:6px;color:#555">A localização será salva no cadastro e vinculada aos pedidos.</small>
                     </div>
                     
                     <div class="form-group">
@@ -433,59 +463,8 @@
             
             <div class="modal-buttons">
                 <button class="btn" onclick="closeModal('addTableModal')">Cancelar</button>
-                <button class="btn btn-success" onclick="addTable()">Adicionar Mesa</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Add Item Modal -->
-    <div id="addItemModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('addItemModal')">&times;</span>
-            <h2>Adicionar Item ao Cardápio</h2>
-            
-            <div class="form-group">
-                <label for="itemName">Nome do Item</label>
-                <input type="text" id="itemName" placeholder="Ex: Feijoada Completa">
-            </div>
-            
-            <div class="form-group">
-                <label for="itemCategory">Categoria</label>
-                <select id="itemCategory">
-                    <option value="main">Pratos Principais</option>
-                    <option value="appetizer">Porções</option>
-                    <option value="drink">Bebidas</option>
-                    <option value="dessert">Sobremesas</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label for="itemSector">Setor de Preparo</label>
-                <select id="itemSector">
-                    <option value="kitchen">Cozinha</option>
-                    <option value="counter">Balcão</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label for="itemPrice">Preço (R$)</label>
-                <input type="number" id="itemPrice" step="0.01" placeholder="Ex: 29.90">
-            </div>
-            
-            <div class="form-group">
-                <label for="itemDescription">Descrição</label>
-                <textarea id="itemDescription" placeholder="Descrição do item" style="width: 100%; height: 80px;"></textarea>
-            </div>
-            
-            <div class="form-group">
-                <label for="itemImage">Imagem do Produto</label>
-                <div style="border: 2px dashed #ddd; border-radius: 10px; padding: 15px; text-align: center; cursor: pointer; min-height: 120px; display: flex; flex-direction: column; justify-content: center;" onclick="document.getElementById('itemImage').click()">
-                    <p>Clique para fazer upload da imagem do produto</p>
-                    <p style="font-size: 12px; color: #7f8c8d;">(Formatos: JPG, PNG - Tamanho recomendado: 300x300px)</p>
                 </div>
-                <input type="file" id="itemImage" accept="image/*" style="display: none;">
             </div>
-            
             <div class="modal-buttons">
                 <button class="btn" onclick="closeModal('addItemModal')">Cancelar</button>
                 <button class="btn btn-success" onclick="addItem()">Adicionar Item</button>
@@ -496,6 +475,61 @@
     <footer>
         <p>Cardápio Digital Universal &copy; 2025 - Sistema de pedidos automatizado</p>
     </footer>
+
+    <!-- Add Item Modal -->
+    <div id="addItemModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('addItemModal')">&times;</span>
+            <h3>Adicionar Item ao Cardápio</h3>
+            <form id="addItemForm">
+                <div class="form-group">
+                    <label for="itemName">Nome do Item</label>
+                    <input type="text" id="itemName" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="itemPrice">Preço</label>
+                    <input type="number" id="itemPrice" step="0.01" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="itemCategory">Categoria</label>
+                    <select id="itemCategory" required>
+                        <option value="">Selecione uma categoria</option>
+                        <option value="appetizer">🥗 Entradas</option>
+                        <option value="main">🍽️ Pratos Principais</option>
+                        <option value="drink">🥤 Bebidas</option>
+                        <option value="dessert">🍰 Sobremesas</option>
+                        <option value="outros">📦 Outros</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="itemSector">Setor</label>
+                    <select id="itemSector" required>
+                        <option value="">Selecione um setor</option>
+                        <option value="kitchen">🍳 Cozinha</option>
+                        <option value="counter">🥤 Balcão</option>
+                        <option value="bar">🍺 Bar</option>
+                        <option value="grill">🔥 Churrasqueira</option>
+                        <option value="others">📦 Outros</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="itemDescription">Descrição</label>
+                    <textarea id="itemDescription" rows="3"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="itemImage">Imagem (opcional)</label>
+                    <input type="file" id="itemImage" accept="image/*">
+                </div>
+                
+                <button type="button" class="btn btn-success" onclick="addItem()">+ Adicionar Item</button>
+            </form>
+        </div>
+    </div>
 
     <!-- Add Category Modal -->
     <div id="addCategoryModal" class="modal">
@@ -549,74 +583,88 @@
 // Função showSection movida para o início do script para garantir disponibilidade
         
         // Customization functions using the centralized system
-        function saveCustomization() {
-            console.log('[DEBUG] Iniciando salvamento de customizações');
-            
-            // First, get existing customizations to preserve image URLs
-            const existingCustomizations = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
-            console.log('[DEBUG] Customizações existentes:', existingCustomizations);
-            
-            // Get form values
-            const establishmentNameElement = document.getElementById('establishmentName');
-            const establishmentTaglineElement = document.getElementById('establishmentTagline');
-            const establishmentAddressElement = document.getElementById('establishmentAddress');
-            const establishmentPhoneElement = document.getElementById('establishmentPhone');
-            const establishmentHoursElement = document.getElementById('establishmentHours');
-            const primaryColorElement = document.getElementById('primaryColor');
-            const secondaryColorElement = document.getElementById('secondaryColor');
-            const facebookElement = document.getElementById('facebook');
-            const instagramElement = document.getElementById('instagram');
-            const whatsappElement = document.getElementById('whatsapp');
-            
-            // Save customizations to localStorage
-            const customizations = {
-                establishmentName: establishmentNameElement ? establishmentNameElement.value : '',
-                establishmentTagline: establishmentTaglineElement ? establishmentTaglineElement.value : '',
-                establishmentAddress: establishmentAddressElement ? establishmentAddressElement.value : '',
-                establishmentPhone: establishmentPhoneElement ? establishmentPhoneElement.value : '',
-                establishmentHours: establishmentHoursElement ? establishmentHoursElement.value : '',
-                primaryColor: primaryColorElement ? primaryColorElement.value : '#e74c3c',
-                secondaryColor: secondaryColorElement ? secondaryColorElement.value : '#3498db',
-                facebook: facebookElement ? facebookElement.value : '',
-                instagram: instagramElement ? instagramElement.value : '',
-                whatsapp: whatsappElement ? whatsappElement.value : '',
-                // Preserve existing image URLs
-                logo: existingCustomizations.logo || '',
-                background: existingCustomizations.background || ''
-            };
-            
-            console.log('[DEBUG] Customizações coletadas:', customizations);
-            
-            // Save to localStorage using the centralized system
-            if (typeof saveCustomizations === 'function') {
-                console.log('[DEBUG] Usando função saveCustomizations');
-                saveCustomizations(customizations);
-            } else {
-                // Fallback to direct localStorage save
-                console.log('[DEBUG] Usando fallback para localStorage');
-                localStorage.setItem('establishmentCustomizations', JSON.stringify(customizations));
-            }
-            console.log('[DEBUG] Customizações salvas no localStorage');
-            
-            // Create success message with image information
-            let successMessage = `Personalizações salvas com sucesso!\nEstabelecimento: ${customizations.establishmentName}\nCor Primária: ${customizations.primaryColor}\nCor Secundária: ${customizations.secondaryColor}`;
-            
-            // Add image information to success message if they exist
-            if (customizations.logo) {
-                successMessage += `\nLogo: ${customizations.logo}`;
-            }
-            if (customizations.background) {
-                successMessage += `\nBackground: ${customizations.background}`;
-            }
-            
-            console.log('[DEBUG] Mensagem de sucesso:', successMessage);
-            
-            // Reset upload boxes after successful save
-            resetUploadBoxes();
-            
-            alert(successMessage);
+        const MERCHANT_API_BASE = 'https://vianabar-delivery.onrender.com';
+        function merchantSettingsApiUrl() { return MERCHANT_API_BASE + '/api/merchant-settings/' + encodeURIComponent(getMerchantStoreId()); }
+
+        async function loadMerchantSettings() {
+            try {
+                const response=await fetch(merchantSettingsApiUrl(),{credentials:'include',cache:'no-store'});
+                const result=await response.json();
+                if(!response.ok) throw new Error(result.error||'Falha ao carregar configurações.');
+                let c=result.settings||{};
+                const cached=JSON.parse(localStorage.getItem('establishmentCustomizations')||'{}');
+                // Migra para o Neon as personalizações antigas que existiam somente neste navegador.
+                if(Object.keys(c).length===0 && Object.keys(cached).length>0) {
+                    const migration=await fetch(merchantSettingsApiUrl(),{
+                        method:'PUT',credentials:'include',headers:productAdminHeaders(),
+                        body:JSON.stringify({settings:cached})
+                    });
+                    const migrated=await migration.json();
+                    if(migration.ok) c=migrated.settings||cached;
+                    else console.warn('[MERCHANT-SETTINGS] Migração local pendente:',migrated.error);
+                }
+                if(Object.keys(c).length>0) localStorage.setItem('establishmentCustomizations',JSON.stringify(c));
+                ['establishmentName','establishmentTagline','establishmentAddress','establishmentPhone','establishmentHours','primaryColor','secondaryColor','facebook','instagram','whatsapp'].forEach(id=>{
+                    const el=document.getElementById(id); if(el&&c[id]!==undefined) el.value=c[id];
+                });
+                if(c.logo) showImagePreview('logo',c.logo);
+                if(c.background) showImagePreview('background',c.background);
+                updateMenuUrl(); return c;
+            } catch(error) { console.error('[MERCHANT-SETTINGS] Falha ao carregar do Neon:',error); return null; }
         }
-        
+
+        async function captureEstablishmentLocation() {
+            const status = document.getElementById('establishmentLocationStatus');
+            if (!navigator.geolocation) { if (status) status.textContent = 'Este aparelho não oferece GPS.'; return; }
+            if (status) status.textContent = 'Solicitando permissão de localização…';
+            navigator.geolocation.getCurrentPosition(async position => {
+                const establishmentLocation = {
+                    latitude:Number(position.coords.latitude), longitude:Number(position.coords.longitude),
+                    accuracy:Number(position.coords.accuracy)||null,
+                    updatedAt:new Date(position.timestamp||Date.now()).toISOString()
+                };
+                try {
+                    const response = await fetch(merchantSettingsApiUrl(), {
+                        method:'PUT', credentials:'include', headers:productAdminHeaders(),
+                        body:JSON.stringify({settings:{establishmentLocation}})
+                    });
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.error || 'Falha ao salvar GPS no Neon.');
+                    localStorage.setItem('establishmentCustomizations', JSON.stringify({
+                        ...JSON.parse(localStorage.getItem('establishmentCustomizations')||'{}'),
+                        ...(result.settings||{}), establishmentLocation
+                    }));
+                    if (status) status.textContent = '✓ GPS do estabelecimento salvo e sincronizado.';
+                } catch (error) {
+                    if (status) status.textContent = 'Falha ao salvar localização: ' + error.message;
+                }
+            }, error => {
+                const msg = {1:'Permissão de localização negada.',2:'GPS indisponível.',3:'Tempo esgotado ao obter GPS.'};
+                if (status) status.textContent = msg[error.code] || 'Não foi possível obter GPS.';
+            }, {enableHighAccuracy:true,timeout:15000,maximumAge:0});
+        }
+
+        async function saveCustomization() {
+            const old=JSON.parse(localStorage.getItem('establishmentCustomizations')||'{}');
+            const val=id=>document.getElementById(id)?.value||'';
+            const settings={
+                establishmentName:val('establishmentName'),establishmentTagline:val('establishmentTagline'),
+                establishmentAddress:val('establishmentAddress'),establishmentPhone:val('establishmentPhone'),
+                establishmentHours:val('establishmentHours'),primaryColor:val('primaryColor')||'#e74c3c',
+                secondaryColor:val('secondaryColor')||'#3498db',facebook:val('facebook'),instagram:val('instagram'),
+                whatsapp:val('whatsapp'),logo:old.logo||'',background:old.background||'',
+                establishmentLocation:old.establishmentLocation||null
+            };
+            try {
+                const response=await fetch(merchantSettingsApiUrl(),{method:'PUT',credentials:'include',headers:productAdminHeaders(),body:JSON.stringify({settings})});
+                const result=await response.json();
+                if(!response.ok) throw new Error(result.error||'Não foi possível salvar no Neon.');
+                localStorage.setItem('establishmentCustomizations',JSON.stringify(result.settings||settings));
+                updateMenuUrl();
+                alert('Personalizações salvas no Neon! As configurações ficarão disponíveis em outros aparelhos e navegadores.');
+            } catch(error) { console.error('[MERCHANT-SETTINGS] Erro ao salvar:',error); alert(error.message||'Não foi possível salvar as personalizações.'); }
+        }
+
         function previewCustomization() {
             console.log('[DEBUG] Iniciando preview de customizações');
             // Save current customizations first
@@ -645,153 +693,28 @@
             window.open('usuario.html?admin=true', '_blank');
         }
         
-        function uploadImage(file, type) {
-            console.log(`[DEBUG] Iniciando upload de ${type}`, file);
-            
-            // Use the centralized upload system if available
-            if (typeof uploadImage === 'function' && uploadImage !== window.uploadImage) {
-                console.log('[DEBUG] Usando sistema centralizado de upload');
-                uploadImage(file, type)
-                    .then(imageUrl => {
-                        console.log('[DEBUG] Upload concluído com sucesso:', imageUrl);
-                        // Show preview of uploaded image
-                        showImagePreview(type, imageUrl);
-                        // Forçar atualização visual do DOM para garantir que mudanças sejam visíveis
-                        document.body.offsetHeight; // Trigger reflow
-                        
-                        alert(`${type === 'logo' ? 'Logo' : 'Imagem de fundo'} carregada com sucesso! A personalização será aplicada automaticamente.`);
-                        // Garantir que o botão de confirmação esteja visível
-                        setTimeout(() => {
-                            if (type === 'logo') {
-                                const logoUploadBox = document.getElementById('logoUploadBox');
-                                if (logoUploadBox) {
-                                    logoUploadBox.querySelector('p:first-child').textContent = 'Logo carregado com sucesso! Clique para substituir.';
-                                }
-                            } else if (type === 'background') {
-                                const backgroundUploadBox = document.getElementById('backgroundUploadBox');
-                                if (backgroundUploadBox) {
-                                    backgroundUploadBox.querySelector('p:first-child').textContent = 'Imagem de fundo carregada com sucesso! Clique para substituir.';
-                                }
-                            }
-                        }, 100);
-                    })
-                    .catch(error => {
-                        console.error(`[DEBUG] Erro no upload:`, error);
-                        // Reset upload box text on error
-                        if (type === 'logo') {
-                            const logoUploadBox = document.getElementById('logoUploadBox');
-                            if (logoUploadBox) {
-                                logoUploadBox.querySelector('p:first-child').textContent = 'Erro no upload. Clique para tentar novamente.';
-                            }
-                        } else if (type === 'background') {
-                            const backgroundUploadBox = document.getElementById('backgroundUploadBox');
-                            if (backgroundUploadBox) {
-                                backgroundUploadBox.querySelector('p:first-child').textContent = 'Erro no upload. Clique para tentar novamente.';
-                            }
-                        }
-                        alert('Erro ao fazer upload: ' + (error.message || 'Erro desconhecido'));
-                    });
-            } else {
-                console.log('[DEBUG] Usando fallback para upload direto');
-                // Fallback to direct upload
-                const formData = new FormData();
-                formData.append('image', file);
-                
-                const serverUrl = window.location.origin;
-                console.log(`[DEBUG] Enviando requisição POST para ${serverUrl}/upload/${type}`);
-                
-                // Show uploading message
-                if (type === 'logo') {
-                    const logoUploadBox = document.getElementById('logoUploadBox');
-                    if (logoUploadBox) {
-                        logoUploadBox.querySelector('p:first-child').textContent = 'Enviando logo...';
-                    }
-                } else if (type === 'background') {
-                    const backgroundUploadBox = document.getElementById('backgroundUploadBox');
-                    if (backgroundUploadBox) {
-                        backgroundUploadBox.querySelector('p:first-child').textContent = 'Enviando imagem de fundo...';
-                    }
-                }
-                
-                fetch(`${serverUrl}/upload/${type}`, {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => {
-                    console.log(`[DEBUG] Resposta recebida do servidor`, response);
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log(`[DEBUG] Dados recebidos:`, data);
-                    if (data.success) {
-                        const customizations = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
-                        customizations[type] = data.imageUrl;
-                        localStorage.setItem('establishmentCustomizations', JSON.stringify(customizations));
-                        console.log(`[DEBUG] Customizações atualizadas:`, customizations);
-                        
-                        // Show preview of uploaded image
-                        showImagePreview(type, data.imageUrl);
-                        
-                        // Forçar atualização visual do DOM para garantir que mudanças sejam visíveis
-                        document.body.offsetHeight; // Trigger reflow
-                        
-                        alert(`${type === 'logo' ? 'Logo' : 'Imagem de fundo'} carregada com sucesso! A personalização será aplicada automaticamente.`);
-                        // Garantir que o botão de confirmação esteja visível
-                        setTimeout(() => {
-                            if (type === 'logo') {
-                                const logoUploadBox = document.getElementById('logoUploadBox');
-                                if (logoUploadBox) {
-                                    logoUploadBox.querySelector('p:first-child').textContent = 'Logo carregado com sucesso! Clique para substituir.';
-                                }
-                            } else if (type === 'background') {
-                                const backgroundUploadBox = document.getElementById('backgroundUploadBox');
-                                if (backgroundUploadBox) {
-                                    backgroundUploadBox.querySelector('p:first-child').textContent = 'Imagem de fundo carregada com sucesso! Clique para substituir.';
-                                }
-                            }
-                        }, 100);
-                    } else {
-                        console.error(`[DEBUG] Erro no upload:`, data.error);
-                        // Reset upload box text on error
-                        if (type === 'logo') {
-                            const logoUploadBox = document.getElementById('logoUploadBox');
-                            if (logoUploadBox) {
-                                logoUploadBox.querySelector('p:first-child').textContent = 'Erro no upload. Clique para tentar novamente.';
-                            }
-                        } else if (type === 'background') {
-                            const backgroundUploadBox = document.getElementById('backgroundUploadBox');
-                            if (backgroundUploadBox) {
-                                backgroundUploadBox.querySelector('p:first-child').textContent = 'Erro no upload. Clique para tentar novamente.';
-                            }
-                        }
-                        alert('Erro ao fazer upload: ' + (data.error || 'Erro desconhecido'));
-                    }
-                })
-                .catch(error => {
-                    console.error(`[DEBUG] Erro na requisição fetch:`, error);
-                    // Reset upload box text on error
-                    if (type === 'logo') {
-                        const logoUploadBox = document.getElementById('logoUploadBox');
-                        if (logoUploadBox) {
-                            logoUploadBox.querySelector('p:first-child').textContent = 'Erro no upload. Clique para tentar novamente.';
-                        }
-                    } else if (type === 'background') {
-                        const backgroundUploadBox = document.getElementById('backgroundUploadBox');
-                        if (backgroundUploadBox) {
-                            backgroundUploadBox.querySelector('p:first-child').textContent = 'Erro no upload. Clique para tentar novamente.';
-                        }
-                    }
-                    alert('Erro ao fazer upload. Tente novamente. Detalhes: ' + error.message);
-                });
+        async function uploadImage(file,type) {
+            if(!file||!['logo','background'].includes(type)) return false;
+            if(!/^image\/(png|jpeg|webp|gif)$/.test(file.type)){alert('Use imagem PNG, JPG, WEBP ou GIF.');return false;}
+            if(file.size>8*1024*1024){alert('A imagem deve ter no máximo 8 MB.');return false;}
+            const box=document.getElementById(type==='logo'?'logoUploadBox':'backgroundUploadBox');
+            if(box?.querySelector('p:first-child')) box.querySelector('p:first-child').textContent='Enviando e salvando no Neon...';
+            try {
+                const formData=new FormData();formData.append('image',file);
+                const headers=productAdminHeaders();delete headers['Content-Type'];
+                const response=await fetch(merchantSettingsApiUrl()+'/assets/'+type,{method:'POST',credentials:'include',headers,body:formData});
+                const result=await response.json();if(!response.ok)throw new Error(result.error||'Falha ao salvar imagem no banco.');
+                const custom=JSON.parse(localStorage.getItem('establishmentCustomizations')||'{}');custom[type]=result.imageUrl;
+                localStorage.setItem('establishmentCustomizations',JSON.stringify(custom));showImagePreview(type,result.imageUrl);
+                if(box?.querySelector('p:first-child'))box.querySelector('p:first-child').textContent=(type==='logo'?'Logo':'Imagem de fundo')+' salvo no Neon! Clique para substituir.';
+                alert((type==='logo'?'Logo':'Imagem de fundo')+' enviado e salvo permanentemente no Neon.');return result.imageUrl;
+            } catch(error) {
+                console.error('[MERCHANT-ASSETS] Erro no upload:',error);
+                if(box?.querySelector('p:first-child'))box.querySelector('p:first-child').textContent='Erro ao salvar. Clique para tentar novamente.';
+                alert(error.message||'Não foi possível salvar a imagem.');return false;
             }
-            
-            // Prevent default behavior
-            return false;
         }
-        
+
         // Function to show image preview
         function showImagePreview(type, imageUrl) {
             console.log('[DEBUG] showImagePreview chamada com:', type, imageUrl);
@@ -907,25 +830,31 @@
         }
         
         // Load establishment data on page load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             console.log('[DEBUG] Iniciando carregamento da página');
-            // Check if admin has proper access
-            const adminAccess = localStorage.getItem('adminAccess');
-            const establishmentData = localStorage.getItem('establishmentData');
-            
-            console.log('[DEBUG] adminAccess:', adminAccess);
-            console.log('[DEBUG] establishmentData:', establishmentData);
-            
-            if (!adminAccess || !establishmentData) {
-                // Redirect to login page if no proper authentication
-                console.log('[DEBUG] Redirecionando para login.html');
-                window.location.href = 'login.html';
+            let session;
+            try {
+                const authResponse = await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/session', {credentials:'include',cache:'no-store'});
+                if (!authResponse.ok) throw new Error('Sessão ausente');
+                session = (await authResponse.json()).merchant;
+            } catch (_) {
+                alert('⚠️ É necessário entrar com o acesso seguro do comerciante.');
+                const loginUrl = new URL('https://vianabar-delivery.onrender.com/login.html');
+                loginUrl.searchParams.set('storeId', getMerchantStoreId());
+                window.location.href = loginUrl.toString();
                 return;
             }
-            
-            const data = JSON.parse(establishmentData);
-            console.log('[DEBUG] Dados do estabelecimento:', data);
-            if (data && data.isAuthenticated) {
+            localStorage.removeItem('adminAccess');
+            let establishment = {};
+            try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
+            establishment.uniqueId = session.storeId;
+            establishment.storeId = session.storeId;
+            establishment.email = session.email;
+            localStorage.setItem('establishmentData', JSON.stringify(establishment));
+            const establishmentData = JSON.stringify(establishment);
+            const data = establishment;
+            console.log('[DEBUG] Sessão autenticada para loja:', session.storeId);
+            if (data) {
                 const adminNameElement = document.getElementById('adminName');
                 if (adminNameElement) {
                     adminNameElement.textContent = 'Administrador - ' + data.establishmentName;
@@ -1195,188 +1124,376 @@
             document.body.offsetHeight; // Trigger reflow
         }
         
-        function saveItem(itemData) {
-            // Load existing items from localStorage
-            let menuItems = JSON.parse(localStorage.getItem('menuItems') || '[]');
-            
-            // Add new item
-            menuItems.push(itemData);
-            
-            // Save to localStorage
-            localStorage.setItem('menuItems', JSON.stringify(menuItems));
-            
-            alert(`Item "${itemData.name}" adicionado com sucesso ao cardápio!`);
-            closeModal('addItemModal');
-            
-            // Clear form
-            document.getElementById('itemName').value = '';
-            document.getElementById('itemPrice').value = '';
-            document.getElementById('itemDescription').value = '';
-            document.getElementById('itemImage').value = '';
-        
-            // Forçar atualização visual do DOM para garantir que mudanças sejam visíveis
-            document.body.offsetHeight; // Trigger reflow
+        function getMerchantStoreId() {
+            let establishment = {};
+            try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
+            if (establishment.uniqueId) return String(establishment.uniqueId).slice(0, 120);
+            const name = establishment.establishmentName || 'estabelecimento';
+            return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 100) || 'estabelecimento';
         }
-        
-        // Copy to clipboard
-        function copyToClipboard(text) {
-            if (typeof text === 'string') {
-                navigator.clipboard.writeText(text).then(() => {
-                    alert('Copiado para a área de transferência!');
+
+        function getMerchantName() {
+            let establishment = {};
+            let customizations = {};
+            try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
+            try { customizations = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}'); } catch (_) {}
+            return customizations.establishmentName || establishment.establishmentName || 'Seu estabelecimento';
+        }
+
+        function productAdminHeaders() {
+            let establishment = {};
+            try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
+            return { 'Content-Type': 'application/json' };
+        }
+
+        async function saveItem(itemData) {
+            try {
+                const response = await fetch(MERCHANT_API_BASE + '/api/products', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: productAdminHeaders(),
+                    body: JSON.stringify({ ...itemData, storeId: getMerchantStoreId(), storeName: getMerchantName() })
                 });
-            } else {
-                // If text is an element ID
-                const element = document.getElementById(text) || { textContent: text };
-                navigator.clipboard.writeText(element.textContent).then(() => {
-                    alert('Copiado para a área de transferência!');
-                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || (response.status === 401 ? 'Entre novamente no painel para cadastrar produtos.' : 'Falha ao salvar produto.'));
+                closeModal('addItemModal');
+                document.getElementById('itemName').value = '';
+                document.getElementById('itemPrice').value = '';
+                document.getElementById('itemDescription').value = '';
+                document.getElementById('itemImage').value = '';
+                await loadMenuItems();
+                await loadVitrineProducts();
+                alert(`Item "${result.product.name}" salvo no banco e sincronizado com o cardápio!`);
+            } catch (error) {
+                console.error('[MENU] Erro ao salvar produto:', error);
+                alert(error.message || 'Não foi possível salvar o produto.');
             }
         }
-        
-        // Update menu URL in QR code section
+
+        // Carrega sempre do PostgreSQL; localStorage fica apenas como cache.
+        async function loadMenuItems() {
+            const menuItemsList = document.getElementById('menuItemsList');
+            if (!menuItemsList) return;
+            try {
+                const response = await fetch('/api/products?storeId=' + encodeURIComponent(getMerchantStoreId()) + '', { credentials: 'include', cache: 'no-store' });
+                let result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Falha ao carregar produtos.');
+                let serverProducts = result.products || [];
+
+                // Importa somente produtos locais ausentes, sem sobrescrever dados mais recentes do servidor.
+                const cachedProducts = JSON.parse(localStorage.getItem('menuItems') || '[]');
+                const cachedShowcase = JSON.parse(localStorage.getItem('vitrineProducts') || '[]');
+                const restoreOldShowcase = serverProducts.length === 0;
+                const existingIds = new Set(serverProducts.map(product => String(product.id)));
+                const missingCachedProducts = cachedProducts.filter(product => !existingIds.has(String(product.id)));
+                for (const cachedProduct of missingCachedProducts) {
+                    const saveResponse = await fetch('/api/products', {
+                        method: 'POST', credentials: 'include',
+                        headers: productAdminHeaders(),
+                        body: JSON.stringify({ ...cachedProduct, storeId: getMerchantStoreId(), storeName: getMerchantName() })
+                    });
+                    if (!saveResponse.ok) {
+                        const saveError = await saveResponse.json().catch(() => ({}));
+                        throw new Error(saveError.error || 'Não foi possível migrar os produtos antigos.');
+                    }
+                }
+                if (restoreOldShowcase) {
+                    for (const cachedProduct of cachedShowcase.slice(0, 8)) {
+                        const showcaseResponse = await fetch(`${MERCHANT_API_BASE}/api/products/${encodeURIComponent(cachedProduct.id)}/showcase`, {
+                            method: 'PATCH', credentials: 'include',
+                            headers: productAdminHeaders(),
+                            body: JSON.stringify({ storeId: getMerchantStoreId(), showcase: true })
+                        });
+                        if (!showcaseResponse.ok && showcaseResponse.status !== 409) {
+                            throw new Error('Produtos foram migrados, mas não foi possível restaurar toda a vitrine.');
+                        }
+                    }
+                }
+                if (missingCachedProducts.length > 0 || (restoreOldShowcase && cachedShowcase.length > 0)) {
+                    const refreshed = await fetch('/api/products?storeId=' + encodeURIComponent(getMerchantStoreId()) + '', { credentials: 'include', cache: 'no-store' });
+                    result = await refreshed.json();
+                    if (!refreshed.ok) throw new Error(result.error || 'Falha ao confirmar a migração.');
+                    serverProducts = result.products || [];
+                    console.log('[MIGRACAO] Produtos locais enviados ao PostgreSQL:', missingCachedProducts.length);
+                }
+                localStorage.setItem('menuItems', JSON.stringify(serverProducts));
+            } catch (error) {
+                console.error('[MENU] Não foi possível sincronizar com o servidor:', error);
+            }
+            const menuItems = JSON.parse(localStorage.getItem('menuItems') || '[]');
+            if (menuItems.length === 0) {
+                menuItemsList.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">Nenhum produto cadastrado ainda. Clique em "+ Adicionar Item" para começar.</p>';
+                return;
+            }
+            let html = '';
+            menuItems.forEach(item => {
+                html += `
+                    <div style="border: 1px solid #ddd; padding: 15px; border-radius: 8px; background: white; position: relative;">
+                        <div style="display: flex; gap: 15px; align-items: start;">
+                            <div style="width: 80px; height: 80px; background: #f8f9fa; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                                ${item.image ? `<img src="${item.image}" alt="${item.name}" style="width: 100%; height: 100%; object-fit: cover;">` : '<div style="font-size: 30px; color: #ccc;">🍽️</div>'}
+                            </div>
+                            <div style="flex: 1;">
+                                <h4 style="margin: 0 0 5px 0; color: #333;">${item.name}</h4>
+                                <p style="margin: 0 0 5px 0; color: #666; font-size: 14px;">${item.description || 'Sem descrição'}</p>
+                                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                                    <span style="background: #e3f2fd; color: #1976d2; padding: 3px 8px; border-radius: 12px; font-size: 12px;">${item.category || 'Sem categoria'}</span>
+                                    <span style="background: #f3e5f5; color: #7b1fa2; padding: 3px 8px; border-radius: 12px; font-size: 12px;">${item.sector || 'Cozinha'}</span>
+                                    <span style="background: #e8f5e8; color: #388e3c; font-weight: bold; padding: 3px 8px; border-radius: 12px; font-size: 12px;">R$ ${parseFloat(item.price || 0).toFixed(2)}</span>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button onclick="editMenuItem(${item.id})" style="background: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">✏️ Editar</button>
+                                    <button onclick="deleteMenuItem(${item.id})" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">🗑️ Apagar</button>
+                                    ${JSON.parse(localStorage.getItem('vitrineProducts') || '[]').some(p => String(p.id) === String(item.id)) ? '<span style="background:#e8f5e9;color:#2e7d32;padding:6px 10px;border-radius:4px;font-size:12px;">✓ Na vitrine</span>' : '<button onclick="addToVitrine(' + "'" + item.id + "'" + ')" style="background:#27ae60;color:white;border:0;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;">🏪 Adicionar à Vitrine</button>'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+            });
+            menuItemsList.innerHTML = html;
+            console.log('[MENU] Produtos sincronizados:', menuItems.length);
+        }
+
+        function editMenuItem(itemId) {
+            const menuItems = JSON.parse(localStorage.getItem('menuItems') || '[]');
+            const item = menuItems.find(p => String(p.id) === String(itemId));
+            if (!item) return alert('Produto não encontrado!');
+            document.getElementById('itemName').value = item.name;
+            document.getElementById('itemPrice').value = item.price;
+            document.getElementById('itemDescription').value = item.description || '';
+            document.getElementById('itemCategory').value = item.category || '';
+            document.getElementById('itemSector').value = item.sector || '';
+            const addButton = document.querySelector('button[onclick="addItem()"]');
+            if (addButton) {
+                addButton.textContent = '💾 Atualizar Produto';
+                addButton.setAttribute('onclick', `updateMenuItem('${itemId}')`);
+            }
+            openAddItemModal();
+        }
+
+        async function updateMenuItem(itemId) {
+            const current = JSON.parse(localStorage.getItem('menuItems') || '[]').find(p => String(p.id) === String(itemId));
+            if (!current) return alert('Produto não encontrado!');
+            const updated = {
+                ...current,
+                name: document.getElementById('itemName').value.trim(),
+                price: document.getElementById('itemPrice').value || 0,
+                description: document.getElementById('itemDescription').value,
+                category: document.getElementById('itemCategory').value,
+                sector: document.getElementById('itemSector').value
+            };
+            try {
+                const response = await fetch(`/api/products/${encodeURIComponent(itemId)}`, {
+                    method: 'PUT', credentials: 'include',
+                    headers: productAdminHeaders(), body: JSON.stringify(updated)
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Falha ao atualizar produto.');
+                closeModal('addItemModal');
+                const addButton = document.querySelector('button[onclick*="updateMenuItem"]');
+                if (addButton) { addButton.textContent = '+ Adicionar Item'; addButton.setAttribute('onclick', 'addItem()'); }
+                ['itemName','itemPrice','itemDescription','itemCategory','itemSector'].forEach(id => document.getElementById(id).value = '');
+                await loadMenuItems();
+                await loadVitrineProducts();
+                alert(`Produto "${result.product.name}" atualizado e sincronizado!`);
+            } catch (error) {
+                console.error('[MENU] Erro ao atualizar:', error);
+                alert(error.message || 'Não foi possível atualizar o produto.');
+            }
+        }
+
+        async function deleteMenuItem(itemId) {
+            if (!confirm('Tem certeza que deseja apagar este produto? Esta ação não pode ser desfeita.')) return;
+            try {
+                const response = await fetch(`/api/products/${encodeURIComponent(itemId)}`, { method: 'DELETE', credentials: 'include', headers: productAdminHeaders() });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Falha ao apagar produto.');
+                await loadMenuItems();
+                await loadVitrineProducts();
+                alert('Produto apagado do banco e removido da vitrine.');
+            } catch (error) {
+                console.error('[MENU] Erro ao apagar:', error);
+                alert(error.message || 'Não foi possível apagar o produto.');
+            }
+        }
+
+        async function loadVitrineProducts() {
+            const vitrineContainer = document.getElementById('vitrineProducts');
+            if (!vitrineContainer) return;
+            try {
+                const response = await fetch('/api/products?storeId=' + encodeURIComponent(getMerchantStoreId()) + '', { credentials: 'include', cache: 'no-store' });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Falha ao carregar vitrine.');
+                const allProducts = result.products || [];
+                const vitrineProducts = result.showcase || [];
+                localStorage.setItem('menuItems', JSON.stringify(allProducts));
+                localStorage.setItem('vitrineProducts', JSON.stringify(vitrineProducts));
+                localStorage.setItem('productShowcase', JSON.stringify(vitrineProducts.map(product => ({
+                    ...product, productName: product.name, storeId: product.storeId || getMerchantStoreId(),
+                    storeName: product.storeName || 'Cardápio Principal'
+                }))));
+            } catch (error) {
+                console.error('[VITRINE] Erro ao sincronizar:', error);
+            }
+            const vitrineProducts = JSON.parse(localStorage.getItem('vitrineProducts') || '[]');
+            const allProducts = JSON.parse(localStorage.getItem('menuItems') || '[]');
+            const availableProducts = allProducts.filter(product => !vitrineProducts.some(vp => String(vp.id) === String(product.id)));
+            let html = '<h4>🏪 Produtos na Vitrine (Máx. 8)</h4>';
+            html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:20px;">';
+            vitrineProducts.forEach(product => {
+                html += `<div style="border:2px solid #27ae60;padding:10px;border-radius:8px;background:#f8f9fa;">
+                    <div style="font-weight:bold;color:#27ae60;">✅ ${product.name}</div>
+                    <div style="color:#666;font-size:14px;">R$ ${product.price}</div>
+                    <button onclick="removeFromVitrine('${product.id}')" style="background:#e74c3c;color:white;border:0;padding:5px 10px;border-radius:4px;margin-top:5px;cursor:pointer;">Remover</button>
+                </div>`;
+            });
+            html += '</div>';
+            if (availableProducts.length && vitrineProducts.length < 8) {
+                html += '<h4>📦 Adicionar à Vitrine:</h4><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">';
+                availableProducts.forEach(product => {
+                    html += `<div style="border:1px solid #ddd;padding:10px;border-radius:8px;background:white;">
+                        <div style="font-weight:bold;">${product.name}</div><div style="color:#666;font-size:14px;">R$ ${product.price}</div>
+                        <button onclick="addToVitrine('${product.id}')" style="background:#3498db;color:white;border:0;padding:5px 10px;border-radius:4px;margin-top:5px;cursor:pointer;">Adicionar à Vitrine</button>
+                    </div>`;
+                });
+                html += '</div>';
+            } else if (vitrineProducts.length >= 8) {
+                html += '<p style="color:#e74c3c;font-weight:bold;">⚠️ Vitrine cheia! Máximo de 8 produtos.</p>';
+            } else {
+                html += '<p style="color:#666;">Nenhum produto disponível para adicionar à vitrine.</p>';
+            }
+            vitrineContainer.innerHTML = html;
+        }
+
+        async function addToVitrine(productId) {
+            try {
+                const response = await fetch(`/api/products/${encodeURIComponent(productId)}/showcase`, {
+                    method: 'PATCH', credentials: 'include',
+                    headers: productAdminHeaders(),
+                    body: JSON.stringify({ storeId: getMerchantStoreId(), showcase: true })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Não foi possível adicionar à vitrine.');
+                await loadVitrineProducts();
+                await loadMenuItems();
+            } catch (error) {
+                alert(error.message || 'Não foi possível adicionar à vitrine.');
+            }
+        }
+
+        async function removeFromVitrine(productId) {
+            try {
+                const response = await fetch(`/api/products/${encodeURIComponent(productId)}/showcase`, {
+                    method: 'PATCH', credentials: 'include',
+                    headers: productAdminHeaders(),
+                    body: JSON.stringify({ storeId: getMerchantStoreId(), showcase: false })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Não foi possível remover da vitrine.');
+                await loadVitrineProducts();
+                await loadMenuItems();
+            } catch (error) {
+                alert(error.message || 'Não foi possível remover da vitrine.');
+            }
+        }
+
+        function updateIndexVitrine(vitrineProducts) {
+            localStorage.setItem('vitrineProducts', JSON.stringify(vitrineProducts));
+            localStorage.setItem('productShowcase', JSON.stringify(vitrineProducts));
+        }
+
+        const MERCHANT_PUBLIC_BASE_URL = 'https://delivery-day.netlify.app';
+
+        function getMerchantMenuUrl() {
+            const url = new URL('/usuario.html', MERCHANT_PUBLIC_BASE_URL);
+            url.searchParams.set('loja', getMerchantStoreId());
+            return url.toString();
+        }
+
+        function copyMerchantMenuUrl() {
+            return copyToClipboard(getMerchantMenuUrl());
+        }
+
+        function getMerchantTotemUrl() {
+            const url = new URL('/totem.html', MERCHANT_PUBLIC_BASE_URL);
+            url.searchParams.set('loja', getMerchantStoreId());
+            return url.toString();
+        }
+
+        function openMerchantTotem() {
+            const url = getMerchantTotemUrl();
+            window.open(url, '_blank', 'noopener');
+        }
+
+        async function copyMerchantTotemUrl() {
+            const url = getMerchantTotemUrl();
+            try {
+                await navigator.clipboard.writeText(url);
+                alert('Endereço do totem copiado.');
+            } catch (_) {
+                prompt('Copie o endereço do totem:', url);
+            }
+        }
+
+        // Endereço oficial do cardápio: cada comerciante usa seu identificador exclusivo.
         function updateMenuUrl() {
-            const establishmentData = JSON.parse(localStorage.getItem('establishmentData') || '{}');
-            const customizations = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
-            
-            // Check if we have a unique ID from the purchase, otherwise generate from name
-            let menuUrl;
-            if (establishmentData.uniqueId) {
-                // Use the unique ID that was generated during purchase
-                menuUrl = `https://${establishmentData.uniqueId}.cardapiodigital.com.br`;
-            } else {
-                // Fallback to generating from establishment name
-                const establishmentName = customizations.establishmentName || establishmentData.establishmentName || 'meu-restaurante';
-                
-                // Create a URL-friendly version of the name
-                const urlName = establishmentName
-                    .toLowerCase()
-                    .normalize('NFD')
-                    .replace(/[̀-ͯ]/g, '') // Remove accents
-                    .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with hyphens
-                    .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
-                
-                menuUrl = `https://${urlName}.cardapiodigital.com.br`;
-            }
-            
-            // Update the dashboard URL display
-            const dashboardUrlElement = document.querySelector('#dashboard .url-display-box p');
-            if (dashboardUrlElement) {
-                dashboardUrlElement.innerHTML = `<strong>URL do Cardápio:</strong> ${menuUrl}`;
-            }
-            
-            // Update the QR code section URL
+            let establishment = {};
+            try { establishment = JSON.parse(localStorage.getItem('establishmentData') || '{}'); } catch (_) {}
+            const url = getMerchantMenuUrl();
+            const totemUrlElement = document.getElementById('totem-url');
+            if (totemUrlElement) totemUrlElement.textContent = getMerchantTotemUrl();
             const currentUrlElement = document.getElementById('current-url');
-            if (currentUrlElement) {
-                currentUrlElement.textContent = menuUrl;
-            }
-            
-            // Generate QR code
-            generateQRCode(menuUrl);
+            if (currentUrlElement) currentUrlElement.textContent = url;
+            const nameElement = document.getElementById('plaque-establishment-name');
+            if (nameElement) nameElement.textContent = getMerchantName();
+            const dashboardUrlElement = document.getElementById('dashboard-menu-url');
+            if (dashboardUrlElement) dashboardUrlElement.textContent = url;
+            generateQRCode(url);
         }
-        
-        // Generate QR code
+
         function generateQRCode(url) {
-            // Clear existing QR code
             const qrcodeDiv = document.getElementById('qrcode');
+            if (!qrcodeDiv || typeof QRCode === 'undefined') return;
             qrcodeDiv.innerHTML = '';
-            
-            // Create canvas element for QR code
-            const canvas = document.createElement('canvas');
-            canvas.id = 'qr-canvas';
-            canvas.style.width = '100%';
-            canvas.style.height = '100%';
-            qrcodeDiv.appendChild(canvas);
-            
-            // Create a container for the QR code
-            const qrContainer = document.createElement('div');
-            qrContainer.id = 'real-qrcode';
-            qrcodeDiv.appendChild(qrContainer);
-            
-            // Generate QR code using the library
-            new QRCode(qrContainer, {
+            new QRCode(qrcodeDiv, {
                 text: url,
-                width: 140,
-                height: 140,
-                colorDark: "#1e3a8a", // Azul escuro para destaque
-                colorLight: "#ffffff",
+                width: 240,
+                height: 240,
+                colorDark: '#087f5b',
+                colorLight: '#ffffff',
                 correctLevel: QRCode.CorrectLevel.H
             });
         }
-        
-        // Simple QR code drawing function
-        function drawQRCode(canvas, text) {
-            const ctx = canvas.getContext('2d');
-            const size = 150; // Canvas size
-            canvas.width = size;
-            canvas.height = size;
-            
-            // Clear canvas
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, size, size);
-            
-            // Simple representation of QR code - in real implementation, would use proper QR library
-            // For demonstration purposes, we'll create a simplified pattern
-            ctx.fillStyle = 'black';
-            
-            // Draw a simple pattern representing a QR code
-            // This is a simplified version - in real application, would use proper QR code library
-            
-            // Draw border squares
-            const squareSize = size / 7;
-            
-            // Top-left corner square
-            ctx.fillRect(0, 0, squareSize * 2, squareSize * 2);
-            ctx.fillStyle = 'white';
-            ctx.fillRect(squareSize * 0.5, squareSize * 0.5, squareSize, squareSize);
-            
-            // Top-right corner square
-            ctx.fillStyle = 'black';
-            ctx.fillRect(size - squareSize * 2, 0, squareSize * 2, squareSize * 2);
-            ctx.fillStyle = 'white';
-            ctx.fillRect(size - squareSize * 1.5, squareSize * 0.5, squareSize, squareSize);
-            
-            // Bottom-left corner square
-            ctx.fillStyle = 'black';
-            ctx.fillRect(0, size - squareSize * 2, squareSize * 2, squareSize * 2);
-            ctx.fillStyle = 'white';
-            ctx.fillRect(squareSize * 0.5, size - squareSize * 1.5, squareSize, squareSize);
-            
-            // Draw some internal pattern
-            ctx.fillStyle = 'black';
-            for (let i = 0; i < 5; i++) {
-                for (let j = 0; j < 5; j++) {
-                    if ((i + j) % 2 === 0) {
-                        ctx.fillRect(
-                            squareSize * 2 + i * (size / 7), 
-                            squareSize * 2 + j * (size / 7), 
-                            size / 14, 
-                            size / 14
-                        );
-                    }
-                }
-            }
+
+        function printQRCode() {
+            const currentUrl = document.getElementById('current-url')?.textContent || '';
+            if (!currentUrl) return alert('O endereço do cardápio ainda não foi gerado.');
+            const merchantName = getMerchantName();
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) return alert('Permita a abertura da janela de impressão para imprimir a plaquinha.');
+            const safeUrl = JSON.stringify(currentUrl);
+            const safeName = merchantName.replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
+            const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Plaquinha - ${safeName}</title>
+            <style>
+              @page{size:150mm 100mm;margin:0}
+              *{box-sizing:border-box}
+              html,body{width:150mm;height:100mm;margin:0;padding:0;font-family:Arial,sans-serif}
+              body{display:flex;align-items:center;justify-content:center;background:#fff}
+              .plaque{width:150mm;height:100mm;padding:10mm 11mm;display:flex;align-items:center;justify-content:space-between;gap:7mm;border:2mm solid #19c96b;outline:1mm solid #ff8a00;outline-offset:-3mm;border-radius:4mm;background:linear-gradient(135deg,#fff,#f2fff7 60%,#fff7eb)}
+              .copy{flex:1;min-width:0}.kicker{font-size:9pt;letter-spacing:2pt;text-transform:uppercase;color:#f07800;font-weight:900;margin-bottom:4mm}
+              h1{font-family:'Trebuchet MS',Arial,sans-serif;font-size:21pt;line-height:1.12;font-weight:900;color:#075c43;margin:0 0 5mm;overflow-wrap:anywhere}
+              p{font-size:11pt;line-height:1.4;color:#526273;margin:0 0 5mm}.url{font-size:7.5pt;line-height:1.3;color:#64748b;overflow-wrap:anywhere}
+              .qr{width:43mm;height:43mm;flex:0 0 43mm;background:#fff;border:1.2mm solid #19c96b;outline:.6mm solid #ff8a00;outline-offset:1mm;border-radius:3mm;padding:2mm;display:flex;align-items:center;justify-content:center}
+              .qr img,.qr canvas{width:39mm!important;height:39mm!important}
+              @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+            </style></head><body><main class="plaque"><section class="copy"><div class="kicker">Cardápio digital</div><h1>${safeName}</h1><p>Aponte a câmera do celular e confira nosso cardápio.</p><div class="url">${currentUrl.replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]))}</div></section><div class="qr" id="print-qr"></div></main>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+            <script>const target=${safeUrl};new QRCode(document.getElementById('print-qr'),{text:target,width:420,height:420,colorDark:'#087f5b',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});setTimeout(()=>window.print(),800);<\/script></body></html>`;
+            printWindow.document.open();
+            printWindow.document.write(html);
+            printWindow.document.close();
         }
-        
-// Fixed printQRCode function using simple string concatenation
-function printQRCode() {
-    const currentUrl = document.getElementById('current-url').textContent;
-    const printWindow = window.open('', '_blank');
-    
-    var html = '<!DOCTYPE html><html><head>';
-    html += '<title>QR Code - ' + currentUrl + '</title>';
-    html += '<style>body{font-family:Arial,sans-serif;margin:20px;text-align:center}.banner{background:#667eea;color:white;padding:15px;border-radius:10px;margin:20px 0}#print-qr{width:300px;height:300px;margin:0 auto;border:2px solid #333}.url{margin:15px 0;word-break:break-all}</style>';
-    html += '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>';
-    html += '</head><body>';
-    html += '<div class="banner"><h3>Cardápio Digital</h3><p>Sistema gratuito para o estabelecimento</p></div>';
-    html += '<h2>QR Code do Estabelecimento</h2>';
-    html += '<div><div id="print-qr"></div><div class="url">' + currentUrl + '</div></div>';
-    html += '<script>setTimeout(function(){if(typeof QRCode!=="undefined"){new QRCode(document.getElementById("print-qr"),{text:"' + currentUrl + '",width:300,height:300,colorDark:"#1e3a8a",colorLight:"#ffffff"});setTimeout(function(){window.print();window.close();},1000);}},500);<\/script>';
-    html += '</body></html>';
-    
-    printWindow.document.write(html);
-    printWindow.document.close();
-}
-        
+
         // Close modals when clicking outside
         window.onclick = function(event) {
             if (event.target.classList.contains('modal')) {
@@ -1387,9 +1504,12 @@ function printQRCode() {
         // Atualizar o QR code quando a página carregar
         document.addEventListener('DOMContentLoaded', function() {
             setTimeout(updateMenuUrl, 1000); // Aguardar um pouco para garantir que tudo esteja carregado
+            setTimeout(loadMenuItems, 1500); // Carregar lista de produtos
+            setTimeout(loadVitrineProducts, 2000); // Carregar vitrine após os produtos
         });
         
         // Atualizar o QR code periodicamente para garantir que esteja sempre atualizado
+        loadMerchantSettings();
         setInterval(updateMenuUrl, 30000); // Atualizar a cada 30 segundos
     </script></body></html>
 
