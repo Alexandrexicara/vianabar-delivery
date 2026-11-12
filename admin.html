@@ -4392,18 +4392,43 @@
             alert('Configurações de delivery em desenvolvimento.');
         }
 
+        // Todos os módulos públicos usam o identificador real da loja autenticada.
+        function getCurrentMerchantStoreId() {
+            const establishmentData = JSON.parse(localStorage.getItem('establishmentData') || '{}');
+            return String(
+                window.merchantStoreIdAuthenticated ||
+                window.merchantSession?.storeId ||
+                establishmentData.storeId ||
+                establishmentData.uniqueId ||
+                ''
+            ).trim();
+        }
+
+        function buildMerchantModuleUrl(page) {
+            const storeId = getCurrentMerchantStoreId();
+            if (!storeId) {
+                alert('Não foi possível identificar a loja. Entre novamente no painel.');
+                return null;
+            }
+            const url = new URL('/' + page, 'https://delivery-day.netlify.app');
+            url.searchParams.set('loja', storeId);
+            return url.toString();
+        }
+
         // Funções para abrir os módulos diretamente
         function openCardapioDigital() {
-            window.open('usuario.html', '_blank', 'width=400,height=700,scrollbars=yes,resizable=yes');
+            const url = buildMerchantModuleUrl('usuario.html');
+            if (url) window.open(url, '_blank', 'width=400,height=700,scrollbars=yes,resizable=yes');
         }
 
         function openDeliveryModule() {
-            // Verificar se existe arquivo de delivery específico
-            window.open('delivery.html', '_blank', 'width=400,height=700,scrollbars=yes,resizable=yes');
+            const url = buildMerchantModuleUrl('delivery.html');
+            if (url) window.open(url, '_blank', 'width=400,height=700,scrollbars=yes,resizable=yes');
         }
 
         function openTotemModule() {
-            window.open('totem.html', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+            const url = buildMerchantModuleUrl('totem.html');
+            if (url) window.open(url, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
         }
     </script>
     
