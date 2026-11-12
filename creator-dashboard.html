@@ -804,6 +804,52 @@
             </div>
         </div>
 
+
+        <!-- IDENTIDADE VISUAL GLOBAL DA PLATAFORMA -->
+        <section class="section-card" style="margin-bottom:30px;">
+            <div class="section-title"><span><i class="fas fa-palette"></i> Identidade visual da plataforma</span></div>
+            <p style="color:#667085;margin:-8px 0 20px;">Troque as imagens oficiais do Delivery Day. Os arquivos ficam salvos no PostgreSQL e podem ser substituídos quando você quiser.</p>
+            <div id="platformBrandingNotice" class="notification" role="status"></div>
+            <div id="platformBrandingGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;">
+                <div class="control-group">
+                    <strong>Logo da plataforma</strong>
+                    <p style="font-size:.9em;color:#667085;margin:6px 0 12px;">Logo exibido nas páginas e áreas que usam a marca global.</p>
+                    <img id="preview-platform-logo" alt="Logo atual" style="width:100%;height:110px;object-fit:contain;background:#fff;border:1px solid #e1e8ed;border-radius:8px;margin-bottom:10px;">
+                    <input type="file" id="upload-platform-logo" accept="image/png,image/jpeg,image/webp" style="width:100%;margin-bottom:10px;">
+                    <button class="btn btn-primary" onclick="uploadPlatformImage('logo')"><i class="fas fa-upload"></i> Atualizar logo</button>
+                </div>
+                <div class="control-group">
+                    <strong>Ícone do aplicativo (PWA)</strong>
+                    <p style="font-size:.9em;color:#667085;margin:6px 0 12px;">Imagem que aparece na tela inicial quando o cliente instala o Delivery Day.</p>
+                    <img id="preview-platform-app-icon" alt="Ícone atual do aplicativo" style="width:100%;height:110px;object-fit:contain;background:#fff;border:1px solid #e1e8ed;border-radius:8px;margin-bottom:10px;">
+                    <input type="file" id="upload-platform-app-icon" accept="image/png,image/jpeg,image/webp" style="width:100%;margin-bottom:10px;">
+                    <button class="btn btn-primary" onclick="uploadPlatformImage('appIcon')"><i class="fas fa-upload"></i> Atualizar ícone</button>
+                </div>
+                <div class="control-group">
+                    <strong>Imagem de abertura</strong>
+                    <p style="font-size:.9em;color:#667085;margin:6px 0 12px;">Imagem usada nas áreas de apresentação e abertura que adotarem a identidade global.</p>
+                    <img id="preview-platform-splash" alt="Imagem de abertura atual" style="width:100%;height:110px;object-fit:contain;background:#fff;border:1px solid #e1e8ed;border-radius:8px;margin-bottom:10px;">
+                    <input type="file" id="upload-platform-splash" accept="image/png,image/jpeg,image/webp" style="width:100%;margin-bottom:10px;">
+                    <button class="btn btn-primary" onclick="uploadPlatformImage('splash')"><i class="fas fa-upload"></i> Atualizar imagem</button>
+                </div>
+                <div class="control-group">
+                    <strong>Imagem de fundo do acesso</strong>
+                    <p style="font-size:.9em;color:#667085;margin:6px 0 12px;">Imagem de fundo das telas de acesso que adotarem a identidade global.</p>
+                    <img id="preview-platform-login" alt="Imagem de acesso atual" style="width:100%;height:110px;object-fit:cover;background:#fff;border:1px solid #e1e8ed;border-radius:8px;margin-bottom:10px;">
+                    <input type="file" id="upload-platform-login" accept="image/png,image/jpeg,image/webp" style="width:100%;margin-bottom:10px;">
+                    <button class="btn btn-primary" onclick="uploadPlatformImage('loginBackground')"><i class="fas fa-upload"></i> Atualizar fundo</button>
+                </div>
+                <div class="control-group">
+                    <strong>Banner principal</strong>
+                    <p style="font-size:.9em;color:#667085;margin:6px 0 12px;">Imagem promocional ou de destaque para páginas que usam o banner global.</p>
+                    <img id="preview-platform-banner" alt="Banner atual" style="width:100%;height:110px;object-fit:contain;background:#fff;border:1px solid #e1e8ed;border-radius:8px;margin-bottom:10px;">
+                    <input type="file" id="upload-platform-banner" accept="image/png,image/jpeg,image/webp" style="width:100%;margin-bottom:10px;">
+                    <button class="btn btn-primary" onclick="uploadPlatformImage('banner')"><i class="fas fa-upload"></i> Atualizar banner</button>
+                </div>
+            </div>
+            <small style="display:block;color:#667085;margin-top:14px;">Formatos aceitos: PNG, JPG e WEBP. Até 8 MB por imagem. A troca não altera imagens particulares dos comerciantes.</small>
+        </section>
+
         <!-- Estatísticas Globais -->
         <div class="global-stats">
             <div class="stat-card premium">
@@ -2388,11 +2434,61 @@
             return false;
         }
 
+
+        // Identidade visual global: uploads autenticados e persistidos no PostgreSQL.
+        const PLATFORM_IMAGE_KEYS = ['logo','appIcon','splash','loginBackground','banner'];
+        async function loadPlatformBranding() {
+            try {
+                const response = await fetch('/api/platform-branding', { credentials:'same-origin', cache:'no-store' });
+                if (!response.ok) throw new Error('Não foi possível carregar as imagens da plataforma.');
+                const data = await response.json();
+                PLATFORM_IMAGE_KEYS.forEach(key => {
+                    const image = document.getElementById('preview-platform-' + ({
+                        appIcon:'app-icon', loginBackground:'login', splash:'splash'
+                    }[key] || key));
+                    if (image && data.images?.[key]) image.src = data.images[key] + '?v=' + Date.now();
+                });
+            } catch (error) {
+                console.error('[CREATOR] Identidade visual:', error);
+                showNotification(error.message, 'error');
+            }
+        }
+        async function uploadPlatformImage(key) {
+            if (!PLATFORM_IMAGE_KEYS.includes(key)) return;
+            const inputId = 'upload-platform-' + ({
+                appIcon:'app-icon', loginBackground:'login'
+            }[key] || key);
+            const input = document.getElementById(inputId);
+            const file = input?.files?.[0];
+            if (!file) { showNotification('Selecione uma imagem antes de atualizar.', 'warning'); return; }
+            if (!['image/png','image/jpeg','image/webp'].includes(file.type) || file.size > 8*1024*1024) {
+                showNotification('Use PNG, JPG ou WEBP de até 8 MB.', 'error'); return;
+            }
+            const form = new FormData();
+            form.append('image', file);
+            try {
+                const response = await fetch('/api/platform-branding/' + encodeURIComponent(key), {
+                    method:'POST', body:form, credentials:'same-origin'
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || !data.success) throw new Error(data.error || 'Falha ao salvar a imagem.');
+                const preview = document.getElementById('preview-platform-' + ({
+                    appIcon:'app-icon', loginBackground:'login', splash:'splash'
+                }[key] || key));
+                if (preview) preview.src = data.imageUrl + '?v=' + Date.now();
+                input.value = '';
+                showNotification('Imagem atualizada e salva no banco de dados.', 'success');
+            } catch (error) {
+                showNotification(error.message, 'error');
+            }
+        }
+
         // Inicializar somente depois da validação da sessão no servidor.
         window.onload = async function() {
             if (!await checkCreatorAuth()) return;
             loadData();
             carregarTaxaPorProduto();
+            loadPlatformBranding();
             loadMotoboys();
             setInterval(() => {
                 loadData();
