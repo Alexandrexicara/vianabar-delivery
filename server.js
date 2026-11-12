@@ -72,6 +72,7 @@ app.use('/api/merchant-auth', merchantAuth.router);
 // Server-side authentication for creator dashboard.
 const creatorAuth = require('./routes/creatorAuth');
 app.use('/api/creator', creatorAuth.router);
+app.use('/api/platform-branding', require('./routes/platformBranding'));
 app.use('/api/products', require('./routes/menuProducts')()); // API centralizada de produtos e vitrine multi-loja no Neon.
 app.use('/api/cardapio/orders', require('./routes/cardapioOrders'));
 app.use('/api/merchant-settings', require('./routes/merchantSettings'));
