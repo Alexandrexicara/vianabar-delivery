@@ -373,6 +373,16 @@
     </div>
 
     <script>
+        // Preserva permanentemente a loja identificada na URL durante o cadastro do cliente.
+        const merchantStoreIdFromUrl = (new URLSearchParams(window.location.search).get('loja') || '').trim();
+        function redirectToMerchantMenu() {
+            const target = new URL('usuario.html', window.location.href);
+            if (merchantStoreIdFromUrl) target.searchParams.set('loja', merchantStoreIdFromUrl);
+            const mesa = new URLSearchParams(window.location.search).get('mesa');
+            if (mesa) target.searchParams.set('mesa', mesa);
+            window.location.href = target.toString();
+        }
+
         // Variáveis globais
         let currentCustomer = null;
         let selectedMesa = null;
@@ -607,7 +617,7 @@
             localStorage.setItem('currentCustomerSession', JSON.stringify(customerSession));
             
             // Redirecionar para o cardápio
-            window.location.href = 'usuario.html';
+            redirectToMerchantMenu();
         }
 
         // Iniciar novo pedido
@@ -629,7 +639,7 @@
             localStorage.setItem('currentCustomerSession', JSON.stringify(customerSession));
             
             // Redirecionar para o cardápio
-            window.location.href = 'usuario.html';
+            redirectToMerchantMenu();
         }
 
         // Prosseguir para o cardápio (novo cliente)
@@ -693,7 +703,7 @@
             localStorage.setItem('currentCustomerSession', JSON.stringify(customerSession));
             
             // Redirecionar para o cardápio
-            window.location.href = 'usuario.html';
+            redirectToMerchantMenu();
         }
 
         // Formatar telefone
