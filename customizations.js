@@ -143,6 +143,14 @@ class CustomizationManager {
             const settings = result.settings || {};
             if (!Object.keys(settings).length) return null;
 
+            // URLs de imagens salvas pelo backend precisam apontar sempre para o Render,
+            // mesmo quando a tela é aberta pelo Netlify ou por outro domínio.
+            const apiBase = 'https://vianabar-delivery.onrender.com';
+            ['logo', 'background'].forEach(key => {
+                if (typeof settings[key] === 'string' && settings[key].startsWith('/')) {
+                    settings[key] = apiBase + settings[key];
+                }
+            });
             localStorage.setItem('establishmentCustomizations', JSON.stringify(settings));
             localData.storeId = storeId;
             localData.uniqueId = storeId;
@@ -172,9 +180,12 @@ class CustomizationManager {
                 console.log('[DEBUG] Criando elemento logoImg');
                 logoImg = document.createElement('img');
                 logoImg.id = 'establishmentLogoImg';
-                logoImg.style.maxHeight = '50px';
+                logoImg.style.maxHeight = '90px';
+                logoImg.style.maxWidth = '220px';
+                logoImg.style.width = 'auto';
+                logoImg.style.height = 'auto';
                 logoImg.style.display = 'block';
-                logoImg.style.marginBottom = '10px';
+                logoImg.style.margin = '0 auto 10px';
                 logoImg.style.objectFit = 'contain';
                 
                 const logoContainer = document.getElementById('establishmentLogo');
@@ -191,6 +202,7 @@ class CustomizationManager {
             if (logoImg) {
                 logoImg.src = customizations.logo;
                 logoImg.alt = 'Logo do Estabelecimento';
+                logoImg.onerror = () => console.error('[MERCHANT-SETTINGS] Falha ao carregar logo:', logoImg.src);
                 console.log('[DEBUG] Logo atualizado com sucesso');
             }
         }
@@ -198,10 +210,11 @@ class CustomizationManager {
         // Aplicar background
         if (customizations.background) {
             console.log('[DEBUG] Aplicando background:', customizations.background);
-            document.body.style.backgroundImage = `url(${customizations.background})`;
-            document.body.style.backgroundSize = 'cover';
-            document.body.style.backgroundAttachment = 'fixed';
-            document.body.style.backgroundRepeat = 'no-repeat';
+            document.body.style.setProperty('background-image', `url("${customizations.background}")`, 'important');
+            document.body.style.setProperty('background-size', 'cover', 'important');
+            document.body.style.setProperty('background-position', 'center center', 'important');
+            document.body.style.setProperty('background-attachment', 'fixed', 'important');
+            document.body.style.setProperty('background-repeat', 'no-repeat', 'important');
 
             ['welcomeScreen', 'mainContent'].forEach(elementId => {
                 const backgroundLayer = document.getElementById(elementId);
@@ -318,9 +331,10 @@ class CustomizationManager {
     }
 
     // Aplicar customizações no admin
-    applyToAdmin() {
+    async applyToAdmin() {
         console.log('[DEBUG] Aplicando customizações no admin');
-        const customizations = this.loadCustomizations();
+        const serverCustomizations = await this.loadMerchantCustomizations();
+        const customizations = serverCustomizations || this.loadCustomizations();
         console.log('[DEBUG] Customizações carregadas para admin:', customizations);
 
         // Aplicar background
@@ -403,33 +417,37 @@ class CustomizationManager {
     // Upload de imagem
     async uploadImage(file, type) {
         console.log(`[DEBUG] Iniciando uploadImage para ${type}`, file);
+        if (!['logo', 'background'].includes(type)) throw new Error('Tipo de imagem inválido.');
         const formData = new FormData();
         formData.append('image', file);
 
         try {
-            const serverUrl = window.location.origin;
-            console.log(`[DEBUG] Enviando requisição POST para ${serverUrl}/upload/${type}`);
-            const response = await fetch(`${serverUrl}/upload/${type}`, {
-                method: 'POST',
-                body: formData
+            const apiBase = 'https://vianabar-delivery.onrender.com';
+            const params = new URLSearchParams(window.location.search);
+            const localData = JSON.parse(localStorage.getItem('establishmentData') || '{}');
+            let storeId = String(params.get('loja') || params.get('storeId') || localData.storeId || localData.uniqueId || '').trim();
+
+            const sessionResponse = await fetch(apiBase + '/api/merchant-auth/session', {
+                credentials: 'include', cache: 'no-store'
             });
+            if (!sessionResponse.ok) throw new Error('Faça login no painel do estabelecimento antes de enviar a imagem.');
+            const sessionData = await sessionResponse.json();
+            storeId = String(sessionData.merchant?.storeId || storeId).trim();
+            if (!storeId) throw new Error('Não foi possível identificar o estabelecimento.');
 
-            console.log(`[DEBUG] Resposta recebida do servidor para ${type}:`, response);
+            const response = await fetch(
+                apiBase + '/api/merchant-settings/' + encodeURIComponent(storeId) + '/assets/' + type,
+                { method: 'POST', body: formData, credentials: 'include', cache: 'no-store' }
+            );
             const data = await response.json();
-            console.log(`[DEBUG] Dados recebidos para ${type}:`, data);
+            if (!response.ok || !data.success) throw new Error(data.error || 'Erro no envio da imagem.');
 
-            if (data.success) {
-                console.log(`[DEBUG] Upload bem sucedido para ${type}`);
-                const customizations = this.loadCustomizations();
-                customizations[type] = data.imageUrl;
-                this.saveCustomizations(customizations);
-
-                console.log(`${type === 'logo' ? 'Logo' : 'Imagem de fundo'} carregada com sucesso!`);
-                return data.imageUrl;
-            } else {
-                console.log(`[DEBUG] Upload falhou para ${type}`);
-                throw new Error(data.error || 'Erro no upload');
-            }
+            const imageUrl = data.imageUrl.startsWith('http') ? data.imageUrl : apiBase + data.imageUrl;
+            const customizations = this.loadCustomizations();
+            customizations[type] = imageUrl;
+            this.saveCustomizations(customizations);
+            console.log(`${type === 'logo' ? 'Logo' : 'Imagem de fundo'} salva no PostgreSQL para a loja ${storeId}.`);
+            return imageUrl;
         } catch (error) {
             console.error('Erro ao fazer upload:', error);
             throw error;
@@ -509,9 +527,9 @@ async function applyCustomizationsToMenu() {
     return await customizationManager.applyToMenu();
 }
 
-function applyCustomizationsToAdmin() {
+async function applyCustomizationsToAdmin() {
     console.log('[DEBUG] Chamando applyCustomizationsToAdmin');
-    customizationManager.applyToAdmin();
+    return await customizationManager.applyToAdmin();
 }
 
 function uploadImage(file, type) {
