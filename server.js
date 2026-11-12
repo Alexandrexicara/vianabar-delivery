@@ -171,9 +171,27 @@ const ordersReady = (async () => {
   }
 })();
 
+function waiterCanHandleTable(client, table) {
+  if (!client || client.role !== 'waiter') return true;
+  if (!client.waiterTableRange) return false;
+  const match = String(table ?? '').match(/\d+/);
+  const tableNumber = match ? Number(match[0]) : NaN;
+  return Number.isInteger(tableNumber) &&
+    tableNumber >= client.waiterTableRange.start &&
+    tableNumber <= client.waiterTableRange.end;
+}
+
 function sendCardapioMessage(client, storeId, message) {
   if (!client || client.readyState !== WebSocket.OPEN) return;
   if (client.storeId && storeId && client.storeId !== storeId) return;
+  if (client.role === 'waiter') {
+    let table = message?.order?.table ?? message?.table;
+    if (table == null && message?.orderId != null) {
+      const relatedOrder = orders.find(order => String(order.id) === String(message.orderId));
+      table = relatedOrder?.table;
+    }
+    if (!waiterCanHandleTable(client, table)) return;
+  }
   client.send(JSON.stringify(message));
 }
 
@@ -327,7 +345,24 @@ wss.on('connection', async (ws, req) => {
         if (!ws.merchantSession) { ws.send(JSON.stringify({type:'authRequired'})); ws.close(4401, 'Authentication required'); return; }
         ws.role = 'waiter';
         ws.storeId = ws.merchantSession.storeId;
+        ws.waiterTableRange = null;
         ws.send(JSON.stringify({ type: 'waiterLoginSuccess' }));
+      } else if (data.type === 'tableAssignment') {
+        if (ws.role !== 'waiter' || !ws.merchantSession) {
+          ws.send(JSON.stringify({type:'messageError',message:'Apenas um garçom autenticado pode configurar suas mesas.'}));
+          return;
+        }
+        const start = Number(data.tableStart);
+        const end = Number(data.tableEnd);
+        if (data.tableStart == null && data.tableEnd == null) {
+          ws.waiterTableRange = null;
+        } else if (Number.isInteger(start) && Number.isInteger(end) && start >= 1 && end >= start && end <= 100000) {
+          ws.waiterTableRange = {start,end};
+        } else {
+          ws.send(JSON.stringify({type:'messageError',message:'Faixa de mesas inválida.'}));
+          return;
+        }
+        ws.send(JSON.stringify({type:'waiterTableAssignmentSuccess',tableStart:ws.waiterTableRange?.start ?? null,tableEnd:ws.waiterTableRange?.end ?? null}));
       } else if (data.type === 'getExistingDeliveryOrders') {
         if (ws.role === 'admin') {
           const activeOrders = deliveryOrders.filter(o => o.storeId === ws.storeId && ['accepted', 'preparing', 'delivering', 'onroute'].includes(String(o.status || '').toLowerCase()));
@@ -355,6 +390,8 @@ wss.on('connection', async (ws, req) => {
           // Counter staff only see orders with items for counter sector
           ordersToSend = orders.filter(order => order.storeId === ws.storeId && ['paid','completed'].includes(String(order.paymentStatus || '').toLowerCase()) && order.items.some(item => item.sector === 'counter') &&
               (order.status === 'pending' || order.status === 'preparing'));
+        } else if (ws.role === 'waiter') {
+          ordersToSend = orders.filter(order => order.storeId === ws.storeId && waiterCanHandleTable(ws, order.table));
         } else {
           // Regular users only see their own orders
           ordersToSend = userOrders;
@@ -430,7 +467,7 @@ wss.on('connection', async (ws, req) => {
           console.log('[DEBUG] Servidor: Enviando atualização para garçons');
           let waiterCount = 0;
           clients.forEach((client, id) => {
-            if (client.role === 'waiter' && client.readyState === WebSocket.OPEN) {
+            if (client.role === 'waiter' && client.readyState === WebSocket.OPEN && client.storeId === order.storeId && waiterCanHandleTable(client, order.table)) {
               console.log('[DEBUG] Servidor: Enviando para garçom', id);
               client.send(updateMessage);
               waiterCount++;
@@ -495,7 +532,8 @@ wss.on('connection', async (ws, req) => {
         
         let waiterCount = 0;
         clients.forEach((client, id) => {
-          if (client.role === 'waiter' && client.readyState === WebSocket.OPEN) {
+          const readyOrder = orders.find(order => String(order.id) === String(data.orderId));
+          if (client.role === 'waiter' && client.readyState === WebSocket.OPEN && readyOrder && client.storeId === readyOrder.storeId && waiterCanHandleTable(client, readyOrder.table)) {
             console.log('[DEBUG] Servidor: Enviando notificação para garçom', id);
             client.send(notifyWaiterMessage);
             waiterCount++;
@@ -523,7 +561,8 @@ wss.on('connection', async (ws, req) => {
         });
 
         clients.forEach((client, id) => {
-          if ((client.role === 'admin' || client.role === 'waiter') && client.readyState === WebSocket.OPEN && (!ws.storeId || !client.storeId || client.storeId === ws.storeId)) {
+          if (client.readyState === WebSocket.OPEN && (!ws.storeId || !client.storeId || client.storeId === ws.storeId) &&
+              (client.role === 'admin' || (client.role === 'waiter' && waiterCanHandleTable(client, data.table)))) {
             client.send(paymentRequestMessage);
           }
         });
@@ -545,7 +584,8 @@ wss.on('connection', async (ws, req) => {
         });
         
         clients.forEach((client, id) => {
-          if ((client.role === 'admin' || client.role === 'waiter') && client.readyState === WebSocket.OPEN && (!ws.storeId || !client.storeId || client.storeId === ws.storeId)) {
+          if (client.readyState === WebSocket.OPEN && (!ws.storeId || !client.storeId || client.storeId === ws.storeId) &&
+              (client.role === 'admin' || (client.role === 'waiter' && waiterCanHandleTable(client, data.table)))) {
             client.send(callWaiterMessage);
           }
         });
