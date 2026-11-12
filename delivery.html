@@ -897,7 +897,7 @@
 
         async function loadDeliveryMerchantSettings() {
             const params = new URLSearchParams(window.location.search);
-            deliveryStoreId = params.get('storeId') || 'main';
+            deliveryStoreId = params.get('loja') || params.get('storeId') || 'main';
             try {
                 const apiBase = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? `http://${location.hostname}:3002` : (location.hostname === 'vianabar-delivery.onrender.com' ? '' : 'https://vianabar-delivery.onrender.com');
                 const response = await fetch(apiBase + '/api/merchant-settings/' + encodeURIComponent(deliveryStoreId), {cache:'no-store'});
@@ -976,25 +976,30 @@
         window.loadMenuItems = async function() {
             try {
                 const urlParams = new URLSearchParams(window.location.search);
-                const storeId = urlParams.get('storeId') || 'main';
+                const storeId = urlParams.get('loja') || urlParams.get('storeId') || 'main';
                 const storeName = urlParams.get('storeName');
                 if (storeName) {
                     const headerTitle = document.querySelector('.delivery-header h1');
                     if (headerTitle) headerTitle.textContent = '🏪 ' + storeName;
                 }
-                const response = await fetch(`/api/products?storeId=${encodeURIComponent(storeId)}`, { cache: 'no-store' });
+                const response = await fetch(`https://vianabar-delivery.onrender.com/api/products?storeId=${encodeURIComponent(storeId)}`, { cache: 'no-store' });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Falha ao carregar produtos');
                 const products = result.products || [];
                 const showcase = result.showcase || [];
+                const productCacheKey = 'menuItems_' + storeId.replace(/[^a-zA-Z0-9_-]/g, '_');
+                localStorage.setItem(productCacheKey, JSON.stringify(products));
                 localStorage.setItem('menuItems', JSON.stringify(products));
                 localStorage.setItem('vitrineProducts', JSON.stringify(showcase));
-                window.menuItems = storeId !== 'main' && showcase.length ? showcase : products;
+                window.menuItems = products;
                 console.log('[DELIVERY] Produtos sincronizados com PostgreSQL:', window.menuItems.length);
                 renderMenuItems();
             } catch (error) {
                 console.error('[DELIVERY] Erro ao carregar produtos do servidor:', error);
-                window.menuItems = JSON.parse(localStorage.getItem('menuItems') || '[]');
+                const params = new URLSearchParams(window.location.search);
+                const storeId = params.get('loja') || params.get('storeId') || 'main';
+                const productCacheKey = 'menuItems_' + storeId.replace(/[^a-zA-Z0-9_-]/g, '_');
+                window.menuItems = JSON.parse(localStorage.getItem(productCacheKey) || (storeId === 'main' ? localStorage.getItem('menuItems') : '[]') || '[]');
                 renderMenuItems();
             }
         }
