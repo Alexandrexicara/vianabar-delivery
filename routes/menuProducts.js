@@ -1,7 +1,7 @@
 'use strict';
 const express = require('express');
 const { Pool } = require('pg');
-const { requireMerchant, sessionFromCookieHeader } = require('./merchantAuth');
+const { requireMerchant } = require('./merchantAuth');
 
 const router = express.Router();
 const requireAdmin = requireMerchant;
