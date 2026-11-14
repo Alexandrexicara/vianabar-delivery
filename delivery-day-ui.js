@@ -75,6 +75,13 @@
     document.body.appendChild(banner);
   }
   const style = document.createElement('style'); style.textContent = STYLE; document.head.appendChild(style);
+  // Oculta apenas o banner institucional antigo nas páginas das lojas.
+  // O logo do comerciante continua sendo carregado por customizations.js.
+  if (isMerchantPage()) {
+    const merchantBrandStyle = document.createElement('style');
+    merchantBrandStyle.textContent = '.header-banner{display:none!important}';
+    document.head.appendChild(merchantBrandStyle);
+  }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { addNavigation(); showBanner(); });
   else { addNavigation(); showBanner(); }
   window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); installEvent = event; showBanner(); });
