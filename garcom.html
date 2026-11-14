@@ -853,10 +853,12 @@
         // DOM Ready
         document.addEventListener('DOMContentLoaded', async function() {
             try {
-                const auth = await fetch('/api/merchant-auth/session', {credentials:'include',cache:'no-store'});
+                const auth = await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/session', {credentials:'include',cache:'no-store'});
                 if (!auth.ok) throw new Error('Sessão ausente');
+                const session = await auth.json();
+                window.merchantSession = session.merchant || null;
             } catch (_) {
-                location.replace('/login.html');
+                location.replace('https://delivery-day.netlify.app/login.html');
                 return;
             }
             // Check authentication
@@ -880,14 +882,16 @@
 
         // Check if user is authenticated
         function checkAuthentication() {
+            // O comerciante autenticado no painel já tem acesso à área do garçom.
+            // Não exigir novo código/senha nem cadastro local para a sessão administrativa.
+            if (window.merchantSession?.storeId) {
+                showTab('dashboard');
+                return;
+            }
             const waiterAccess = localStorage.getItem('waiterAccess');
             const waiterData = localStorage.getItem('waiterData');
-            
-            if (!waiterAccess || !waiterData) {
-                showTab('registration');
-            } else {
-                showTab('dashboard');
-            }
+            if (!waiterAccess || !waiterData) showTab('registration');
+            else showTab('dashboard');
         }
 
         // Load waiter name
