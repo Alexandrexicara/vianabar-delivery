@@ -1464,6 +1464,87 @@
             proceedToPayment();
         }
 
+        // Checkout Pix real: somente o webhook do provedor pode confirmar o pagamento.
+        let deliveryPixPollTimer = null;
+        async function createDeliveryPixOrder() {
+            const apiBase = 'https://vianabar-delivery.onrender.com';
+            const addressText = deliveryAddress?.type === 'retirada' ? 'Retirada no local' :
+                [deliveryAddress?.rua,deliveryAddress?.numero,deliveryAddress?.bairro,deliveryAddress?.cidade,deliveryAddress?.cep].filter(Boolean).join(', ');
+            const customerData = JSON.parse(localStorage.getItem('customerData') || '{}');
+            const customerName = deliveryAddress?.name || customerData.fullName || customerData.name || 'Cliente Delivery';
+            const customerPhone = deliveryAddress?.phone || customerData.phone || customerData.telephone || '';
+            const deliveryDetails = { type:deliveryAddress?.type || 'delivery', address:addressText, reference:deliveryAddress?.referencia || deliveryAddress?.complemento || '', location:deliveryAddress?.location || null, customerName, customerPhone };
+            const response = await fetch(apiBase + '/api/cardapio/orders', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({
+                    storeId:deliveryStoreId, orderType:'delivery',
+                    customer:{fullName:customerName,name:customerName,phone:customerPhone,tableNumber:'Delivery'},
+                    items:cart.map(item=>({id:item.id || item.productId,quantity:item.quantity})),
+                    observations:'Pedido realizado pelo Delivery',
+                    deliveryFeeCents:Math.round(Math.max(0,Number(deliveryFee)||0)*100),
+                    deliveryDetails, paymentMethod:'pix'
+                })
+            });
+            const result = await response.json().catch(()=>({}));
+            if(!response.ok || !result.success) throw new Error(result.error || 'A rota de pagamento Pix ainda não está implementada ou configurada para este estabelecimento.');
+            const order = {
+                id:result.order.id, merchantId:deliveryStoreId, storeId:deliveryStoreId,
+                customerName, customerPhone, address:addressText, customerAddress:deliveryAddress,
+                customerLocation:deliveryAddress?.location || null,
+                establishmentName:deliveryMerchantSettings.establishmentName || 'Comércio',
+                establishmentAddress:deliveryMerchantSettings.establishmentAddress || '',
+                establishmentLocation:deliveryMerchantSettings.establishmentLocation || null,
+                items:cart.map(item=>({...item,sector:item.sector || 'kitchen'})),
+                subtotal:Number(result.order.subtotal || 0), deliveryFee:Number(result.order.deliveryFee || 0),
+                total:Number(result.order.total), status:'pending', orderTime:new Date().toISOString(),
+                paymentMethod:'pix', paymentStatus:'pending', deliveryType:deliveryAddress?.type || 'delivery',
+                estimatedTime:calculateEstimatedTime(), orderSource:'delivery'
+            };
+            localStorage.setItem('currentCardapioOrderId',String(order.id));
+            localStorage.setItem('deliveryTrackingOrderId',String(order.id));
+            showDeliveryPixCheckout(order,result.payment || {});
+            startDeliveryPixStatusPolling(order);
+        }
+
+        function showDeliveryPixCheckout(order,payment) {
+            const section=document.getElementById('paymentSection');
+            if(!section) return;
+            const qrImage=payment.qrCodeImage && /^(https:\/\/|data:image\/(png|jpeg|webp);base64,)/i.test(payment.qrCodeImage)
+                ? '<img src="'+payment.qrCodeImage+'" alt="QR Code Pix" style="display:block;max-width:240px;width:100%;margin:12px auto;">' : '';
+            const paymentLink=payment.paymentLinkUrl && /^https:\/\//i.test(payment.paymentLinkUrl)
+                ? '<a class="btn" href="'+payment.paymentLinkUrl+'" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;text-decoration:none;margin:12px 0;">Abrir pagamento seguro</a>' : '';
+            const safeCode=String(payment.brCode || '').replace(/[<>&]/g,'');
+            section.innerHTML='<h2>Pagamento Pix</h2><p>Pedido #'+order.id+'</p><p>Valor: <strong>R$ '+Number(payment.amount || order.total).toFixed(2).replace('.',',')+'</strong></p>'+qrImage+'<label for="deliveryPixCode">Pix Copia e Cola</label><textarea id="deliveryPixCode" readonly style="width:100%;min-height:90px;">'+safeCode+'</textarea><button class="btn" type="button" onclick="navigator.clipboard.writeText(document.getElementById(\'deliveryPixCode\').value).then(()=>alert(\'Código Pix copiado.\'))">Copiar código Pix</button>'+paymentLink+'<p id="deliveryPixStatus" role="status">Aguardando a confirmação real do provedor. Não feche esta tela.</p>';
+            hideAllForms();
+            section.style.display='block';
+        }
+
+        function startDeliveryPixStatusPolling(order) {
+            if(deliveryPixPollTimer) clearInterval(deliveryPixPollTimer);
+            const check=async()=>{
+                try {
+                    const response=await fetch('https://vianabar-delivery.onrender.com/api/cardapio/orders/'+encodeURIComponent(order.id),{cache:'no-store'});
+                    const result=await response.json();
+                    if(!response.ok || !result.success) return;
+                    const status=String(result.order.paymentStatus || '').toLowerCase();
+                    const statusNode=document.getElementById('deliveryPixStatus');
+                    if(status==='paid' || status==='completed') {
+                        clearInterval(deliveryPixPollTimer); deliveryPixPollTimer=null;
+                        order.paymentStatus='paid'; order.status=result.order.status || 'pending';
+                        if(window.DeliveryCommunication) DeliveryCommunication.broadcastNewOrder(order);
+                        cart=[]; updateCartSummary();
+                        showOrderConfirmation(order);
+                    } else if(status==='expired' || status==='failed') {
+                        clearInterval(deliveryPixPollTimer); deliveryPixPollTimer=null;
+                        if(statusNode) statusNode.textContent='A cobrança Pix expirou ou falhou. Nenhum pagamento foi confirmado. Volte e gere uma nova cobrança.';
+                    } else if(status==='needs_review' && statusNode) {
+                        statusNode.textContent='Pagamento em análise pelo provedor. O pedido ainda não foi liberado para preparo.';
+                    }
+                } catch(error) { console.warn('[DELIVERY] Falha ao consultar status Pix:',error.message); }
+            };
+            check(); deliveryPixPollTimer=setInterval(check,3000);
+        }
+
         // Finalizar pedido e enviar para motoboy
         window.finalizeOrder = async function() {
             await loadDeliveryMerchantSettings();
@@ -1523,6 +1604,19 @@
 
             // Garante que o endereço e o GPS do estabelecimento estejam carregados antes de registrar o pedido.
             await loadDeliveryMerchantSettings();
+
+            if (selectedPayment === 'pix') {
+                try { await createDeliveryPixOrder(); }
+                catch (error) {
+                    console.error('[DELIVERY] Checkout Pix indisponível:',error);
+                    alert(error.message || 'A rota de pagamento Pix ainda não foi implementada ou configurada para este estabelecimento.');
+                }
+                return;
+            }
+            if (selectedPayment === 'cartao') {
+                alert('O pagamento online por cartão ainda não foi implementado para este estabelecimento. Nenhum pedido foi confirmado.');
+                return;
+            }
 
             // Criar objeto do pedido COM SETORES
             const order = {
@@ -1870,11 +1964,11 @@
             const safeBackgroundUrl = backgroundUrl.replace(/["\\\\\n\r]/g, '');
             const safeLogoUrl = logoUrl.replace(/["<>]/g, '');
             const trackingBackground = safeBackgroundUrl
-                ? `linear-gradient(rgba(255,255,255,.78), rgba(255,255,255,.78)), url("${safeBackgroundUrl}")`
+                ? `linear-gradient(rgba(255,255,255,.14), rgba(255,255,255,.14)), url("${safeBackgroundUrl}")`
                 : 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)';
             const trackingHTML = `
                 <div id="merchantOrderTracking" style="--primary-color:${primaryColor}; --secondary-color:${secondaryColor}; background-image:${trackingBackground}; background-size:cover; background-position:center; background-attachment:fixed; min-height:100vh; padding:20px;">
-                    <div class="container">
+                    <div class="container" style="background:rgba(255,255,255,.24);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);">
                         <header style="background:${primaryColor}; color:white; padding:14px 18px; border-radius:15px; margin-bottom:20px; text-align:left; box-shadow:0 5px 15px rgba(0,0,0,.15);">
                             <div style="display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:nowrap;">
                                 ${safeLogoUrl ? `<img src="${safeLogoUrl}" alt="Logo de ${merchantName}" style="width:64px;height:64px;max-width:64px;object-fit:contain;flex:0 0 64px;border-radius:10px;background:rgba(255,255,255,.12);">` : ''}
