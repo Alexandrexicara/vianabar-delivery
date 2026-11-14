@@ -23,7 +23,7 @@
     const header = document.querySelector('header');
     if (!header || header.querySelector('.dd-brand-wrap') || header.querySelector('.dd-install-banner')) return;
     const img = document.createElement('img');
-    img.src = LOGO; img.alt = 'Delivery Day'; img.className = 'dd-brand-mark';
+    img.src = window.__ddPlatformBranding?.logo || LOGO; img.alt = 'Delivery Day'; img.className = 'dd-brand-mark';
     img.onerror = () => img.remove();
     const wrap = document.createElement('div');
     wrap.className = 'dd-brand-wrap';
@@ -82,8 +82,8 @@
     document.body.appendChild(banner);
   }
   const style = document.createElement('style'); style.textContent = STYLE; document.head.appendChild(style);
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { addNavigation(); showBanner(); });
-  else { addNavigation(); showBanner(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { addBrand(); addNavigation(); showBanner(); });
+  else { addBrand(); addNavigation(); showBanner(); }
   window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); installEvent = event; showBanner(); });
   window.addEventListener('appinstalled', hideBanner);
 })();
@@ -175,6 +175,7 @@
     .then(response => response.ok ? response.json() : null)
     .then(data => {
       if (!data?.images) return;
+      window.__ddPlatformBranding = data.images;
       const logo = data.images.logo;
       if (logo) {
         document.querySelectorAll('img.dd-brand-mark, .dd-install-banner img, img[data-platform-logo]').forEach(img => {
@@ -188,11 +189,49 @@
         link.href = icon;
       });
       const splash = data.images.splash;
-      if (splash) document.documentElement.style.setProperty('--dd-platform-splash-image', 'url("' + splash + '")');
+      if (splash) {
+        const showPlatformSplash = () => {
+          try { if (sessionStorage.getItem('dd-platform-splash-seen') === '1') return; sessionStorage.setItem('dd-platform-splash-seen','1'); } catch (_) {}
+          if (document.querySelector('.dd-platform-splash')) return;
+          const overlay = document.createElement('div');
+          overlay.className = 'dd-platform-splash';
+          overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:#fff;display:flex;align-items:center;justify-content:center;opacity:1;transition:opacity .35s ease;';
+          const image = document.createElement('img');
+          image.src = splash + '?v=' + Date.now();
+          image.alt = 'Delivery Day';
+          image.style.cssText = 'max-width:88vw;max-height:78vh;object-fit:contain;';
+          overlay.appendChild(image);
+          document.body.appendChild(overlay);
+          setTimeout(() => { overlay.style.opacity='0'; setTimeout(() => overlay.remove(), 400); }, 1400);
+        };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', showPlatformSplash, {once:true});
+        else showPlatformSplash();
+      }
       const login = data.images.loginBackground;
-      if (login) document.documentElement.style.setProperty('--dd-platform-login-image', 'url("' + login + '")');
+      if (login && /(?:login|acesso)/i.test(location.pathname)) {
+        const applyLoginBackground = () => {
+          document.body.style.backgroundImage = 'linear-gradient(rgba(0,0,0,.18),rgba(0,0,0,.18)),url("' + login + '?v=' + Date.now() + '")';
+          document.body.style.backgroundSize = 'cover';
+          document.body.style.backgroundPosition = 'center';
+          document.body.style.backgroundAttachment = 'fixed';
+        };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', applyLoginBackground, {once:true});
+        else applyLoginBackground();
+      }
       const banner = data.images.banner;
-      if (banner) document.documentElement.style.setProperty('--dd-platform-banner-image', 'url("' + banner + '")');
+      if (banner && /^(\\/|\\/index\\.html|\\/landing-page\\.html)$/i.test(location.pathname)) {
+        const addPlatformBanner = () => {
+          const header = document.querySelector('header');
+          if (!header || document.querySelector('.dd-platform-banner')) return;
+          const element = document.createElement('div');
+          element.className = 'dd-platform-banner';
+          element.setAttribute('aria-label','Banner principal do Delivery Day');
+          element.style.cssText = 'width:100%;height:clamp(110px,22vw,230px);margin:12px 0 18px;background-image:url("' + banner + '?v=' + Date.now() + '");background-position:center;background-size:cover;background-repeat:no-repeat;border-radius:12px;';
+          header.insertAdjacentElement('afterend',element);
+        };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addPlatformBanner, {once:true});
+        else addPlatformBanner();
+      }
     })
     .catch(error => console.warn('[DELIVERY DAY] Identidade visual não carregada:', error));
 })();
