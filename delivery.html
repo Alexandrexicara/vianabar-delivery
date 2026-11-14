@@ -1087,12 +1087,11 @@
             const customizations = JSON.parse(localStorage.getItem('establishmentCustomizations') || '{}');
             const logo = customizations.logo || '';
             
-            // Incluir taxa no preço do produto
-            const taxaPorProduto = parseFloat(localStorage.getItem('taxaPorProdutoGlobal') || '0.10');
-            const precoComTaxa = parseFloat(item.price) + taxaPorProduto;
+            // O preço do catálogo é a fonte; taxas são somadas separadamente no resumo do pedido.
+            const precoComTaxa = Number(item.price) || 0;
             
             return `
-                <div class="menu-item" data-category="${item.category || 'all'}">
+                <div class="menu-item" data-item-id="${String(item.id)}" data-item-price="${Number(item.price) || 0}" data-item-sector="${item.sector || 'Cozinha'}" data-category="${item.category || 'all'}">
                     <div class="item-image" style="position: relative;">
                         ${item.image ? `<img src="${item.image}" alt="${item.name}" class="item-image-placeholder">` : 'Imagem do Produto'}
                         ${logo ? 
@@ -1276,16 +1275,15 @@
                 
                 if (quantity > 0) {
                     const itemName = item.querySelector('.item-name').textContent;
-                    const itemPrice = parseFloat(item.querySelector('.item-price').textContent.replace('R$ ', '').replace(',', '.'));
-                    const itemId = item.getAttribute('data-item-id') || item.getAttribute('data-category');
-                    
+                    const itemPrice = Number(item.getAttribute('data-item-price'));
+                    const itemId = item.getAttribute('data-item-id');
+                    const sector = item.getAttribute('data-item-sector') || 'Cozinha';
+                    if (!itemId || !Number.isFinite(itemPrice)) {
+                        console.error('[DELIVERY] Produto sem identificador/preço válido:', itemName, itemId, itemPrice);
+                        return;
+                    }
                     total += itemPrice * quantity;
-                    cartItemsList.push({
-                        name: itemName,
-                        price: itemPrice,
-                        quantity: quantity,
-                        id: itemId
-                    });
+                    cartItemsList.push({ name:itemName, price:itemPrice, quantity, id:String(itemId), sector });
                 }
             });
             
@@ -1302,7 +1300,7 @@
                     </div>
                 `).join('');
                 
-                cartTotal.textContent = total.toFixed(2).replace('.', ',');
+                cartTotal.textContent = (total + Math.max(0, Number(deliveryFee) || 0)).toFixed(2).replace('.', ',');
             }
             
             console.log('[DELIVERY] Carrinho atualizado:', cart);
@@ -1486,7 +1484,10 @@
                 })
             });
             const result = await response.json().catch(()=>({}));
-            if(!response.ok || !result.success) throw new Error(result.error || 'A rota de pagamento Pix ainda não está implementada ou configurada para este estabelecimento.');
+            if(!response.ok || !result.success) {
+                console.error('[DELIVERY] API recusou pedido:', response.status, result);
+                throw new Error(result.error || 'A rota de pagamento Pix ainda não está implementada ou configurada para este estabelecimento.');
+            }
             const order = {
                 id:result.order.id, merchantId:deliveryStoreId, storeId:deliveryStoreId,
                 customerName, customerPhone, address:addressText, customerAddress:deliveryAddress,
