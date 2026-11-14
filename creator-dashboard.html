@@ -2446,7 +2446,7 @@
                     const image = document.getElementById('preview-platform-' + ({
                         appIcon:'app-icon', loginBackground:'login', splash:'splash'
                     }[key] || key));
-                    if (image) image.src = (data.images?.[key] || (key === 'logo' || key === 'appIcon' ? '/icons/delivery-day.svg' : '')) + (data.images?.[key] ? '?v=' + Date.now() : '');
+                    if (image) { const imageUrl = data.images?.[key] || ((key === 'logo' || key === 'appIcon') ? '/icons/delivery-day.svg' : ''); if (imageUrl) image.src = imageUrl + (data.images?.[key] ? '?v=' + Date.now() : ''); else image.removeAttribute('src'); }
                 });
             } catch (error) {
                 console.error('[CREATOR] Identidade visual:', error);
