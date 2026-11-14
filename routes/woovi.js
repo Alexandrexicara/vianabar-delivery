@@ -34,6 +34,40 @@ router.put('/platform-key', requireCreator, async (req, res) => {
   }
 });
 
+// Taxa fixa da plataforma por pedido (configurada pelo criador e lida pelo checkout).
+router.get('/platform-fee', async (_req, res) => {
+  try {
+    const result = await woovi.pool.query("SELECT fee_cents FROM platform_order_fee_settings WHERE setting_id='default'");
+    const feeCents = result.rowCount ? Number(result.rows[0].fee_cents) : 0;
+    res.set('Cache-Control','no-store');
+    res.json({ success:true, configured:result.rowCount > 0, feeCents, fee:feeCents/100 });
+  } catch (error) {
+    console.error('[PLATFORM-FEE] Erro ao consultar taxa:', error.message);
+    res.status(500).json({ success:false, error:'Não foi possível consultar a taxa da plataforma.' });
+  }
+});
+
+router.put('/platform-fee', requireCreator, async (req, res) => {
+  try {
+    const feeCents = Number(req.body?.feeCents);
+    if (!Number.isSafeInteger(feeCents) || feeCents < 0 || feeCents > 50000) {
+      return res.status(400).json({ success:false, error:'Informe uma taxa fixa válida entre R$ 0,00 e R$ 500,00.' });
+    }
+    const result = await woovi.pool.query(
+      `INSERT INTO platform_order_fee_settings(setting_id,fee_cents)
+       VALUES('default',$1)
+       ON CONFLICT(setting_id) DO UPDATE SET fee_cents=EXCLUDED.fee_cents,updated_at=NOW()
+       RETURNING fee_cents`,
+      [feeCents]
+    );
+    res.set('Cache-Control','no-store');
+    res.json({ success:true, configured:true, feeCents:Number(result.rows[0].fee_cents), fee:Number(result.rows[0].fee_cents)/100 });
+  } catch (error) {
+    console.error('[PLATFORM-FEE] Erro ao salvar taxa:', error.message);
+    res.status(500).json({ success:false, error:'Não foi possível salvar a taxa da plataforma.' });
+  }
+});
+
 router.get('/merchant/:storeId', requireCreator, async (req, res) => {
   try {
     const storeId = String(req.params.storeId || '');
