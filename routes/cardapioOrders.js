@@ -223,7 +223,7 @@ router.post('/:orderId/confirm-in-person', requireMerchant, async (req, res) => 
        WHERE id=$1 AND store_id=$2 AND payment_status='awaiting_in_person'
          AND payment_method IN ('cash','card')
        RETURNING id,store_id,order_type,customer_name,customer_phone,table_number,observations,
-                 subtotal_cents,total_cents,status,payment_method,payment_status,created_at`,
+                 subtotal_cents,total_cents,delivery_fee_cents,platform_fee_cents,status,payment_method,payment_status,created_at`,
       [orderId, storeId]
     );
     if (!updated.rowCount) {
@@ -239,7 +239,7 @@ router.post('/:orderId/confirm-in-person', requireMerchant, async (req, res) => 
     const order = {
       id: row.id, storeId: row.store_id, orderType: row.order_type,
       customer: {name:row.customer_name,fullName:row.customer_name,phone:row.customer_phone,tableNumber:row.table_number},
-      table: row.order_type === 'totem' ? 'Totem' : row.order_type === 'counter' ? 'Balcão' : 'Mesa ' + row.table_number,
+      table: row.order_type === 'totem' ? 'Totem' : row.order_type === 'counter' ? 'Balcão' : row.order_type === 'delivery' ? 'Delivery' : 'Mesa ' + row.table_number,
       observations: row.observations || '',
       items: itemRows.rows.map(item => ({
         id:String(item.product_id),name:item.product_name,quantity:Number(item.quantity),
