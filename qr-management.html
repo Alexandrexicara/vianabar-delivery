@@ -597,6 +597,12 @@
         // Customization functions using the centralized system
         const MERCHANT_API_BASE = 'https://vianabar-delivery.onrender.com';
         function merchantSettingsApiUrl() { return MERCHANT_API_BASE + '/api/merchant-settings/' + encodeURIComponent(getMerchantStoreId()); }
+        function merchantAssetUrl(value) {
+            const path = String(value || '').trim();
+            if (!path) return '';
+            const absolute = /^https?:\/\//i.test(path) ? path : MERCHANT_API_BASE + (path.startsWith('/') ? path : '/' + path);
+            return absolute + (absolute.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(Date.now());
+        }
 
         function refreshDeliveryToggleButton() {
             const enabled = document.getElementById('deliveryEnabled')?.checked !== false;
@@ -620,6 +626,7 @@
                 const result=await response.json();
                 if(!response.ok) throw new Error(result.error||'Falha ao carregar configurações.');
                 let c=result.settings||{};
+                ['logo','background'].forEach(key => { if (c[key]) c[key] = merchantAssetUrl(c[key]); });
                 const cached=JSON.parse(localStorage.getItem('establishmentCustomizations')||'{}');
                 // Migra para o Neon as personalizações antigas que existiam somente neste navegador.
                 if(Object.keys(c).length===0 && Object.keys(cached).length>0) {
@@ -732,8 +739,9 @@
                 const headers=productAdminHeaders();delete headers['Content-Type'];
                 const response=await fetch(merchantSettingsApiUrl()+'/assets/'+type,{method:'POST',credentials:'include',headers,body:formData});
                 const result=await response.json();if(!response.ok)throw new Error(result.error||'Falha ao salvar imagem no banco.');
-                const custom=JSON.parse(localStorage.getItem('establishmentCustomizations')||'{}');custom[type]=result.imageUrl;
-                localStorage.setItem('establishmentCustomizations',JSON.stringify(custom));showImagePreview(type,result.imageUrl);
+                const savedImageUrl=merchantAssetUrl(result.imageUrl);
+                const custom=JSON.parse(localStorage.getItem('establishmentCustomizations')||'{}');custom[type]=savedImageUrl;
+                localStorage.setItem('establishmentCustomizations',JSON.stringify(custom));showImagePreview(type,savedImageUrl);
                 if(box?.querySelector('p:first-child'))box.querySelector('p:first-child').textContent=(type==='logo'?'Logo':'Imagem de fundo')+' salvo no Neon! Clique para substituir.';
                 alert((type==='logo'?'Logo':'Imagem de fundo')+' enviado e salvo permanentemente no Neon.');return result.imageUrl;
             } catch(error) {
@@ -745,6 +753,7 @@
 
         // Function to show image preview
         function showImagePreview(type, imageUrl) {
+            imageUrl = merchantAssetUrl(imageUrl);
             console.log('[DEBUG] showImagePreview chamada com:', type, imageUrl);
             if (type === 'logo') {
                 const logoPreview = document.getElementById('logoPreview');
