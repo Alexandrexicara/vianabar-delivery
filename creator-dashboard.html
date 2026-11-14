@@ -812,13 +812,6 @@
             <div id="platformBrandingNotice" class="notification" role="status"></div>
             <div id="platformBrandingGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;">
                 <div class="control-group">
-                    <strong>Logo da plataforma</strong>
-                    <p style="font-size:.9em;color:#667085;margin:6px 0 12px;">Logo exibido nas páginas e áreas que usam a marca global.</p>
-                    <img id="preview-platform-logo" alt="Logo atual" style="width:100%;height:110px;object-fit:contain;background:#fff;border:1px solid #e1e8ed;border-radius:8px;margin-bottom:10px;">
-                    <input type="file" id="upload-platform-logo" accept="image/png,image/jpeg,image/webp" style="width:100%;margin-bottom:10px;">
-                    <button class="btn btn-primary" onclick="uploadPlatformImage('logo')"><i class="fas fa-upload"></i> Atualizar logo</button>
-                </div>
-                <div class="control-group">
                     <strong>Ícone do aplicativo (PWA)</strong>
                     <p style="font-size:.9em;color:#667085;margin:6px 0 12px;">Imagem que aparece na tela inicial quando o cliente instala o Delivery Day.</p>
                     <img id="preview-platform-app-icon" alt="Ícone atual do aplicativo" style="width:100%;height:110px;object-fit:contain;background:#fff;border:1px solid #e1e8ed;border-radius:8px;margin-bottom:10px;">
@@ -2436,7 +2429,7 @@
 
 
         // Identidade visual global: uploads autenticados e persistidos no PostgreSQL.
-        const PLATFORM_IMAGE_KEYS = ['logo','appIcon','splash','loginBackground','banner'];
+        const PLATFORM_IMAGE_KEYS = ['appIcon','splash','loginBackground','banner'];
         async function loadPlatformBranding() {
             try {
                 const response = await fetch('/api/platform-branding', { credentials:'same-origin', cache:'no-store' });
@@ -2446,7 +2439,7 @@
                     const image = document.getElementById('preview-platform-' + ({
                         appIcon:'app-icon', loginBackground:'login', splash:'splash'
                     }[key] || key));
-                    if (image) { const imageUrl = data.images?.[key] || ((key === 'logo' || key === 'appIcon') ? '/icons/delivery-day.svg' : ''); if (imageUrl) image.src = imageUrl + (data.images?.[key] ? '?v=' + Date.now() : ''); else image.removeAttribute('src'); }
+                    if (image) { const imageUrl = data.images?.[key] || (key === 'appIcon' ? '/icons/delivery-day.svg' : ''); if (imageUrl) image.src = imageUrl + (data.images?.[key] ? '?v=' + Date.now() : ''); else image.removeAttribute('src'); }
                 });
             } catch (error) {
                 console.error('[CREATOR] Identidade visual:', error);
