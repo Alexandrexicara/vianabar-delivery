@@ -125,14 +125,14 @@ router.post('/', async (req, res) => {
       );
       const selectedProvider = providerConfig.rows[0]?.provider || null;
       if (selectedProvider === 'sicoob') {
-        return res.status(409).json({ success:false, error:'Este estabelecimento está configurado para receber pelo Cicobi/Sicoob. O checkout Ovi não será usado para esta loja.' });
+        return res.status(409).json({ success:false, code:'PAYMENT_PROVIDER_NOT_READY', provider:'sicoob', error:'Este estabelecimento selecionou Cicobi/Sicoob, mas ainda não concluiu a configuração das credenciais e a ativação do checkout Pix. Escolha outra forma de pagamento ou entre em contato com o comerciante.' });
       }
       if (selectedProvider && selectedProvider !== 'woovi') {
-        return res.status(409).json({ success:false, error:'O provedor de recebimento selecionado não está habilitado para checkout Pix.' });
+        return res.status(409).json({ success:false, code:'PAYMENT_PROVIDER_UNSUPPORTED', provider:selectedProvider, error:'O provedor de pagamento selecionado pelo estabelecimento ainda não está disponível para cobranças online. O pagamento não foi realizado.' });
       }
       const account = await woovi.getMerchantAccount(storeId);
       if (!account || account.status !== 'active' || !account.webhook_registered) {
-        return res.status(409).json({ success: false, error: 'Este estabelecimento ainda não concluiu a conexão de recebimentos pela Ovi.' });
+        return res.status(409).json({ success:false, code:'MERCHANT_PAYMENT_NOT_CONFIGURED', provider:'woovi', error:'Este comerciante ainda não cadastrou e ativou as credenciais de pagamento da Ovi. Nenhuma cobrança foi criada e nenhum pagamento foi confirmado. Escolha outra forma de pagamento ou entre em contato com o estabelecimento.' });
       }
     }
 
