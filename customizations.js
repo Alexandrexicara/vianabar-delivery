@@ -337,14 +337,24 @@ class CustomizationManager {
         const customizations = serverCustomizations || this.loadCustomizations();
         console.log('[DEBUG] Customizações carregadas para admin:', customizations);
 
-        // Aplicar background
+        // Aplicar o fundo do comerciante acima dos estilos padrão do painel.
         if (customizations.background) {
             console.log('[DEBUG] Aplicando background no admin:', customizations.background);
-            document.body.style.backgroundImage = `url(${customizations.background})`;
-            document.body.style.backgroundSize = 'cover';
-            document.body.style.backgroundAttachment = 'fixed';
-            document.body.style.backgroundRepeat = 'no-repeat';
-            console.log('[DEBUG] Background aplicado no admin');
+            document.body.style.setProperty('background-image', `url("${customizations.background}")`, 'important');
+            document.body.style.setProperty('background-size', 'cover', 'important');
+            document.body.style.setProperty('background-position', 'center center', 'important');
+            document.body.style.setProperty('background-attachment', 'fixed', 'important');
+            document.body.style.setProperty('background-repeat', 'no-repeat', 'important');
+            ['welcomeScreen', 'mainContent'].forEach(elementId => {
+                const layer = document.getElementById(elementId);
+                if (layer) {
+                    layer.style.setProperty('background-image', `url("${customizations.background}")`, 'important');
+                    layer.style.setProperty('background-size', 'cover', 'important');
+                    layer.style.setProperty('background-position', 'center center', 'important');
+                    layer.style.setProperty('background-repeat', 'no-repeat', 'important');
+                }
+            });
+            console.log('[DEBUG] Background aplicado no admin com prioridade sobre o CSS padrão');
         }
 
         // Aplicar logo
