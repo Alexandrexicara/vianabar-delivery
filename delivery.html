@@ -1795,6 +1795,15 @@
                                 <span>R$ ${(item.price * item.quantity).toFixed(2)}</span>
                             </div>
                         `).join('')}
+                        <div style="display:flex;justify-content:space-between;margin-top:10px;border-top:1px solid #eee;padding-top:10px;">
+                            <span>Subtotal:</span><span>R$ ${Number(order.subtotal || 0).toFixed(2)}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;margin-top:5px;">
+                            <span>Taxa de entrega:</span><span>R$ ${Number(order.deliveryFee || 0).toFixed(2)}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;margin-top:5px;">
+                            <span>Taxa da plataforma (por pedido):</span><span>R$ ${Number(order.platformFee || 0).toFixed(2)}</span>
+                        </div>
                         <div style="display: flex; justify-content: space-between; margin-top: 10px; font-weight: bold; border-top: 1px solid #eee; padding-top: 10px;">
                             <span>Total:</span>
                             <span>R$ ${order.total.toFixed(2)}</span>
