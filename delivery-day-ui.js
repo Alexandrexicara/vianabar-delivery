@@ -1,5 +1,13 @@
 (() => {
   const STYLE = `
+    /* Cabeçalho compacto: logo do comerciante à esquerda e nome ao lado. */
+    #establishmentHeader{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:12px!important;text-align:left!important;min-width:0}
+    #establishmentLogo{display:grid!important;grid-template-columns:auto minmax(0,1fr)!important;grid-template-rows:auto auto!important;align-items:center!important;column-gap:10px!important;row-gap:2px!important;min-width:0;flex:1 1 auto;text-align:left!important}
+    #establishmentLogo > img,#establishmentLogo > #establishmentLogoImg,#establishmentLogo > .brand-mark{grid-column:1!important;grid-row:1 / span 2!important;align-self:center!important;justify-self:start!important;width:48px!important;height:48px!important;max-width:48px!important;max-height:48px!important;object-fit:contain!important;margin:0!important;flex:none!important}
+    #establishmentLogo #establishmentName{grid-column:2!important;grid-row:1!important;min-width:0;overflow-wrap:anywhere;text-align:left!important;margin:0!important;line-height:1.2!important}
+    #establishmentLogo #establishmentTagline{grid-column:2!important;grid-row:2!important;min-width:0;overflow-wrap:anywhere;text-align:left!important;margin:2px 0 0!important;line-height:1.25!important}
+    #establishmentHeader .establishment-info,#establishmentHeader .user-info{flex:0 1 auto;min-width:0;text-align:right}
+    @media(max-width:600px){#establishmentHeader{gap:8px!important;padding:10px 12px!important;flex-wrap:nowrap!important}#establishmentLogo{column-gap:8px!important}#establishmentLogo > img,#establishmentLogo > #establishmentLogoImg,#establishmentLogo > .brand-mark{width:40px!important;height:40px!important;max-width:40px!important;max-height:40px!important}#establishmentLogo #establishmentName{font-size:clamp(15px,4vw,19px)!important}#establishmentLogo #establishmentTagline{font-size:11px!important}#establishmentHeader .establishment-info{font-size:10px!important;max-width:42%;overflow-wrap:anywhere}}
     .dd-nav-controls{position:fixed;left:12px;bottom:max(12px,env(safe-area-inset-bottom));z-index:2147483001;display:flex;gap:8px;font:600 14px Arial,sans-serif}
     .dd-nav-controls button{border:1px solid rgba(212,255,0,.55);border-radius:999px;background:#071226;color:#fff;padding:11px 15px;box-shadow:0 5px 18px #0005;cursor:pointer}
     .dd-nav-controls button:active{transform:scale(.97)}
