@@ -1,23 +1,18 @@
 (() => {
-  const LOGO = '/icons/delivery-day.svg';
   const STYLE = `
-    .dd-brand-mark{width:124px;height:74px;object-fit:contain;flex:0 0 auto;display:block}
-    .dd-brand-wrap{display:flex;align-items:center;gap:10px;min-width:0}
-    .dd-brand-wrap img{width:124px;height:74px;object-fit:contain}
     .dd-nav-controls{position:fixed;left:12px;bottom:max(12px,env(safe-area-inset-bottom));z-index:2147483001;display:flex;gap:8px;font:600 14px Arial,sans-serif}
     .dd-nav-controls button{border:1px solid rgba(212,255,0,.55);border-radius:999px;background:#071226;color:#fff;padding:11px 15px;box-shadow:0 5px 18px #0005;cursor:pointer}
     .dd-nav-controls button:active{transform:scale(.97)}
     .dd-nav-controls button:focus-visible{outline:3px solid #d4ff00;outline-offset:2px}
     .dd-nav-controls .dd-nav-forward{background:#d4ff00;color:#071226;border-color:#d4ff00}
-    @media(max-width:480px){.dd-brand-mark,.dd-brand-wrap img{width:108px;height:64px}.dd-nav-controls{left:9px;bottom:max(9px,env(safe-area-inset-bottom))}.dd-nav-controls button{padding:10px 12px;font-size:13px}}
+    @media(max-width:480px){.dd-nav-controls{left:9px;bottom:max(9px,env(safe-area-inset-bottom))}.dd-nav-controls button{padding:10px 12px;font-size:13px}}
     @media print{.dd-nav-controls{display:none!important}}
     .dd-install-banner{position:fixed;z-index:2147483000;left:14px;right:14px;bottom:14px;max-width:520px;margin-left:auto;background:#071226;color:#fff;border:1px solid rgba(212,255,0,.45);border-radius:16px;padding:14px;box-shadow:0 10px 35px #0005;font:14px Arial,sans-serif;display:flex;gap:12px;align-items:center}
-    .dd-install-banner img{width:68px;height:50px;object-fit:contain;flex:0 0 auto}
     .dd-install-copy{flex:1;min-width:0}.dd-install-copy strong{display:block;font-size:16px;margin-bottom:4px;color:#d4ff00}
     .dd-install-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
     .dd-install-actions button{border:0;border-radius:8px;padding:9px 12px;font-weight:700;cursor:pointer}
     .dd-install-yes{background:#d4ff00;color:#071226}.dd-install-no{background:#26334a;color:#fff}
-    @media(max-width:480px){.dd-install-banner{left:9px;right:9px;bottom:82px;padding:11px}.dd-install-banner img{width:56px;height:42px}.dd-install-actions button{padding:8px 10px}}
+    @media(max-width:480px){.dd-install-banner{left:9px;right:9px;bottom:82px;padding:11px}.dd-install-actions button{padding:8px 10px}}
   `;
   // Não existe injeção de logo global no cabeçalho. O logo pertence à loja.
   function isMerchantPage() {
@@ -50,7 +45,7 @@
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
     const banner = document.createElement('aside');
     banner.className = 'dd-install-banner';
-    banner.innerHTML = '<img src="' + LOGO + '" alt="Delivery Day"><div class="dd-install-copy"><strong>Instale o Delivery Day</strong><span>' +
+    banner.innerHTML = '<div class="dd-install-copy"><strong>Instale o Delivery Day</strong><span>' +
       (ios ? 'Tenha o Delivery Day na tela inicial: toque em Compartilhar e depois em “Adicionar à Tela de Início”.' : 'Acesse mais rápido, em uma janela própria, como um aplicativo.') +
       '</span><div class="dd-install-actions"><button type="button" class="dd-install-yes">' + (ios ? 'Como instalar' : 'Instalar aplicativo') + '</button><button type="button" class="dd-install-no">Agora não</button></div></div>';
     banner.querySelector('.dd-install-no').addEventListener('click', () => {
@@ -158,14 +153,33 @@
   else run();
 })();
 
-/* Identidade visual global gerenciada pelo Painel do Criador. */
+/* A marca da plataforma nunca é exibida nas páginas dos comerciantes. */
 (() => {
+  const isMerchantPage = () => !!document.querySelector('#establishmentLogo, #establishmentName, #establishmentLogoImg, [data-merchant-slug], [data-merchant-id], .merchant-logo, .merchant-brand') ||
+    /(?:^|[?&])(?:loja|merchant|store|slug)=/i.test(location.search) ||
+    ['/delivery.html','/totem.html','/cozinha.html','/balcao.html','/garcom.html','/usuario.html'].includes(location.pathname);
+  const removePlatformMarks = () => {
+    if (!isMerchantPage()) return;
+    document.querySelectorAll('.dd-brand-wrap, .dd-brand-mark, .dd-install-banner, [data-platform-logo], .dd-platform-logo').forEach(el => el.remove());
+  };
+  removePlatformMarks();
+  if (document.body && !window.__ddMerchantLogoGuard) {
+    window.__ddMerchantLogoGuard = new MutationObserver(removePlatformMarks);
+    window.__ddMerchantLogoGuard.observe(document.documentElement, {childList:true,subtree:true});
+  }
+})();
+
+/* Imagens institucionais: splash e banner somente nas páginas da plataforma. */
+(() => {
+  const isMerchantPage = () => !!document.querySelector('#establishmentLogo, #establishmentName, #establishmentLogoImg, [data-merchant-slug], [data-merchant-id], .merchant-logo, .merchant-brand') ||
+    /(?:^|[?&])(?:loja|merchant|store|slug)=/i.test(location.search) ||
+    ['/delivery.html','/totem.html','/cozinha.html','/balcao.html','/garcom.html','/usuario.html'].includes(location.pathname);
   const endpoint = '/api/platform-branding';
   fetch(endpoint, { credentials:'same-origin', cache:'no-store' })
     .then(response => response.ok ? response.json() : null)
     .then(data => {
       if (!data?.images) return;
-      // A identidade visual do comerciante é independente. O painel global só aplica a imagem de abertura.
+      // Nenhum elemento institucional pode aparecer nas páginas de comerciantes.
       if (isMerchantPage()) return;
       const splash = data.images.splash;
       if (splash) {
