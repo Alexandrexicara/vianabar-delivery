@@ -1457,11 +1457,9 @@
             proceedToPayment();
         }
 
-        // Calcular taxa por produto
+        // Compatibilidade com chamadas antigas: a taxa agora é fixa por pedido.
         function calculateTaxaPorProduto() {
-            const taxaPorProduto = parseFloat(localStorage.getItem('taxaPorProdutoGlobal') || '0.10');
-            const quantidadeItens = cart.reduce((total, item) => total + item.quantity, 0);
-            return taxaPorProduto * quantidadeItens;
+            return Math.max(0, Number(platformFee) || 0);
         }
 
         // Confirmar retirada
@@ -1521,8 +1519,8 @@
                 establishmentAddress:deliveryMerchantSettings.establishmentAddress || '',
                 establishmentLocation:deliveryMerchantSettings.establishmentLocation || null,
                 items:cart.map(item=>({...item,sector:item.sector || 'kitchen'})),
-                subtotal:Number(result.order.subtotal || 0), deliveryFee:Number(result.order.deliveryFee || 0),
-                total:Number(result.order.total), status:'pending', orderTime:new Date().toISOString(),
+                subtotal:Number(result.order.subtotal || 0), deliveryFee:Number(result.order.deliveryFee || 0), platformFee:Number(result.order.platformFee || 0),
+                financial:result.order.financial || {systemFee:Number(result.order.platformFee || 0)}, total:Number(result.order.total), status:'pending', orderTime:new Date().toISOString(),
                 paymentMethod:'pix', paymentStatus:'pending', deliveryType:deliveryAddress?.type || 'delivery',
                 estimatedTime:calculateEstimatedTime(), orderSource:'delivery'
             };
