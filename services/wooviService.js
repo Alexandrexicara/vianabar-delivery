@@ -14,7 +14,6 @@ const pool = new Pool({
 
 const API_BASE = String(process.env.WOOVI_API_BASE_URL || 'https://api.woovi.com').replace(/\/$/, '');
 const WEBHOOK_URL = process.env.WOOVI_WEBHOOK_URL || 'https://vianabar-delivery.onrender.com/woovi/webhook';
-const COMMISSION_PERCENT = 15;
 let webhookPublicKeysCache = [];
 let webhookPublicKeysCachedAt = 0;
 
@@ -300,7 +299,7 @@ async function handleWebhook({ payload, rawBody, headers }) {
   }
 
   const tx = await pool.query(
-    'SELECT id,order_id,store_id,amount_cents,status FROM cardapio_payment_transactions WHERE correlation_id=$1',
+    'SELECT p.id,p.order_id,p.store_id,p.amount_cents,p.status,o.platform_fee_cents FROM cardapio_payment_transactions p JOIN cardapio_orders o ON o.id=p.order_id WHERE p.correlation_id=$1',
     [correlationId]
   );
   if (!tx.rowCount) throw new Error('Cobrança não encontrada para o correlationID recebido.');
@@ -335,7 +334,7 @@ async function handleWebhook({ payload, rawBody, headers }) {
       await client.query('COMMIT');
     } catch (error) { await client.query('ROLLBACK'); throw error; }
     finally { client.release(); }
-    const commissionCents = Math.round(Number(row.amount_cents) * COMMISSION_PERCENT / 100);
+    const commissionCents = Math.max(0, Number(row.platform_fee_cents) || 0);
     await pool.query("UPDATE cardapio_payment_transactions SET commission_amount_cents=$2,commission_status='pending' WHERE id=$1",
       [row.id, commissionCents]);
     let commissionStatus = 'pending';
