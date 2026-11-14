@@ -19,24 +19,11 @@
     .dd-install-yes{background:#d4ff00;color:#071226}.dd-install-no{background:#26334a;color:#fff}
     @media(max-width:480px){.dd-install-banner{left:9px;right:9px;bottom:82px;padding:11px}.dd-install-banner img{width:56px;height:42px}.dd-install-actions button{padding:8px 10px}}
   `;
-  function addBrand() {
-    const header = document.querySelector('header');
-    if (!header || header.querySelector('.dd-brand-wrap') || header.querySelector('.dd-install-banner')) return;
-    // Nunca injeta a marca da plataforma em páginas de comerciantes.
-    if (header.querySelector('#establishmentLogo, #establishmentName, [data-merchant-slug], [data-merchant-id], .merchant-logo, .merchant-brand')) return;
-    const img = document.createElement('img');
-    img.src = LOGO; img.alt = 'Delivery Day'; img.className = 'dd-brand-mark';
-    img.onerror = () => img.remove();
-    const wrap = document.createElement('div');
-    wrap.className = 'dd-brand-wrap';
-    header.insertBefore(wrap, header.firstChild);
-    wrap.appendChild(img);
-    const original = header.querySelector('.logo, .header-title, #establishmentLogo, #establishmentName');
-    if (original && original !== wrap) {
-      if (original.parentElement && original.parentElement !== header && original.parentElement.children.length === 1) {
-        wrap.appendChild(original);
-      }
-    }
+  // Não existe injeção de logo global no cabeçalho. O logo pertence à loja.
+  function isMerchantPage() {
+    return !!document.querySelector('#establishmentLogo, #establishmentName, #establishmentLogoImg, [data-merchant-slug], [data-merchant-id], .merchant-logo, .merchant-brand') ||
+      /(?:^|[?&])(?:loja|merchant|store|slug)=/i.test(location.search) ||
+      ['/delivery.html','/totem.html','/cozinha.html','/balcao.html','/garcom.html','/usuario.html'].includes(location.pathname);
   }
 
   function addNavigation() {
@@ -57,6 +44,7 @@
   function dismissed() { try { return Number(localStorage.getItem(key) || 0) > Date.now(); } catch (_) { return false; } }
   function hideBanner() { document.querySelector('.dd-install-banner')?.remove(); }
   function showBanner() {
+    if (isMerchantPage()) return;
     if (dismissed() || window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) return;
     if (document.querySelector('.dd-install-banner')) return;
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -178,8 +166,7 @@
     .then(data => {
       if (!data?.images) return;
       // A identidade visual do comerciante é independente. O painel global só aplica a imagem de abertura.
-      const isMerchantPage = !!document.querySelector('#establishmentLogo, #establishmentName, [data-merchant-slug], [data-merchant-id], .merchant-logo, .merchant-brand');
-      if (isMerchantPage) return;
+      if (isMerchantPage()) return;
       const splash = data.images.splash;
       if (splash) {
         const showPlatformSplash = () => {
