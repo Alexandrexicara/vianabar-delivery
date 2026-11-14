@@ -219,7 +219,7 @@
         else applyLoginBackground();
       }
       const banner = data.images.banner;
-      if (banner && /^(\\/|\\/index\\.html|\\/landing-page\\.html)$/i.test(location.pathname)) {
+      if (banner && ['/', '/index.html', '/landing-page.html'].includes(location.pathname)) {
         const addPlatformBanner = () => {
           const header = document.querySelector('header');
           if (!header || document.querySelector('.dd-platform-banner')) return;
