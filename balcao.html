@@ -523,10 +523,10 @@
         // DOM Ready
         document.addEventListener('DOMContentLoaded', async function() {
             try {
-                const auth = await fetch('/api/merchant-auth/session', {credentials:'include',cache:'no-store'});
+                const auth = await fetch('https://vianabar-delivery.onrender.com/api/merchant-auth/session', {credentials:'include',cache:'no-store'});
                 if (!auth.ok) throw new Error('Sessão ausente');
                 initWebSocket();
-            } catch (_) { location.replace('/login.html'); }
+            } catch (_) { location.replace('https://delivery-day.netlify.app/login.html'); }
         });
 
         // Show tab
