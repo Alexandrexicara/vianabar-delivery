@@ -15,14 +15,10 @@
   "lang": "pt-BR",
   "icons": [
     {
-      "src": "/api/platform-branding/assets/appIcon",
+      "src": "/api/platform-branding/assets/appIcon?v=20261114-2",
       "sizes": "any",
-      "purpose": "any"
-    },
-    {
-      "src": "/api/platform-branding/assets/appIcon",
-      "sizes": "any",
-      "purpose": "maskable"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
