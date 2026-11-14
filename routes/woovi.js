@@ -110,7 +110,7 @@ router.post('/webhook', async (req, res) => {
     if ((result.paid || result.expired || result.needsReview) && result.orderId) {
       const order = await woovi.pool.query(
         `SELECT o.id,o.store_id,o.customer_name,o.customer_phone,o.table_number,o.observations,
-                o.subtotal_cents,o.total_cents,o.delivery_fee_cents,o.delivery_data,o.order_type,o.status,o.payment_status,o.payment_method,o.created_at
+                o.subtotal_cents,o.total_cents,o.delivery_fee_cents,o.platform_fee_cents,o.delivery_data,o.order_type,o.status,o.payment_status,o.payment_method,o.created_at
          FROM cardapio_orders o WHERE o.id=$1`,
         [result.orderId]
       );
@@ -129,6 +129,8 @@ router.post('/webhook', async (req, res) => {
           subtotal: Number(row.subtotal_cents)/100,
           total: Number(row.total_cents)/100,
           deliveryFee: Number(row.delivery_fee_cents || 0)/100,
+          platformFee: Number(row.platform_fee_cents || 0)/100,
+          financial: { systemFee:Number(row.platform_fee_cents || 0)/100, customerAmount:(Number(row.subtotal_cents)+Number(row.delivery_fee_cents || 0))/100 },
           deliveryDetails: row.delivery_data || null,
           orderType: row.order_type || 'table',
           status: row.status, paymentStatus: row.payment_status,
