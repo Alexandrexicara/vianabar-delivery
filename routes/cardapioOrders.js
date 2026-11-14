@@ -106,7 +106,9 @@ router.post('/', async (req, res) => {
       };
     });
     const subtotalCents = items.reduce((sum, item) => sum + item.totalCents, 0);
-    const totalCents = subtotalCents + deliveryFeeCents;
+    const feeResult = await client.query("SELECT fee_cents FROM platform_order_fee_settings WHERE setting_id='default'");
+    const platformFeeCents = feeResult.rowCount ? Math.max(0, Number(feeResult.rows[0].fee_cents) || 0) : 0;
+    const totalCents = subtotalCents + deliveryFeeCents + platformFeeCents;
     if (totalCents <= 0) return res.status(400).json({ success: false, error: 'O total do pedido precisa ser maior que zero.' });
     const orderId = crypto.randomUUID();
     const paymentStatus = paymentMethod === 'pix' ? 'pending' : 'awaiting_in_person';
@@ -116,7 +118,8 @@ router.post('/', async (req, res) => {
       id: orderId, storeId, customer: { name: customerName, fullName: customerName, phone: customerPhone, tableNumber },
       items: items.map(({ id, name, price, quantity, sector }) => ({ id, name, price, quantity, sector })),
       observations: [cleanText(req.body?.observations, 700), addressText + referenceText].filter(Boolean).join(' | '),
-      subtotal: subtotalCents / 100, deliveryFee: deliveryFeeCents / 100, total: totalCents / 100,
+      subtotal: subtotalCents / 100, deliveryFee: deliveryFeeCents / 100, platformFee: platformFeeCents / 100, total: totalCents / 100,
+      financial: { systemFee: platformFeeCents / 100, customerAmount: (subtotalCents + deliveryFeeCents) / 100 },
       deliveryDetails, table: orderType === 'totem' ? 'Totem' : orderType === 'counter' ? 'Balcão' : orderType === 'delivery' ? 'Delivery' : 'Mesa ' + tableNumber,
       orderType, status: 'pending', paymentStatus,
       paymentMethod, timestamp: new Date().toISOString()
@@ -143,9 +146,9 @@ router.post('/', async (req, res) => {
     await client.query('BEGIN');
     await client.query(
       `INSERT INTO cardapio_orders
-       (id,store_id,customer_name,customer_phone,table_number,observations,subtotal_cents,total_cents,status,payment_method,payment_status,provider,order_type,delivery_fee_cents,delivery_data)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending',$9,$10,$11,$12,$13,$14::jsonb)`,
-      [orderId,storeId,customerName,customerPhone,tableNumber,order.observations,subtotalCents,totalCents,paymentMethod,paymentStatus,paymentMethod==='pix'?'woovi':null,orderType,deliveryFeeCents,JSON.stringify(deliveryDetails || {})]
+       (id,store_id,customer_name,customer_phone,table_number,observations,subtotal_cents,total_cents,status,payment_method,payment_status,provider,order_type,delivery_fee_cents,platform_fee_cents,delivery_data)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending',$9,$10,$11,$12,$13,$14,$15::jsonb)`,
+      [orderId,storeId,customerName,customerPhone,tableNumber,order.observations,subtotalCents,totalCents,paymentMethod,paymentStatus,paymentMethod==='pix'?'woovi':null,orderType,deliveryFeeCents,platformFeeCents,JSON.stringify(deliveryDetails || {})]
     );
     for (const item of items) {
       await client.query(
@@ -260,7 +263,7 @@ router.post('/:orderId/confirm-in-person', requireMerchant, async (req, res) => 
 router.get('/:orderId', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT o.id,o.store_id,o.order_type,o.status,o.payment_status,o.payment_method,o.total_cents,o.delivery_fee_cents,o.delivery_data,o.created_at,
+      `SELECT o.id,o.store_id,o.order_type,o.status,o.payment_status,o.payment_method,o.total_cents,o.delivery_fee_cents,o.platform_fee_cents,o.delivery_data,o.created_at,
               p.status AS provider_status,p.br_code,p.qr_code_image,p.payment_link_url,p.commission_status
        FROM cardapio_orders o LEFT JOIN cardapio_payment_transactions p ON p.order_id=o.id
        WHERE o.id=$1`,
@@ -272,7 +275,7 @@ router.get('/:orderId', async (req, res) => {
     res.json({ success: true, order: {
       id: row.id, storeId: row.store_id, orderType: row.order_type, status: row.status,
       paymentStatus: row.payment_status, paymentMethod: row.payment_method,
-      total: Number(row.total_cents)/100, deliveryFee: Number(row.delivery_fee_cents || 0)/100, deliveryDetails: row.delivery_data || null, createdAt: row.created_at,
+      total: Number(row.total_cents)/100, deliveryFee: Number(row.delivery_fee_cents || 0)/100, platformFee: Number(row.platform_fee_cents || 0)/100, deliveryDetails: row.delivery_data || null, createdAt: row.created_at,
       payment: row.provider_status ? {
         status: row.provider_status, brCode: row.br_code, qrCodeImage: row.qr_code_image,
         paymentLinkUrl: row.payment_link_url, commissionStatus: row.commission_status
