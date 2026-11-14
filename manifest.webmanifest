@@ -15,7 +15,7 @@
   "lang": "pt-BR",
   "icons": [
     {
-      "src": "/api/platform-branding/assets/appIcon?v=20261114-2",
+      "src": "https://vianabar-delivery.onrender.com/api/platform-branding/assets/appIcon?v=20261114-3",
       "sizes": "any",
       "type": "image/png",
       "purpose": "any maskable"
