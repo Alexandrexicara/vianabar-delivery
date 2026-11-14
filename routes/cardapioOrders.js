@@ -44,7 +44,6 @@ router.post('/', async (req, res) => {
   const customer = req.body?.customer || {};
   const rawItems = req.body?.items;
   const paymentMethod = String(req.body?.paymentMethod || '').toLowerCase();
-  const orderType = ['table','totem','delivery','counter'].includes(String(req.body?.orderType || '').toLowerCase()) ? String(req.body.orderType).toLowerCase() : 'table';
   if (!storeId) return res.status(400).json({ success: false, error: 'Estabelecimento inválido.' });
   if (!['pix','cash','card'].includes(paymentMethod)) {
     return res.status(400).json({ success: false, error: 'Escolha PIX, dinheiro ou cartão.' });
@@ -54,10 +53,12 @@ router.post('/', async (req, res) => {
   }
   const customerName = cleanText(customer.fullName || customer.name, 160);
   const customerPhone = cleanText(customer.phone || customer.telephone, 40);
-  const tableNumber = cleanText(customer.tableNumber || req.body?.tableNumber, 40);
-  if (!customerName || !tableNumber) {
-    return res.status(400).json({ success: false, error: 'Informe o nome do cliente e a mesa.' });
-  }
+  const orderType = ['table','totem','delivery','counter'].includes(String(req.body?.orderType || '').toLowerCase()) ? String(req.body.orderType).toLowerCase() : 'table';
+  const tableNumber = cleanText(customer.tableNumber || req.body?.tableNumber || (orderType === 'delivery' ? 'Delivery' : ''), 40);
+  const deliveryFeeCents = orderType === 'delivery' ? Math.max(0, Math.min(100000, Math.round(Number(req.body?.deliveryFeeCents) || 0))) : 0;
+  const deliveryDetails = orderType === 'delivery' && req.body?.deliveryDetails && typeof req.body.deliveryDetails === 'object' ? req.body.deliveryDetails : null;
+  if (!customerName || (!tableNumber && orderType !== 'delivery')) return res.status(400).json({ success:false, error:'Informe o nome do cliente e a mesa ou endereço de entrega.' });
+  if (orderType === 'delivery' && (!deliveryDetails || (!deliveryDetails.address && deliveryDetails.type !== 'retirada'))) return res.status(400).json({ success:false, error:'Informe o endereço de entrega antes de gerar o Pix.' });
 
   const quantities = new Map();
   for (const item of rawItems) {
@@ -105,15 +106,18 @@ router.post('/', async (req, res) => {
       };
     });
     const subtotalCents = items.reduce((sum, item) => sum + item.totalCents, 0);
-    if (subtotalCents <= 0) return res.status(400).json({ success: false, error: 'O total do pedido precisa ser maior que zero.' });
+    const totalCents = subtotalCents + deliveryFeeCents;
+    if (totalCents <= 0) return res.status(400).json({ success: false, error: 'O total do pedido precisa ser maior que zero.' });
     const orderId = crypto.randomUUID();
     const paymentStatus = paymentMethod === 'pix' ? 'pending' : 'awaiting_in_person';
+    const addressText = deliveryDetails?.address ? 'Endereço: ' + cleanText(deliveryDetails.address, 700) : '';
+    const referenceText = deliveryDetails?.reference ? ' | Referência: ' + cleanText(deliveryDetails.reference, 300) : '';
     order = {
       id: orderId, storeId, customer: { name: customerName, fullName: customerName, phone: customerPhone, tableNumber },
       items: items.map(({ id, name, price, quantity, sector }) => ({ id, name, price, quantity, sector })),
-      observations: cleanText(req.body?.observations, 1000),
-      subtotal: subtotalCents / 100, total: subtotalCents / 100,
-      table: orderType === 'totem' ? 'Totem' : orderType === 'counter' ? 'Balcão' : 'Mesa ' + tableNumber,
+      observations: [cleanText(req.body?.observations, 700), addressText + referenceText].filter(Boolean).join(' | '),
+      subtotal: subtotalCents / 100, deliveryFee: deliveryFeeCents / 100, total: totalCents / 100,
+      deliveryDetails, table: orderType === 'totem' ? 'Totem' : orderType === 'counter' ? 'Balcão' : orderType === 'delivery' ? 'Delivery' : 'Mesa ' + tableNumber,
       orderType, status: 'pending', paymentStatus,
       paymentMethod, timestamp: new Date().toISOString()
     };
@@ -139,9 +143,9 @@ router.post('/', async (req, res) => {
     await client.query('BEGIN');
     await client.query(
       `INSERT INTO cardapio_orders
-       (id,store_id,customer_name,customer_phone,table_number,observations,subtotal_cents,total_cents,status,payment_method,payment_status,provider,order_type)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$7,'pending',$8,$9,$10,$11)`,
-      [orderId,storeId,customerName,customerPhone,tableNumber,order.observations,subtotalCents,paymentMethod,paymentStatus,paymentMethod==='pix'?'woovi':null,orderType]
+       (id,store_id,customer_name,customer_phone,table_number,observations,subtotal_cents,total_cents,status,payment_method,payment_status,provider,order_type,delivery_fee_cents,delivery_data)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending',$9,$10,$11,$12,$13,$14::jsonb)`,
+      [orderId,storeId,customerName,customerPhone,tableNumber,order.observations,subtotalCents,totalCents,paymentMethod,paymentStatus,paymentMethod==='pix'?'woovi':null,orderType,deliveryFeeCents,JSON.stringify(deliveryDetails || {})]
     );
     for (const item of items) {
       await client.query(
@@ -256,7 +260,7 @@ router.post('/:orderId/confirm-in-person', requireMerchant, async (req, res) => 
 router.get('/:orderId', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT o.id,o.store_id,o.order_type,o.status,o.payment_status,o.payment_method,o.total_cents,o.created_at,
+      `SELECT o.id,o.store_id,o.order_type,o.status,o.payment_status,o.payment_method,o.total_cents,o.delivery_fee_cents,o.delivery_data,o.created_at,
               p.status AS provider_status,p.br_code,p.qr_code_image,p.payment_link_url,p.commission_status
        FROM cardapio_orders o LEFT JOIN cardapio_payment_transactions p ON p.order_id=o.id
        WHERE o.id=$1`,
@@ -268,7 +272,7 @@ router.get('/:orderId', async (req, res) => {
     res.json({ success: true, order: {
       id: row.id, storeId: row.store_id, orderType: row.order_type, status: row.status,
       paymentStatus: row.payment_status, paymentMethod: row.payment_method,
-      total: Number(row.total_cents)/100, createdAt: row.created_at,
+      total: Number(row.total_cents)/100, deliveryFee: Number(row.delivery_fee_cents || 0)/100, deliveryDetails: row.delivery_data || null, createdAt: row.created_at,
       payment: row.provider_status ? {
         status: row.provider_status, brCode: row.br_code, qrCodeImage: row.qr_code_image,
         paymentLinkUrl: row.payment_link_url, commissionStatus: row.commission_status
