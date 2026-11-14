@@ -3921,7 +3921,7 @@
                     <div class="delivery-order-items">
                         <strong>📋 Itens:</strong><br>
                         ${order.items.map(item => `${item.name} x${item.quantity} - R$ ${item.price.toFixed(2)}`).join('<br>')}
-                        ${order.deliveryFee > 0 ? `<br><strong>Taxa de entrega: R$ ${order.deliveryFee.toFixed(2)}</strong>` : ''}
+                        ${order.deliveryFee > 0 ? `<br><strong>Taxa de entrega: R$ ${order.deliveryFee.toFixed(2)}</strong>` : ''}${order.platformFee > 0 ? `<br><strong>Taxa da plataforma: R$ ${order.platformFee.toFixed(2)}</strong>` : ''}
                     </div>
                     
                     <div class="delivery-order-actions">
