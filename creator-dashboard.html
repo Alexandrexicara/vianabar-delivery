@@ -1190,18 +1190,18 @@
                         <div class="control-group">
                             <div class="control-title">
                                 <i class="fas fa-dollar-sign"></i>
-                                Configurações de Taxa por Produto
+                                Configuração da Taxa Fixa da Plataforma
                             </div>
                             <div class="control-buttons">
                                 <div class="taxa-config">
-                                    <label for="taxaPorProduto">Taxa por Produto (R$):</label>
+                                    <label for="taxaPorProduto">Taxa da plataforma por pedido (R$):</label>
                                     <input type="number" id="taxaPorProduto" value="0.10" step="0.01" min="0" max="5.00" style="width: 120px; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
                                     <button class="btn btn-primary" onclick="salvarTaxaPorProduto()" style="margin-left: 10px;">
                                         <i class="fas fa-save"></i> Salvar
                                     </button>
                                 </div>
                                 <div class="taxa-info">
-                                    <small><i class="fas fa-info-circle"></i> Esta taxa será incluída automaticamente no preço de cada produto. Os usuários verão apenas o preço final com taxa já aplicada.</small>
+                                    <small><i class="fas fa-info-circle"></i> Esta taxa fixa é somada uma única vez ao total de cada pedido, independentemente da quantidade de produtos. O valor é salvo no servidor e aplicado também aos pedidos do Delivery, Cardápio e Totem.</small>
                                 </div>
                             </div>
                         </div>
@@ -2352,33 +2352,61 @@
             renderMerchants();
         }
 
-        // Salvar taxa por produto
-        function salvarTaxaPorProduto() {
+        // A taxa configurada no painel do criador é fixa por pedido, nunca por produto.
+        async function salvarTaxaPorProduto() {
             const taxaInput = document.getElementById('taxaPorProduto');
-            const novaTaxa = parseFloat(taxaInput.value);
-            
-            if (isNaN(novaTaxa) || novaTaxa < 0) {
-                alert('Por favor, digite um valor válido para a taxa por produto.');
+            const novaTaxa = Number(taxaInput.value);
+            if (!Number.isFinite(novaTaxa) || novaTaxa < 0 || novaTaxa > 500) {
+                alert('Informe uma taxa fixa válida entre R$ 0,00 e R$ 500,00.');
                 return;
             }
-            
-            // Salvar no localStorage
-            localStorage.setItem('taxaPorProdutoGlobal', novaTaxa.toFixed(2));
-            
-            // Atualizar taxa nos módulos delivery e totem
-            if (window.updateTaxaPorProduto) {
-                window.updateTaxaPorProduto(novaTaxa);
+            const feeCents = Math.round(novaTaxa * 100);
+            try {
+                const response = await fetch('/woovi/platform-fee', {
+                    method:'PUT', credentials:'include',
+                    headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({feeCents})
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.error || 'Não foi possível salvar a taxa.');
+                localStorage.setItem('taxaPorProdutoGlobal', (feeCents / 100).toFixed(2));
+                taxaInput.value = (feeCents / 100).toFixed(2);
+                alert('Taxa fixa da plataforma salva: R$ ' + (feeCents / 100).toFixed(2).replace('.', ',') + ' por pedido. Ela será somada uma única vez aos pedidos.');
+                console.log('[CREATOR] Taxa fixa da plataforma salva:', feeCents);
+            } catch (error) {
+                alert(error.message || 'Falha ao salvar a taxa da plataforma no servidor.');
+                console.error('[CREATOR] Erro ao salvar taxa:', error);
             }
-            
-            alert(`Taxa por produto atualizada para R$ ${novaTaxa.toFixed(2)} com sucesso!\n\nEsta taxa será aplicada por cada produto em todos os pedidos de delivery e totem.`);
-            console.log('[CREATOR] Taxa por produto atualizada:', novaTaxa);
         }
 
-        // Carregar taxa por produto salva
-        function carregarTaxaPorProduto() {
-            const taxaSalva = localStorage.getItem('taxaPorProdutoGlobal');
-            if (taxaSalva) {
-                document.getElementById('taxaPorProduto').value = parseFloat(taxaSalva).toFixed(2);
+        // Carrega a taxa persistida no servidor. Se ainda não existir, migra o valor
+        // já configurado no painel antigo (localStorage) para a configuração global.
+        async function carregarTaxaPorProduto() {
+            const taxaInput = document.getElementById('taxaPorProduto');
+            try {
+                const response = await fetch('/woovi/platform-fee', {credentials:'include', cache:'no-store'});
+                const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.error || 'Falha ao carregar taxa.');
+                if (result.configured) {
+                    taxaInput.value = (Number(result.feeCents || 0) / 100).toFixed(2);
+                    localStorage.setItem('taxaPorProdutoGlobal', taxaInput.value);
+                    return;
+                }
+                const legacy = localStorage.getItem('taxaPorProdutoGlobal');
+                const initialFee = legacy !== null && Number.isFinite(Number(legacy)) ? Number(legacy) : Number(taxaInput.value || 0);
+                taxaInput.value = initialFee.toFixed(2);
+                const saveResponse = await fetch('/woovi/platform-fee', {
+                    method:'PUT', credentials:'include',
+                    headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({feeCents:Math.round(initialFee * 100)})
+                });
+                const saved = await saveResponse.json();
+                if (!saveResponse.ok || !saved.success) throw new Error(saved.error || 'Falha ao migrar taxa configurada.');
+                localStorage.setItem('taxaPorProdutoGlobal', (Number(saved.feeCents) / 100).toFixed(2));
+                console.log('[CREATOR] Taxa antiga migrada para taxa fixa por pedido:', saved.feeCents);
+            } catch (error) {
+                console.error('[CREATOR] Erro ao carregar taxa da plataforma:', error);
+                taxaInput.title = 'Não foi possível sincronizar com o servidor. Salve novamente para aplicar aos pedidos.';
             }
         }
 
