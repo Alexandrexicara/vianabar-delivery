@@ -22,8 +22,10 @@
   function addBrand() {
     const header = document.querySelector('header');
     if (!header || header.querySelector('.dd-brand-wrap') || header.querySelector('.dd-install-banner')) return;
+    // Nunca injeta a marca da plataforma em páginas de comerciantes.
+    if (header.querySelector('#establishmentLogo, #establishmentName, [data-merchant-slug], [data-merchant-id], .merchant-logo, .merchant-brand')) return;
     const img = document.createElement('img');
-    img.src = window.__ddPlatformBranding?.logo || LOGO; img.alt = 'Delivery Day'; img.className = 'dd-brand-mark';
+    img.src = LOGO; img.alt = 'Delivery Day'; img.className = 'dd-brand-mark';
     img.onerror = () => img.remove();
     const wrap = document.createElement('div');
     wrap.className = 'dd-brand-wrap';
@@ -175,19 +177,9 @@
     .then(response => response.ok ? response.json() : null)
     .then(data => {
       if (!data?.images) return;
-      window.__ddPlatformBranding = data.images;
-      const logo = data.images.logo;
-      if (logo) {
-        document.querySelectorAll('img.dd-brand-mark, .dd-install-banner img, img[data-platform-logo]').forEach(img => {
-          img.src = logo + '?v=' + Date.now();
-        });
-      }
-      const icon = data.images.appIcon || '/api/platform-branding/assets/appIcon';
-      ['icon','shortcut icon','apple-touch-icon'].forEach(rel => {
-        let link = document.querySelector('link[rel="' + rel + '"]');
-        if (!link) { link = document.createElement('link'); link.rel = rel; document.head.appendChild(link); }
-        link.href = icon;
-      });
+      // A identidade visual do comerciante é independente. O painel global só aplica a imagem de abertura.
+      const isMerchantPage = !!document.querySelector('#establishmentLogo, #establishmentName, [data-merchant-slug], [data-merchant-id], .merchant-logo, .merchant-brand');
+      if (isMerchantPage) return;
       const splash = data.images.splash;
       if (splash) {
         const showPlatformSplash = () => {
